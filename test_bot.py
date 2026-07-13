@@ -1,4 +1,6 @@
+import os
 import unittest
+from unittest.mock import patch
 from bot import validate_api_keys, validate_tweet_content
 from rate_limiter import call_api_with_backoff, RateLimitExceededException
 

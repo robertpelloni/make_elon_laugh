@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 import random
 import logging
@@ -10,15 +11,21 @@ try:
 except ImportError:
     tweepy = None
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- X API CREDENTIALS ---
 # Ensure your App has "Read and Write" permissions enabled in the X Developer Portal
-API_KEY = "YOUR_API_KEY"
-API_SECRET = "YOUR_API_SECRET"
-ACCESS_TOKEN = "YOUR_ACCESS_TOKEN"
-ACCESS_TOKEN_SECRET = "YOUR_ACCESS_TOKEN_SECRET"
-BEARER_TOKEN = "YOUR_BEARER_TOKEN"
+API_KEY = os.environ.get("API_KEY", "YOUR_API_KEY")
+API_SECRET = os.environ.get("API_SECRET", "YOUR_API_SECRET")
+ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", "YOUR_ACCESS_TOKEN")
+ACCESS_TOKEN_SECRET = os.environ.get("ACCESS_TOKEN_SECRET", "YOUR_ACCESS_TOKEN_SECRET")
+BEARER_TOKEN = os.environ.get("BEARER_TOKEN", "YOUR_BEARER_TOKEN")
 
 # --- THE BOT CONTEXT ---
 ELON_USER_ID = "44196397"  # Elon Musk's X User ID
