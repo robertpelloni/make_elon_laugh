@@ -1,5 +1,6 @@
 import unittest
 from bot import validate_api_keys, validate_tweet_content
+from rate_limiter import call_api_with_backoff, RateLimitExceededException
 
 class TestBotValidation(unittest.TestCase):
 
@@ -71,6 +72,65 @@ class TestBotValidation(unittest.TestCase):
         # Should not raise exception if tweet is exactly 280 characters
         max_length_tweet = "A" * 280
         self.assertTrue(validate_tweet_content(max_length_tweet))
+
+class TestRateLimiter(unittest.TestCase):
+
+    def test_successful_call_no_backoff(self):
+        # A normal call shouldn't trigger any delays
+        def success_api():
+            return "success"
+
+        result = call_api_with_backoff(success_api)
+        self.assertEqual(result, "success")
+
+    def test_backoff_and_eventual_success(self):
+        # Should raise 429 twice, then succeed
+        calls = {"count": 0}
+
+        def mock_api_429():
+            calls["count"] += 1
+            if calls["count"] < 3:
+                raise Exception("API error 429 Too Many Requests")
+            return "eventual_success"
+
+        # We speed up the backoff for testing by overriding defaults
+        result = call_api_with_backoff(
+            mock_api_429,
+            max_retries=3,
+            initial_backoff=0.01,
+            backoff_factor=2,
+            max_jitter=0
+        )
+
+        self.assertEqual(result, "eventual_success")
+        self.assertEqual(calls["count"], 3)
+
+    def test_backoff_exhausted(self):
+        # Should exhaust all retries and throw RateLimitExceededException
+        def mock_api_always_429():
+            raise Exception("HTTP error 429")
+
+        with self.assertRaises(RateLimitExceededException):
+            call_api_with_backoff(
+                mock_api_always_429,
+                max_retries=2,
+                initial_backoff=0.01,
+                backoff_factor=1,
+                max_jitter=0
+            )
+
+    def test_non_429_exception_raised_immediately(self):
+        # Should immediately fail if it's not a rate limit error (e.g., 401 Unauthorized)
+        calls = {"count": 0}
+
+        def mock_api_401():
+            calls["count"] += 1
+            raise Exception("HTTP error 401 Unauthorized")
+
+        with self.assertRaisesRegex(Exception, "HTTP error 401 Unauthorized"):
+            call_api_with_backoff(mock_api_401)
+
+        self.assertEqual(calls["count"], 1)
 
 if __name__ == "__main__":
     unittest.main()

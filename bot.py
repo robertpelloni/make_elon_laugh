@@ -3,6 +3,8 @@ import time
 import random
 import logging
 
+from rate_limiter import call_api_with_backoff
+
 try:
     import tweepy
 except ImportError:
@@ -125,10 +127,12 @@ def main():
 
             if not args.dry_run:
                 # Fetch the single most recent tweet from the user
-                response = client.get_users_tweets(
-                    id=ELON_USER_ID,
-                    max_results=5,
-                    tweet_fields=["id", "text"]
+                response = call_api_with_backoff(
+                    lambda: client.get_users_tweets(
+                        id=ELON_USER_ID,
+                        max_results=5,
+                        tweet_fields=["id", "text"]
+                    )
                 )
                 if response and response.data:
                     new_tweets = response.data
@@ -155,9 +159,11 @@ def main():
                         validate_tweet_content(joke)
                         if not args.dry_run:
                             # Send the reply
-                            client.create_tweet(
-                                text=joke,
-                                in_reply_to_tweet_id=tweet_id
+                            call_api_with_backoff(
+                                lambda: client.create_tweet(
+                                    text=joke,
+                                    in_reply_to_tweet_id=tweet_id
+                                )
                             )
                             logging.info(f"✅ Replied successfully to Tweet ID {tweet_id}")
                         else:
