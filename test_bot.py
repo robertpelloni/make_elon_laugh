@@ -52,9 +52,31 @@ class TestBotValidation(unittest.TestCase):
                 "valid_token_secret"
             )
 
+    def test_validate_api_keys_returns_stripped_values_for_padded_keys(self):
+        # Edge Case 1: Extra whitespace in env vars shouldn't crash auth
+        cleaned_keys = validate_api_keys(
+            " valid_bearer ",
+            "valid_key",
+            "valid_secret",
+            "valid_token",
+            "valid_token_secret"
+        )
+        self.assertEqual(cleaned_keys["BEARER_TOKEN"], "valid_bearer")
+
+    def test_validate_api_keys_raises_type_error_for_non_string_inputs(self):
+        # Edge Case 3: Integer passed instead of string (e.g., raw env var misread)
+        with self.assertRaisesRegex(TypeError, "API key validation failed: API_SECRET must be a string."):
+            validate_api_keys(
+                "valid_bearer",
+                "valid_key",
+                12345,
+                "valid_token",
+                "valid_token_secret"
+            )
+
     def test_validate_tweet_content_valid(self):
-        # Should return True and not raise an exception
-        self.assertTrue(validate_tweet_content("This is a valid tweet! 🚀"))
+        # Should return the cleaned string
+        self.assertEqual(validate_tweet_content("This is a valid tweet! 🚀"), "This is a valid tweet! 🚀")
 
     def test_validate_tweet_content_empty(self):
         # Should raise ValueError if tweet is empty
@@ -75,7 +97,19 @@ class TestBotValidation(unittest.TestCase):
     def test_validate_tweet_content_max_length(self):
         # Should not raise exception if tweet is exactly 280 characters
         max_length_tweet = "A" * 280
-        self.assertTrue(validate_tweet_content(max_length_tweet))
+        self.assertEqual(validate_tweet_content(max_length_tweet), max_length_tweet)
+
+    def test_validate_tweet_content_strips_padding_before_length_check(self):
+        # Edge Case 2: Whitespace pushing a 280 char tweet to 281 chars shouldn't fail
+        max_length_tweet = "A" * 280
+        padded_tweet = f" {max_length_tweet} \n"
+        # Should succeed because stripped length is 280
+        self.assertEqual(validate_tweet_content(padded_tweet), max_length_tweet)
+
+    def test_validate_tweet_content_raises_type_error_for_non_string_inputs(self):
+        # Edge Case 3: Non-string tweet content
+        with self.assertRaisesRegex(TypeError, "Tweet content validation failed: Content must be a string."):
+            validate_tweet_content(12345)
 
 
 class TestRateLimiter(unittest.TestCase):
