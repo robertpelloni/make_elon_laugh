@@ -1,8 +1,7 @@
-import os
 import unittest
-from unittest.mock import patch
 from bot import validate_api_keys, validate_tweet_content
 from rate_limiter import call_api_with_backoff, RateLimitExceededException
+
 
 class TestBotValidation(unittest.TestCase):
 
@@ -41,7 +40,10 @@ class TestBotValidation(unittest.TestCase):
 
     def test_validate_api_keys_default_placeholder(self):
         # Should raise ValueError because a value still has the YOUR_ prefix
-        with self.assertRaisesRegex(ValueError, "API key validation failed: BEARER_TOKEN is still set to the default placeholder 'YOUR_BEARER_TOKEN'."):
+        with self.assertRaisesRegex(
+                ValueError,
+                "API key validation failed: BEARER_TOKEN is still set to the default placeholder 'YOUR_BEARER_TOKEN'."
+        ):
             validate_api_keys(
                 "YOUR_BEARER_TOKEN",
                 "valid_key",
@@ -74,6 +76,7 @@ class TestBotValidation(unittest.TestCase):
         # Should not raise exception if tweet is exactly 280 characters
         max_length_tweet = "A" * 280
         self.assertTrue(validate_tweet_content(max_length_tweet))
+
 
 class TestRateLimiter(unittest.TestCase):
 
@@ -133,6 +136,7 @@ class TestRateLimiter(unittest.TestCase):
             call_api_with_backoff(mock_api_401)
 
         self.assertEqual(calls["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

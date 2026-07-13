@@ -1,7 +1,6 @@
 import time
 import random
 import logging
-from functools import wraps
 
 try:
     import tweepy
@@ -10,9 +9,11 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 class RateLimitExceededException(Exception):
     """Raised when maximum retries for rate limits are exhausted."""
     pass
+
 
 def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_factor=2.0, max_jitter=30):
     """
@@ -45,19 +46,24 @@ def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_f
                 is_rate_limit = True
             elif hasattr(e, 'response') and e.response is not None and e.response.status_code == 429:
                 is_rate_limit = True
-            elif "429" in str(e): # Fallback check for mocked tests or generic error messages
+            elif "429" in str(e):  # Fallback check for mocked tests or generic error messages
                 is_rate_limit = True
 
             if is_rate_limit:
                 if retries == max_retries:
                     logger.error(f"Rate limit exhausted after {max_retries} retries.")
-                    raise RateLimitExceededException(f"Failed after {max_retries} retries due to 429 Too Many Requests.") from e
+                    raise RateLimitExceededException(
+                        f"Failed after {max_retries} retries due to 429 Too Many Requests."
+                    ) from e
 
                 # Calculate jitter: random value between 0 and max_jitter
                 jitter = random.uniform(0, max_jitter)
                 sleep_time = current_backoff + jitter
 
-                logger.warning(f"Rate limit hit (429). Retrying in {sleep_time:.2f} seconds (Attempt {retries + 1}/{max_retries})...")
+                logger.warning(
+                    f"Rate limit hit (429). Retrying in {sleep_time:.2f} seconds "
+                    f"(Attempt {retries + 1}/{max_retries})..."
+                )
                 time.sleep(sleep_time)
 
                 # Exponential backoff for next retry

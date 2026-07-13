@@ -37,7 +37,8 @@ JOKES = [
     "What do you call a tick on the moon? A luna-tick. 🌕",
     "Why don’t aliens visit our solar system? They looked at the reviews: 1 star. ⭐",
     "I'm reading a book about anti-gravity. I just can't put it down! 📚🛸",
-    "Why did the engineer cross the road? Because they looked at the data, analyzed the risk, and determined it was the most efficient route. 🛣️🤖",
+    "Why did the engineer cross the road? Because they looked at the data, analyzed the risk, "
+    "and determined it was the most efficient route. 🛣️🤖",
     "What kind of music do planets like? Neptunes! 🎶🪐",
     "Why did the astronaut break up with his girlfriend? He needed some space. 👩‍🚀💔",
     "How do you know when the moon is going broke? It's down to its last quarter. 🌔",
@@ -56,6 +57,7 @@ JOKES = [
 
 replied_tweets = set()
 
+
 def validate_api_keys(bearer_token, api_key, api_secret, access_token, access_token_secret):
     """
     Validates that the API keys are not empty, not None, and not set to the default placeholder strings.
@@ -73,9 +75,12 @@ def validate_api_keys(bearer_token, api_key, api_secret, access_token, access_to
         if not value or value.strip() == "":
             raise ValueError(f"API key validation failed: {key_name} is empty.")
         if value.startswith("YOUR_"):
-            raise ValueError(f"API key validation failed: {key_name} is still set to the default placeholder '{value}'.")
+            raise ValueError(
+                f"API key validation failed: {key_name} is still set to the default placeholder '{value}'."
+            )
 
     return True
+
 
 def validate_tweet_content(content):
     """
@@ -86,9 +91,12 @@ def validate_tweet_content(content):
         raise ValueError("Tweet content validation failed: Content is empty.")
 
     if len(content) > 280:
-        raise ValueError(f"Tweet content validation failed: Content exceeds 280 characters (length: {len(content)}).")
+        raise ValueError(
+            f"Tweet content validation failed: Content exceeds 280 characters (length: {len(content)})."
+        )
 
     return True
+
 
 def get_twitter_client():
     if tweepy is None:
@@ -104,9 +112,12 @@ def get_twitter_client():
         access_token_secret=ACCESS_TOKEN_SECRET
     )
 
+
 def main():
     parser = argparse.ArgumentParser(description="Emperor Musk Joke Replier Bot")
-    parser.add_argument("--dry-run", action="store_true", help="Run without actually posting to Twitter or making API calls")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Run without actually posting to Twitter or making API calls"
+    )
     args = parser.parse_args()
 
     client = None
@@ -182,7 +193,7 @@ def main():
 
                     replied_tweets.add(tweet_id)
                     replied_this_cycle = True
-                    break # Only reply to one tweet per cycle, then wait 4-6 hours
+                    break  # Only reply to one tweet per cycle, then wait 4-6 hours
 
             if replied_this_cycle:
                 # Wait 4 to 6 hours (14400 to 21600 seconds) + a small random delay (0-1800 seconds)
@@ -191,7 +202,7 @@ def main():
                 wait_seconds = base_wait + random_delay
 
                 if args.dry_run:
-                    wait_seconds = 2 # Speed up wait for dry run
+                    wait_seconds = 2  # Speed up wait for dry run
                     logging.info(f"[DRY-RUN] Simulating wait of 4-6 hours (actually waiting {wait_seconds} seconds).")
                 else:
                     logging.info(f"Waiting for {wait_seconds} seconds before checking again...")
@@ -209,6 +220,7 @@ def main():
             if args.dry_run:
                 wait_seconds = 2
             time.sleep(wait_seconds)
+
 
 if __name__ == "__main__":
     main()
