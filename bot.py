@@ -47,9 +47,46 @@ JOKES = [
 
 replied_tweets = set()
 
+def validate_api_keys(bearer_token, api_key, api_secret, access_token, access_token_secret):
+    """
+    Validates that the API keys are not empty, not None, and not set to the default placeholder strings.
+    Raises ValueError if any validation fails.
+    """
+    keys = {
+        "BEARER_TOKEN": bearer_token,
+        "API_KEY": api_key,
+        "API_SECRET": api_secret,
+        "ACCESS_TOKEN": access_token,
+        "ACCESS_TOKEN_SECRET": access_token_secret
+    }
+
+    for key_name, value in keys.items():
+        if not value or value.strip() == "":
+            raise ValueError(f"API key validation failed: {key_name} is empty.")
+        if value.startswith("YOUR_"):
+            raise ValueError(f"API key validation failed: {key_name} is still set to the default placeholder '{value}'.")
+
+    return True
+
+def validate_tweet_content(content):
+    """
+    Validates that the tweet content is valid for posting.
+    Raises ValueError if the content is empty, too long (max 280 chars), or otherwise invalid.
+    """
+    if not content or content.strip() == "":
+        raise ValueError("Tweet content validation failed: Content is empty.")
+
+    if len(content) > 280:
+        raise ValueError(f"Tweet content validation failed: Content exceeds 280 characters (length: {len(content)}).")
+
+    return True
+
 def get_twitter_client():
     if tweepy is None:
         raise ImportError("tweepy is not installed. Run 'pip install tweepy' to use actual API.")
+
+    validate_api_keys(BEARER_TOKEN, API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+
     return tweepy.Client(
         bearer_token=BEARER_TOKEN,
         consumer_key=API_KEY,
@@ -114,15 +151,21 @@ def main():
                     # Pick a random clean joke
                     joke = random.choice(JOKES)
 
-                    if not args.dry_run:
-                        # Send the reply
-                        client.create_tweet(
-                            text=joke,
-                            in_reply_to_tweet_id=tweet_id
-                        )
-                        logging.info(f"✅ Replied successfully to Tweet ID {tweet_id}")
-                    else:
-                        logging.info(f"[DRY-RUN] Would reply to Tweet ID {tweet_id} with: {joke}")
+                    try:
+                        validate_tweet_content(joke)
+                        if not args.dry_run:
+                            # Send the reply
+                            client.create_tweet(
+                                text=joke,
+                                in_reply_to_tweet_id=tweet_id
+                            )
+                            logging.info(f"✅ Replied successfully to Tweet ID {tweet_id}")
+                        else:
+                            logging.info(f"[DRY-RUN] Would reply to Tweet ID {tweet_id} with: {joke}")
+                    except ValueError as ve:
+                        logging.error(f"Failed to post reply due to validation error: {ve}")
+                        # Skip this cycle if validation fails
+                        break
 
                     replied_tweets.add(tweet_id)
                     replied_this_cycle = True
