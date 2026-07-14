@@ -40,20 +40,28 @@ def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_f
         try:
             return api_func()
         except Exception as e:
-            # Check if this is a Tweepy exception related to Rate Limiting (HTTP 429)
-            is_rate_limit = False
-            if tweepy and isinstance(e, tweepy.TooManyRequests):
-                is_rate_limit = True
-            elif hasattr(e, 'response') and e.response is not None and e.response.status_code == 429:
-                is_rate_limit = True
-            elif "429" in str(e):  # Fallback check for mocked tests or generic error messages
-                is_rate_limit = True
+            # Check if this is a Tweepy exception related to Rate Limiting (HTTP 429) or Network Latency
+            should_retry = False
+            retry_reason = "Unknown Error"
 
-            if is_rate_limit:
+            if tweepy and isinstance(e, tweepy.TooManyRequests):
+                should_retry = True
+                retry_reason = "HTTP 429 Too Many Requests"
+            elif hasattr(e, 'response') and e.response is not None and e.response.status_code == 429:
+                should_retry = True
+                retry_reason = "HTTP 429 Too Many Requests"
+            elif "429" in str(e):  # Fallback check for mocked tests or generic error messages
+                should_retry = True
+                retry_reason = "HTTP 429 Too Many Requests"
+            elif isinstance(e, (TimeoutError, ConnectionError)):
+                should_retry = True
+                retry_reason = f"Network Latency/Connection Error ({type(e).__name__})"
+
+            if should_retry:
                 if retries == max_retries:
-                    logger.error(f"Rate limit exhausted after {max_retries} retries.")
+                    logger.error(f"Retries exhausted after {max_retries} attempts.")
                     raise RateLimitExceededException(
-                        f"Failed after {max_retries} retries due to 429 Too Many Requests."
+                        f"Failed after {max_retries} retries. Last error: {retry_reason}"
                     ) from e
 
                 # Calculate jitter: random value between 0 and max_jitter
@@ -61,7 +69,7 @@ def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_f
                 sleep_time = current_backoff + jitter
 
                 logger.warning(
-                    f"Rate limit hit (429). Retrying in {sleep_time:.2f} seconds "
+                    f"API call failed: {retry_reason}. Retrying in {sleep_time:.2f} seconds "
                     f"(Attempt {retries + 1}/{max_retries})..."
                 )
                 time.sleep(sleep_time)

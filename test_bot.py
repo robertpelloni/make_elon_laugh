@@ -192,8 +192,43 @@ class TestRateLimiter(unittest.TestCase):
                 max_jitter=0
             )
 
-    def test_non_429_exception_raised_immediately(self):
-        # Should immediately fail if it's not a rate limit error (e.g., 401 Unauthorized)
+    def test_backoff_and_eventual_success_on_network_latency(self):
+        # Should raise TimeoutError twice, then succeed
+        calls = {"count": 0}
+
+        def mock_api_timeout():
+            calls["count"] += 1
+            if calls["count"] < 3:
+                raise TimeoutError("Simulated network timeout")
+            return "eventual_success"
+
+        result = call_api_with_backoff(
+            mock_api_timeout,
+            max_retries=3,
+            initial_backoff=0.01,
+            backoff_factor=2,
+            max_jitter=0
+        )
+
+        self.assertEqual(result, "eventual_success")
+        self.assertEqual(calls["count"], 3)
+
+    def test_backoff_exhausted_on_connection_error(self):
+        # Should exhaust all retries on ConnectionError and throw RateLimitExceededException
+        def mock_api_always_connection_error():
+            raise ConnectionError("Simulated connection dropped")
+
+        with self.assertRaises(RateLimitExceededException):
+            call_api_with_backoff(
+                mock_api_always_connection_error,
+                max_retries=2,
+                initial_backoff=0.01,
+                backoff_factor=1,
+                max_jitter=0
+            )
+
+    def test_non_retryable_exception_raised_immediately(self):
+        # Should immediately fail if it's not a rate limit or latency error (e.g., 401 Unauthorized)
         calls = {"count": 0}
 
         def mock_api_401():
