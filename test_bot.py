@@ -1,5 +1,5 @@
 import unittest
-from bot import validate_api_keys, validate_tweet_content
+from bot import validate_api_keys, validate_tweet_content, validate_api_tweets
 from rate_limiter import call_api_with_backoff, RateLimitExceededException
 
 
@@ -110,6 +110,40 @@ class TestBotValidation(unittest.TestCase):
         # Edge Case 3: Non-string tweet content
         with self.assertRaisesRegex(TypeError, "Tweet content validation failed: Content must be a string."):
             validate_tweet_content(12345)
+
+
+class TestMalformedAPIResponseFallback(unittest.TestCase):
+
+    class MockTweet:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def test_validate_api_tweets_valid(self):
+        # Should return list of valid tweets
+        tweets = [self.MockTweet(id=123, text="Hello"), self.MockTweet(id=456, text="World")]
+        valid = validate_api_tweets(tweets)
+        self.assertEqual(len(valid), 2)
+        self.assertEqual(valid[0].id, 123)
+
+    def test_validate_api_tweets_missing_id(self):
+        # Should filter out tweets without an ID
+        tweets = [self.MockTweet(text="No ID"), self.MockTweet(id=456, text="World")]
+        valid = validate_api_tweets(tweets)
+        self.assertEqual(len(valid), 1)
+        self.assertEqual(valid[0].id, 456)
+
+    def test_validate_api_tweets_missing_text(self):
+        # Should filter out tweets without text
+        tweets = [self.MockTweet(id=123), self.MockTweet(id=456, text="World")]
+        valid = validate_api_tweets(tweets)
+        self.assertEqual(len(valid), 1)
+        self.assertEqual(valid[0].text, "World")
+
+    def test_validate_api_tweets_not_iterable(self):
+        # Should return empty list if API returns a string or None instead of a list
+        self.assertEqual(validate_api_tweets(None), [])
+        self.assertEqual(validate_api_tweets("Not a list"), [])
 
 
 class TestRateLimiter(unittest.TestCase):

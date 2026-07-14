@@ -116,6 +116,36 @@ def validate_tweet_content(content):
     return cleaned_content
 
 
+def validate_api_tweets(tweets_data):
+    """
+    Safely filters an incoming API payload of tweets to ensure they are iterable
+    and possess the necessary 'id' and 'text' attributes.
+    Returns a list of valid tweet objects.
+    """
+    valid_tweets = []
+
+    if not tweets_data:
+        return valid_tweets
+
+    try:
+        iterator = iter(tweets_data)
+    except TypeError:
+        logging.warning("API returned a non-iterable tweets payload.")
+        return valid_tweets
+
+    for tweet in iterator:
+        if not hasattr(tweet, 'id') or tweet.id is None:
+            logging.warning("Skipping malformed tweet missing an ID.")
+            continue
+        if not hasattr(tweet, 'text') or not isinstance(tweet.text, str):
+            logging.warning(f"Skipping malformed tweet missing valid text (ID: {tweet.id}).")
+            continue
+
+        valid_tweets.append(tweet)
+
+    return valid_tweets
+
+
 def get_twitter_client():
     if tweepy is None:
         raise ImportError("tweepy is not installed. Run 'pip install tweepy' to use actual API.")
@@ -171,14 +201,15 @@ def main():
                     )
                 )
                 if response and response.data:
-                    new_tweets = response.data
+                    new_tweets = validate_api_tweets(response.data)
             else:
                 # Simulate finding a new tweet in dry-run mode
                 class DummyTweet:
                     def __init__(self, id, text):
                         self.id = id
                         self.text = text
-                new_tweets = [DummyTweet(random.randint(10000, 99999), f"Testing rocket {count}... 🚀")]
+                mock_data = [DummyTweet(random.randint(10000, 99999), f"Testing rocket {count}... 🚀")]
+                new_tweets = validate_api_tweets(mock_data)
 
             replied_this_cycle = False
             for tweet in new_tweets:
