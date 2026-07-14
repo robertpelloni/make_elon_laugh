@@ -145,6 +145,32 @@ class TestMalformedAPIResponseFallback(unittest.TestCase):
         self.assertEqual(validate_api_tweets(None), [])
         self.assertEqual(validate_api_tweets("Not a list"), [])
 
+    def test_validate_api_tweets_boundary_empty_collection(self):
+        # GAP REPORT 1: Should cleanly handle an explicitly empty collection
+        self.assertEqual(validate_api_tweets([]), [])
+        self.assertEqual(validate_api_tweets(tuple()), [])
+
+    def test_validate_api_tweets_boundary_iterable_dictionary(self):
+        # GAP REPORT 2: Should safely skip over dictionary keys which are iterable but missing attributes
+        mock_payload = {"error": "rate_limited", "status": 429}
+        self.assertEqual(validate_api_tweets(mock_payload), [])
+
+    def test_validate_api_tweets_boundary_falsy_id(self):
+        # GAP REPORT 3: Should accept a valid tweet with a falsy integer ID of 0
+        tweets = [self.MockTweet(id=0, text="Valid zero ID")]
+        valid = validate_api_tweets(tweets)
+        self.assertEqual(len(valid), 1)
+        self.assertEqual(valid[0].id, 0)
+        self.assertEqual(valid[0].text, "Valid zero ID")
+
+    def test_validate_api_tweets_boundary_empty_string_text(self):
+        # GAP REPORT 4: Should accept a valid tweet even if the text string is empty
+        # (Though our outbound validation would block sending an empty string, the parser should accept incoming)
+        tweets = [self.MockTweet(id=789, text="")]
+        valid = validate_api_tweets(tweets)
+        self.assertEqual(len(valid), 1)
+        self.assertEqual(valid[0].text, "")
+
 
 class TestRateLimiter(unittest.TestCase):
 
