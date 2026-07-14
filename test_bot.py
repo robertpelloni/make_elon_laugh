@@ -1,6 +1,8 @@
+import os
 import unittest
 from bot import validate_api_keys, validate_tweet_content, validate_api_tweets
 from rate_limiter import call_api_with_backoff, RateLimitExceededException
+import db
 
 
 class TestBotValidation(unittest.TestCase):
@@ -265,6 +267,39 @@ class TestRateLimiter(unittest.TestCase):
             call_api_with_backoff(mock_api_401)
 
         self.assertEqual(calls["count"], 1)
+
+
+class TestDatabaseStorage(unittest.TestCase):
+
+    def setUp(self):
+        self.test_db = "test_bot_data.db"
+        # Ensure fresh DB for each test
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_database_initialization(self):
+        self.assertTrue(os.path.exists(self.test_db))
+
+    def test_record_and_check_reply(self):
+        # Should return False initially
+        self.assertFalse(db.has_replied("12345", self.test_db))
+
+        # Record it
+        db.record_reply("12345", self.test_db)
+
+        # Should now return True
+        self.assertTrue(db.has_replied("12345", self.test_db))
+
+    def test_record_duplicate_reply_safe(self):
+        # Recording the same ID twice shouldn't crash (INSERT OR IGNORE)
+        db.record_reply("999", self.test_db)
+        db.record_reply("999", self.test_db)
+        self.assertTrue(db.has_replied("999", self.test_db))
 
 
 if __name__ == "__main__":

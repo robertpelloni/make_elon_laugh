@@ -5,6 +5,7 @@ import random
 import logging
 
 from rate_limiter import call_api_with_backoff
+import db
 
 try:
     import tweepy
@@ -54,8 +55,6 @@ JOKES = [
     "Why didn't the dog go to space? He was terrified of the vacuum. 🐕🌪️",
     "How does the solar system hold up its pants? With an asteroid belt! ☄️👖"
 ]
-
-replied_tweets = set()
 
 
 def validate_api_keys(bearer_token, api_key, api_secret, access_token, access_token_secret):
@@ -172,6 +171,8 @@ def main():
     if not args.dry_run:
         client = get_twitter_client()
 
+    db.init_db()
+
     logging.info("🤖 Tactful Humor Bot initialized. Tracking targets...")
     if args.dry_run:
         logging.info("Dry run mode enabled. No actual tweets will be sent.")
@@ -216,7 +217,7 @@ def main():
                 tweet_id = tweet.id
 
                 # If it's a new tweet we haven't replied to yet
-                if tweet_id not in replied_tweets:
+                if not db.has_replied(tweet_id):
                     logging.info(f"🎯 New tweet found: '{tweet.text[:50]}...'")
 
                     # Pick a random clean joke
@@ -240,7 +241,9 @@ def main():
                         # Skip this cycle if validation fails
                         break
 
-                    replied_tweets.add(tweet_id)
+                    if not args.dry_run:
+                        db.record_reply(tweet_id)
+
                     replied_this_cycle = True
                     break  # Only reply to one tweet per cycle, then wait 4-6 hours
 
