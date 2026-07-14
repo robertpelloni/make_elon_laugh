@@ -1,7 +1,7 @@
 import os
 import unittest
 from bot import validate_api_keys, validate_tweet_content, validate_api_tweets
-from rate_limiter import call_api_with_backoff, RateLimitExceededException
+from rate_limiter import async_call_api_with_backoff, RateLimitExceededException
 import db
 
 
@@ -174,28 +174,28 @@ class TestMalformedAPIResponseFallback(unittest.TestCase):
         self.assertEqual(valid[0].text, "")
 
 
-class TestRateLimiter(unittest.TestCase):
+class TestRateLimiterAsync(unittest.IsolatedAsyncioTestCase):
 
-    def test_successful_call_no_backoff(self):
+    async def test_successful_call_no_backoff(self):
         # A normal call shouldn't trigger any delays
-        def success_api():
+        async def success_api():
             return "success"
 
-        result = call_api_with_backoff(success_api)
+        result = await async_call_api_with_backoff(success_api)
         self.assertEqual(result, "success")
 
-    def test_backoff_and_eventual_success(self):
+    async def test_backoff_and_eventual_success(self):
         # Should raise 429 twice, then succeed
         calls = {"count": 0}
 
-        def mock_api_429():
+        async def mock_api_429():
             calls["count"] += 1
             if calls["count"] < 3:
                 raise Exception("API error 429 Too Many Requests")
             return "eventual_success"
 
         # We speed up the backoff for testing by overriding defaults
-        result = call_api_with_backoff(
+        result = await async_call_api_with_backoff(
             mock_api_429,
             max_retries=3,
             initial_backoff=0.01,
@@ -206,13 +206,13 @@ class TestRateLimiter(unittest.TestCase):
         self.assertEqual(result, "eventual_success")
         self.assertEqual(calls["count"], 3)
 
-    def test_backoff_exhausted(self):
+    async def test_backoff_exhausted(self):
         # Should exhaust all retries and throw RateLimitExceededException
-        def mock_api_always_429():
+        async def mock_api_always_429():
             raise Exception("HTTP error 429")
 
         with self.assertRaises(RateLimitExceededException):
-            call_api_with_backoff(
+            await async_call_api_with_backoff(
                 mock_api_always_429,
                 max_retries=2,
                 initial_backoff=0.01,
@@ -220,17 +220,17 @@ class TestRateLimiter(unittest.TestCase):
                 max_jitter=0
             )
 
-    def test_backoff_and_eventual_success_on_network_latency(self):
+    async def test_backoff_and_eventual_success_on_network_latency(self):
         # Should raise TimeoutError twice, then succeed
         calls = {"count": 0}
 
-        def mock_api_timeout():
+        async def mock_api_timeout():
             calls["count"] += 1
             if calls["count"] < 3:
                 raise TimeoutError("Simulated network timeout")
             return "eventual_success"
 
-        result = call_api_with_backoff(
+        result = await async_call_api_with_backoff(
             mock_api_timeout,
             max_retries=3,
             initial_backoff=0.01,
@@ -241,13 +241,13 @@ class TestRateLimiter(unittest.TestCase):
         self.assertEqual(result, "eventual_success")
         self.assertEqual(calls["count"], 3)
 
-    def test_backoff_exhausted_on_connection_error(self):
+    async def test_backoff_exhausted_on_connection_error(self):
         # Should exhaust all retries on ConnectionError and throw RateLimitExceededException
-        def mock_api_always_connection_error():
+        async def mock_api_always_connection_error():
             raise ConnectionError("Simulated connection dropped")
 
         with self.assertRaises(RateLimitExceededException):
-            call_api_with_backoff(
+            await async_call_api_with_backoff(
                 mock_api_always_connection_error,
                 max_retries=2,
                 initial_backoff=0.01,
@@ -255,16 +255,16 @@ class TestRateLimiter(unittest.TestCase):
                 max_jitter=0
             )
 
-    def test_non_retryable_exception_raised_immediately(self):
+    async def test_non_retryable_exception_raised_immediately(self):
         # Should immediately fail if it's not a rate limit or latency error (e.g., 401 Unauthorized)
         calls = {"count": 0}
 
-        def mock_api_401():
+        async def mock_api_401():
             calls["count"] += 1
             raise Exception("HTTP error 401 Unauthorized")
 
         with self.assertRaisesRegex(Exception, "HTTP error 401 Unauthorized"):
-            call_api_with_backoff(mock_api_401)
+            await async_call_api_with_backoff(mock_api_401)
 
         self.assertEqual(calls["count"], 1)
 

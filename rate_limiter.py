@@ -1,4 +1,4 @@
-import time
+import asyncio
 import random
 import logging
 
@@ -15,12 +15,12 @@ class RateLimitExceededException(Exception):
     pass
 
 
-def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_factor=2.0, max_jitter=30):
+async def async_call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_factor=2.0, max_jitter=30):
     """
-    Executes a Twitter API function with exponential backoff and jitter.
+    Executes an asynchronous Twitter API function with exponential backoff and jitter.
 
     Args:
-        api_func (callable): The API function to execute.
+        api_func (callable): The async API function to execute.
         max_retries (int): Maximum number of retry attempts for 429 errors.
         initial_backoff (int): Initial wait time in seconds.
         backoff_factor (float): Multiplier for the backoff time on subsequent retries.
@@ -38,7 +38,7 @@ def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_f
 
     while retries <= max_retries:
         try:
-            return api_func()
+            return await api_func()
         except Exception as e:
             # Check if this is a Tweepy exception related to Rate Limiting (HTTP 429) or Network Latency
             should_retry = False
@@ -72,7 +72,7 @@ def call_api_with_backoff(api_func, max_retries=5, initial_backoff=60, backoff_f
                     f"API call failed: {retry_reason}. Retrying in {sleep_time:.2f} seconds "
                     f"(Attempt {retries + 1}/{max_retries})..."
                 )
-                time.sleep(sleep_time)
+                await asyncio.sleep(sleep_time)
 
                 # Exponential backoff for next retry
                 current_backoff *= backoff_factor

@@ -1,14 +1,15 @@
 import argparse
+import asyncio
 import os
-import time
 import random
 import logging
 
-from rate_limiter import call_api_with_backoff
+from rate_limiter import async_call_api_with_backoff
 import db
 
 try:
     import tweepy
+    from tweepy.asynchronous import AsyncClient
 except ImportError:
     tweepy = None
 
@@ -151,7 +152,7 @@ def get_twitter_client():
 
     keys = validate_api_keys(BEARER_TOKEN, API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
 
-    return tweepy.Client(
+    return AsyncClient(
         bearer_token=keys["BEARER_TOKEN"],
         consumer_key=keys["API_KEY"],
         consumer_secret=keys["API_SECRET"],
@@ -160,7 +161,7 @@ def get_twitter_client():
     )
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description="Emperor Musk Joke Replier Bot")
     parser.add_argument(
         "--dry-run", action="store_true", help="Run without actually posting to Twitter or making API calls"
@@ -194,7 +195,7 @@ def main():
 
             if not args.dry_run:
                 # Fetch the single most recent tweet from the user
-                response = call_api_with_backoff(
+                response = await async_call_api_with_backoff(
                     lambda: client.get_users_tweets(
                         id=ELON_USER_ID,
                         max_results=5,
@@ -227,7 +228,7 @@ def main():
                         cleaned_joke = validate_tweet_content(joke)
                         if not args.dry_run:
                             # Send the reply
-                            call_api_with_backoff(
+                            await async_call_api_with_backoff(
                                 lambda: client.create_tweet(
                                     text=cleaned_joke,
                                     in_reply_to_tweet_id=tweet_id
@@ -258,21 +259,21 @@ def main():
                     logging.info(f"[DRY-RUN] Simulating wait of 4-6 hours (actually waiting {wait_seconds} seconds).")
                 else:
                     logging.info(f"Waiting for {wait_seconds} seconds before checking again...")
-                time.sleep(wait_seconds)
+                await asyncio.sleep(wait_seconds)
             else:
                 logging.info("No new recent tweets found. Checking again soon.")
                 wait_seconds = 60
                 if args.dry_run:
                     wait_seconds = 2
-                time.sleep(wait_seconds)
+                await asyncio.sleep(wait_seconds)
 
         except Exception as e:
             logging.error(f"❌ Error encountered: {e}")
             wait_seconds = 60
             if args.dry_run:
                 wait_seconds = 2
-            time.sleep(wait_seconds)
+            await asyncio.sleep(wait_seconds)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
