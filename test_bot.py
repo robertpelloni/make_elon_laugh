@@ -1,9 +1,13 @@
 import os
+import sqlite3
 import unittest
-from auth import validate_api_keys
+from unittest.mock import patch
+from auth import validate_api_keys, get_twitter_client
 from bot import validate_tweet_content, validate_api_tweets
 from rate_limiter import async_call_api_with_backoff, RateLimitExceededException
 import db
+from analytics import AnalyticsTracker
+import tweepy
 
 
 class TestBotValidation(unittest.TestCase):
@@ -301,6 +305,60 @@ class TestDatabaseStorage(unittest.TestCase):
         db.record_reply("999", self.test_db)
         db.record_reply("999", self.test_db)
         self.assertTrue(db.has_replied("999", self.test_db))
+
+    @patch('db.get_db_connection')
+    def test_db_exceptions_handled_gracefully(self, mock_get_db):
+        # Simulate an SQLite error to ensure the fail-safe works
+        mock_get_db.side_effect = sqlite3.Error("Simulated DB error")
+
+        # has_replied should return False on error to prevent crashing the loop
+        self.assertFalse(db.has_replied("123", self.test_db))
+
+        # record_reply should catch the error and not crash
+        try:
+            db.record_reply("123", self.test_db)
+        except Exception:
+            self.fail("record_reply raised an exception instead of catching it.")
+
+        # init_db should raise the error so we know it failed at boot
+        with self.assertRaises(sqlite3.Error):
+            db.init_db(self.test_db)
+
+
+class TestAnalyticsTracker(unittest.TestCase):
+    def test_tracker_increments(self):
+        tracker = AnalyticsTracker()
+        self.assertEqual(tracker.tweets_found, 0)
+
+        tracker.record_found()
+        tracker.record_reply()
+        tracker.record_malformed()
+        tracker.record_validation_error()
+
+        self.assertEqual(tracker.tweets_found, 1)
+        self.assertEqual(tracker.tweets_replied, 1)
+        self.assertEqual(tracker.malformed_tweets_skipped, 1)
+        self.assertEqual(tracker.validation_errors, 1)
+
+    @patch('analytics.logger.info')
+    def test_tracker_print_summary(self, mock_logger):
+        tracker = AnalyticsTracker()
+        tracker.print_summary()
+        # Ensure the logger was called to print the summary
+        self.assertTrue(mock_logger.called)
+
+
+class TestAuthModule(unittest.TestCase):
+    def test_get_twitter_client_success(self):
+        # We must mock the constants imported in auth.py directly
+        with patch('auth.BEARER_TOKEN', 'valid_token'), \
+             patch('auth.API_KEY', 'valid_key'), \
+             patch('auth.API_SECRET', 'valid_secret'), \
+             patch('auth.ACCESS_TOKEN', 'valid_access'), \
+             patch('auth.ACCESS_TOKEN_SECRET', 'valid_access_secret'):
+
+            client = get_twitter_client()
+            self.assertIsInstance(client, tweepy.asynchronous.AsyncClient)
 
 
 if __name__ == "__main__":
