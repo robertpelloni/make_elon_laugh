@@ -16,6 +16,7 @@ COPY bot.py /app/
 COPY auth.py /app/
 COPY rate_limiter.py /app/
 COPY db.py /app/
+COPY analytics.py /app/
 
 # Run the bot
 CMD ["python", "bot.py"]
