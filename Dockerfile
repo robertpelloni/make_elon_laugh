@@ -17,6 +17,12 @@ COPY auth.py /app/
 COPY rate_limiter.py /app/
 COPY db.py /app/
 COPY analytics.py /app/
+COPY dashboard.py /app/
+COPY templates/ /app/templates/
+COPY start.sh /app/
 
-# Run the bot
-CMD ["python", "bot.py"]
+# Expose Dashboard Port
+EXPOSE 5000
+
+# Run the bot and dashboard concurrently
+CMD ["./start.sh"]
