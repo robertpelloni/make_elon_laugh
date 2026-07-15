@@ -1,6 +1,7 @@
 import os
 import unittest
-from bot import validate_api_keys, validate_tweet_content, validate_api_tweets
+from auth import validate_api_keys
+from bot import validate_tweet_content, validate_api_tweets
 from rate_limiter import async_call_api_with_backoff, RateLimitExceededException
 import db
 
