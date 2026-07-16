@@ -12,6 +12,6 @@
 *   Implement Webhooks/Streaming API instead of polling (if API tier allows) to reduce credit consumption.
 
 ## Phase 3: Analytics & Dashboard
-*   Track engagement (likes/retweets) on bot replies.
-*   Build a simple local web UI or dashboard to monitor bot status, logs, and success rates.
-*   Implement a database to store reply history permanently (replacing the volatile in-memory set).
+*   [ ] Track engagement (likes/retweets) on bot replies.
+*   [x] Build a simple local web UI or dashboard to monitor bot status, logs, and success rates.
+*   [x] Implement a database to store reply history permanently (replacing the volatile in-memory set).
