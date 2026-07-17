@@ -3,7 +3,8 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 from auth import validate_api_keys, get_twitter_client
-from bot import validate_tweet_content, validate_api_tweets
+import sys
+from bot import validate_tweet_content, validate_api_tweets, main
 from rate_limiter import async_call_api_with_backoff, RateLimitExceededException
 import db
 from analytics import AnalyticsTracker
@@ -368,6 +369,20 @@ class TestJokeGenerator(unittest.TestCase):
         self.assertIsInstance(joke, str)
         self.assertTrue(len(joke) > 0)
         self.assertLessEqual(len(joke), 280)
+
+
+class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
+    @patch('bot.db.init_db')
+    @patch('bot.get_twitter_client')
+    async def test_main_loop_dry_run_exit_condition(self, mock_get_client, mock_init_db):
+        # Edge Case: Verify the async main loop correctly exits when iterations are exhausted in dry-run
+        # We need to patch sys.argv so argparse sees --dry-run
+        with patch.object(sys, 'argv', ['bot.py', '--dry-run']):
+            # This should complete without hanging infinitely
+            await main()
+
+        # Verify db was initialized
+        self.assertTrue(mock_init_db.called)
 
 
 if __name__ == "__main__":
