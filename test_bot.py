@@ -308,6 +308,40 @@ class TestDatabaseStorage(unittest.TestCase):
         db.record_reply("999", self.test_db)
         self.assertTrue(db.has_replied("999", self.test_db))
 
+    def test_update_and_retrieve_engagement(self):
+        db.record_reply("888", self.test_db)
+        # Verify initial state is 0
+        from dashboard import get_db_stats
+        with patch('dashboard.db.DB_PATH', self.test_db):
+            stats = get_db_stats()
+            self.assertEqual(stats["total_likes"], 0)
+            self.assertEqual(stats["total_retweets"], 0)
+
+        # Update engagement
+        db.update_engagement("888", 10, 5, self.test_db)
+
+        # Verify updated state
+        with patch('dashboard.db.DB_PATH', self.test_db):
+            stats = get_db_stats()
+            self.assertEqual(stats["total_likes"], 10)
+            self.assertEqual(stats["total_retweets"], 5)
+
+            # Check the recent replies array contains the data
+            recent = stats["recent_replies"][0]
+            self.assertEqual(recent["tweet_id"], "888")
+            self.assertEqual(recent["likes"], 10)
+            self.assertEqual(recent["retweets"], 5)
+
+    def test_get_tweets_for_engagement_polling(self):
+        db.record_reply("111", self.test_db)
+        db.record_reply("222", self.test_db)
+
+        # Should return the IDs
+        tweets = db.get_tweets_for_engagement_polling(limit=5, db_path=self.test_db)
+        self.assertIn("111", tweets)
+        self.assertIn("222", tweets)
+        self.assertEqual(len(tweets), 2)
+
     @patch('db.get_db_connection')
     def test_db_exceptions_handled_gracefully(self, mock_get_db):
         # Simulate an SQLite error to ensure the fail-safe works

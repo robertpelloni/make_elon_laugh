@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 def get_db_stats():
     """Fetches statistics from the SQLite database."""
-    stats = {"total_replies": 0, "recent_replies": []}
+    stats = {"total_replies": 0, "total_likes": 0, "total_retweets": 0, "recent_replies": []}
     db_path = db.DB_PATH
 
     if not os.path.exists(db_path):
@@ -20,12 +20,22 @@ def get_db_stats():
             cursor = conn.cursor()
 
             # Get total count
-            cursor.execute("SELECT COUNT(*) FROM replied_tweets")
-            stats["total_replies"] = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*), SUM(likes), SUM(retweets) FROM replied_tweets")
+            row = cursor.fetchone()
+            if row:
+                stats["total_replies"] = row[0] or 0
+                stats["total_likes"] = row[1] or 0
+                stats["total_retweets"] = row[2] or 0
 
             # Get 5 most recent replies
-            cursor.execute("SELECT tweet_id, replied_at FROM replied_tweets ORDER BY replied_at DESC LIMIT 5")
-            stats["recent_replies"] = [{"tweet_id": row[0], "replied_at": row[1]} for row in cursor.fetchall()]
+            cursor.execute(
+                "SELECT tweet_id, replied_at, likes, retweets "
+                "FROM replied_tweets ORDER BY replied_at DESC LIMIT 5"
+            )
+            stats["recent_replies"] = [
+                {"tweet_id": r[0], "replied_at": r[1], "likes": r[2], "retweets": r[3]}
+                for r in cursor.fetchall()
+            ]
 
     except sqlite3.Error as e:
         app.logger.error(f"Database error: {e}")

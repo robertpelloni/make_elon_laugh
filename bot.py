@@ -37,6 +37,34 @@ def validate_tweet_content(content):
     return cleaned_content
 
 
+async def async_update_engagement_metrics(client, limit=5):
+    """
+    Polls the Twitter API for the public metrics of recent replies and updates the database.
+    """
+    recent_tweet_ids = db.get_tweets_for_engagement_polling(limit=limit)
+    if not recent_tweet_ids:
+        return
+
+    try:
+        # Fetch tweets by ID with public_metrics
+        response = await async_call_api_with_backoff(
+            lambda: client.get_tweets(
+                ids=recent_tweet_ids,
+                tweet_fields=["public_metrics"]
+            )
+        )
+
+        if response and response.data:
+            for tweet in response.data:
+                metrics = getattr(tweet, 'public_metrics', {})
+                likes = metrics.get('like_count', 0)
+                retweets = metrics.get('retweet_count', 0)
+                db.update_engagement(tweet.id, likes, retweets)
+                logging.info(f"📈 Updated engagement for {tweet.id}: {likes} Likes, {retweets} Retweets")
+    except Exception as e:
+        logging.error(f"Failed to update engagement metrics: {e}")
+
+
 def validate_api_tweets(tweets_data, tracker=None):
     """
     Safely filters an incoming API payload of tweets to ensure they are iterable
@@ -105,6 +133,10 @@ async def main():
             count += 1
 
             try:
+                # Update engagement metrics for past replies before polling for new ones
+                if not args.dry_run:
+                    await async_update_engagement_metrics(client)
+
                 new_tweets = []
 
                 if not args.dry_run:

@@ -130,6 +130,18 @@
                 <p style="color: #8899a6; font-size: 0.9rem;">Historical replies tracked across all sessions.</p>
             </div>
 
+            <!-- Engagement Card -->
+            <div class="card">
+                <h2>Total Engagement
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Cumulative likes and retweets gathered by the bot's replies.</span>
+                    </div>
+                </h2>
+                <div class="stat-value" style="color: #e0245e;">{{ stats.total_likes }} ❤️</div>
+                <div class="stat-value" style="color: #17bf63; font-size: 2rem;">{{ stats.total_retweets }} 🔁</div>
+                <p style="color: #8899a6; font-size: 0.9rem;">Historical engagement metrics.</p>
+            </div>
+
             <!-- Configuration Card -->
             <div class="card">
                 <h2>System Configuration
@@ -171,6 +183,8 @@
                     <tr>
                         <th>Tweet ID</th>
                         <th>Timestamp (UTC)</th>
+                        <th>Likes</th>
+                        <th>Retweets</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -178,6 +192,8 @@
                     <tr>
                         <td><a href="https://twitter.com/elonmusk/status/{{ reply.tweet_id }}" target="_blank">{{ reply.tweet_id }}</a></td>
                         <td>{{ reply.replied_at }}</td>
+                        <td style="color: #e0245e;">{{ reply.likes }}</td>
+                        <td style="color: #17bf63;">{{ reply.retweets }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
