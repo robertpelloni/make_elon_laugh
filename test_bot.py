@@ -8,6 +8,7 @@ from rate_limiter import async_call_api_with_backoff, RateLimitExceededException
 import db
 from analytics import AnalyticsTracker
 import tweepy
+from joke_generator import generate_joke
 
 
 class TestBotValidation(unittest.TestCase):
@@ -359,6 +360,14 @@ class TestAuthModule(unittest.TestCase):
 
             client = get_twitter_client()
             self.assertIsInstance(client, tweepy.asynchronous.AsyncClient)
+
+
+class TestJokeGenerator(unittest.TestCase):
+    def test_generate_joke_returns_string(self):
+        joke = generate_joke()
+        self.assertIsInstance(joke, str)
+        self.assertTrue(len(joke) > 0)
+        self.assertLessEqual(len(joke), 280)
 
 
 if __name__ == "__main__":
