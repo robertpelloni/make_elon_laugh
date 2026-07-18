@@ -10,7 +10,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Clean, tactful jokes about space, engineering, and Mars (20 jokes)
+# Clean, tactful jokes about space, engineering, and Mars
 STATIC_JOKES = [
     "Why did the sun go to school? To get a little brighter! ☀️",
     "How do you organize a space party? You planet! 🌍🚀",
@@ -35,10 +35,23 @@ STATIC_JOKES = [
     "How does the solar system hold up its pants? With an asteroid belt! ☄️👖"
 ]
 
+STATIC_FACTS = [
+    "A day on Venus is longer than a year on Venus. 🪐",
+    "Neutron stars can spin 600 times per second. 💫",
+    "There is a planet made of diamonds twice the size of Earth. 💎🌍",
+    "The footprints on the moon will be there for 100 million years. 🌕👣",
+    "One million Earths could fit inside the Sun. ☀️",
+    "If two pieces of the same type of metal touch in space, they will permanently bond. 🚀",
+    "There is floating water in space. Astronomers found a mass 140 trillion times the mass of water in oceans. 💧🌌",
+    "The Moon is drifting away from the Earth at a rate of 3.8 centimeters per year. 🌔",
+    "Space is completely silent because there is no atmosphere. 🔇🌌",
+    "The mass of the Sun takes up 99.86% of the solar system. ☀️"
+]
 
-def fetch_llm_joke(context_tweet_text):
+
+def fetch_llm_content(context_tweet_text, content_type="joke"):
     """
-    Fetches a dynamic joke from an LLM given the context tweet text.
+    Fetches dynamic content (joke or fact) from an LLM given the context tweet text.
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -51,49 +64,70 @@ def fetch_llm_joke(context_tweet_text):
     try:
         client = openai.OpenAI(api_key=api_key)
 
+        system_msg = (
+            "You are a witty, clean comedian specializing in space and engineering."
+            if content_type == "joke"
+            else "You are a brilliant astrophysicist who loves sharing short, interesting facts about space."
+        )
+
+        prompt_task = (
+            "Generate one short, very funny joke in response to the context."
+            if content_type == "joke"
+            else "Generate one short, fascinating astrophysics fact related to the context."
+        )
+
         prompt = (
-            "You are a helpful, tactful, and clean bot that responds to Elon Musk's tweets "
-            "with relevant, short space or engineering-themed jokes.\n"
+            "You are a helpful, tactful, and clean bot that responds to tweets "
+            "with relevant, short space or engineering-themed content.\n"
             f"Context tweet: \"{context_tweet_text}\"\n"
             "First, analyze the sentiment and tone of the context tweet. If the tweet is highly serious, "
             "tragic, or explicitly discusses a sensitive negative event, respond with ONLY the word 'SKIP'.\n"
-            "Otherwise, generate one short, very funny joke in response to the context. "
+            f"Otherwise, {prompt_task} "
             "Keep it under 200 characters and include exactly one relevant emoji."
         )
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a witty, clean comedian specializing in space and engineering."},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": prompt}
             ],
             max_tokens=60,
             temperature=0.8
         )
 
-        joke = response.choices[0].message.content.strip()
-        if joke.upper() == "SKIP":
-            logger.info("LLM determined the context tweet is too serious for a joke.")
+        content = response.choices[0].message.content.strip()
+        if content.upper() == "SKIP":
+            logger.info("LLM determined the context tweet is too serious for content generation.")
             return None
-        if joke:
-            return joke
+        if content:
+            return content
 
     except Exception as e:
-        logger.error(f"Error fetching joke from LLM: {e}")
+        logger.error(f"Error fetching {content_type} from LLM: {e}")
 
     return None
 
 
-def generate_joke(context_tweet_text=None):
+def generate_content(context_tweet_text=None):
     """
-    Generates a space or engineering-themed joke.
+    Generates a space or engineering-themed joke or fact.
     Calls an LLM API based on the `context_tweet_text` if configured.
-    Falls back to a random joke from the static curated list.
+    Falls back to a random joke or fact from the static curated lists.
     """
+    content_type = random.choice(["joke", "fact"])
+
     if context_tweet_text:
-        dynamic_joke = fetch_llm_joke(context_tweet_text)
-        if dynamic_joke:
-            return dynamic_joke
+        dynamic_content = fetch_llm_content(context_tweet_text, content_type)
+        if dynamic_content:
+            return dynamic_content
 
     # Fallback to static list
-    return random.choice(STATIC_JOKES)
+    if content_type == "joke":
+        return random.choice(STATIC_JOKES)
+    else:
+        return random.choice(STATIC_FACTS)
+
+
+# Aliasing for backward compatibility
+generate_joke = generate_content

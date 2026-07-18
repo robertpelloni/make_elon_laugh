@@ -8,7 +8,7 @@ from rate_limiter import async_call_api_with_backoff
 import db
 from auth import get_twitter_client
 from analytics import AnalyticsTracker
-from joke_generator import generate_joke
+from joke_generator import generate_content
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -172,22 +172,22 @@ async def main():
                     if not db.has_replied(tweet_id):
                         logging.info(f"🎯 New tweet found: '{tweet.text[:50]}...'")
 
-                        # Generate a joke (pass context if we eventually use LLM generation)
-                        joke = generate_joke(context_tweet_text=tweet.text)
+                        # Generate a joke or fact (pass context if we eventually use LLM generation)
+                        content = generate_content(context_tweet_text=tweet.text)
 
                         try:
-                            cleaned_joke = validate_tweet_content(joke)
+                            cleaned_content = validate_tweet_content(content)
                             if not args.dry_run:
                                 # Send the reply
                                 await async_call_api_with_backoff(
                                     lambda: client.create_tweet(
-                                        text=cleaned_joke,
+                                        text=cleaned_content,
                                         in_reply_to_tweet_id=tweet_id
                                     )
                                 )
                                 logging.info(f"✅ Replied successfully to Tweet ID {tweet_id}")
                             else:
-                                logging.info(f"[DRY-RUN] Would reply to Tweet ID {tweet_id} with: {cleaned_joke}")
+                                logging.info(f"[DRY-RUN] Would reply to Tweet ID {tweet_id} with: {cleaned_content}")
 
                             tracker.record_reply()
                         except (ValueError, TypeError) as e:

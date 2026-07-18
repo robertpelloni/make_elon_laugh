@@ -430,10 +430,10 @@ class TestJokeGenerator(unittest.TestCase):
         mock_response.choices = [MagicMock(message=MagicMock(content="SKIP"))]
         mock_client.chat.completions.create.return_value = mock_response
 
-        # It should fall back to a static joke because the LLM chose to SKIP
+        # It should fall back to a static joke or fact because the LLM chose to SKIP
         joke = generate_joke("Very serious context tweet")
         self.assertIsInstance(joke, str)
-        self.assertIn(joke, joke_generator.STATIC_JOKES)
+        self.assertTrue(joke in joke_generator.STATIC_JOKES or joke in joke_generator.STATIC_FACTS)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
     @patch('joke_generator.openai.OpenAI')
@@ -443,10 +443,10 @@ class TestJokeGenerator(unittest.TestCase):
         mock_openai_class.return_value = mock_client
         mock_client.chat.completions.create.side_effect = Exception("API Down")
 
-        # It should catch the exception and return a static fallback joke
+        # It should catch the exception and return a static fallback joke or fact
         joke = generate_joke("Test context")
         self.assertIsInstance(joke, str)
-        self.assertIn(joke, joke_generator.STATIC_JOKES)
+        self.assertTrue(joke in joke_generator.STATIC_JOKES or joke in joke_generator.STATIC_FACTS)
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
