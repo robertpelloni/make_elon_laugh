@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import random
+import os
 
 from rate_limiter import async_call_api_with_backoff
 import db
@@ -12,7 +13,8 @@ from joke_generator import generate_joke
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- THE BOT CONTEXT ---
-ELON_USER_ID = "44196397"  # Elon Musk's X User ID
+# Elon Musk's X User ID is the default, but can be overridden
+TARGET_USER_ID = os.environ.get("TARGET_USER_ID", "44196397")
 
 
 def validate_tweet_content(content):
@@ -143,7 +145,7 @@ async def main():
                     # Fetch the single most recent tweet from the user
                     response = await async_call_api_with_backoff(
                         lambda: client.get_users_tweets(
-                            id=ELON_USER_ID,
+                            id=TARGET_USER_ID,
                             max_results=5,
                             tweet_fields=["id", "text"]
                         )

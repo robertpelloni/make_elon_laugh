@@ -422,6 +422,21 @@ class TestJokeGenerator(unittest.TestCase):
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
     @patch('joke_generator.openai.OpenAI')
+    def test_generate_joke_llm_sentiment_skip(self, mock_openai_class):
+        # Setup mock LLM response returning SKIP
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="SKIP"))]
+        mock_client.chat.completions.create.return_value = mock_response
+
+        # It should fall back to a static joke because the LLM chose to SKIP
+        joke = generate_joke("Very serious context tweet")
+        self.assertIsInstance(joke, str)
+        self.assertIn(joke, joke_generator.STATIC_JOKES)
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
+    @patch('joke_generator.openai.OpenAI')
     def test_generate_joke_llm_failure_fallback(self, mock_openai_class):
         # Simulate LLM API error
         mock_client = MagicMock()

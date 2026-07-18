@@ -55,7 +55,9 @@ def fetch_llm_joke(context_tweet_text):
             "You are a helpful, tactful, and clean bot that responds to Elon Musk's tweets "
             "with relevant, short space or engineering-themed jokes.\n"
             f"Context tweet: \"{context_tweet_text}\"\n"
-            "Generate one short, very funny joke in response to the context. "
+            "First, analyze the sentiment and tone of the context tweet. If the tweet is highly serious, "
+            "tragic, or explicitly discusses a sensitive negative event, respond with ONLY the word 'SKIP'.\n"
+            "Otherwise, generate one short, very funny joke in response to the context. "
             "Keep it under 200 characters and include exactly one relevant emoji."
         )
 
@@ -70,6 +72,9 @@ def fetch_llm_joke(context_tweet_text):
         )
 
         joke = response.choices[0].message.content.strip()
+        if joke.upper() == "SKIP":
+            logger.info("LLM determined the context tweet is too serious for a joke.")
+            return None
         if joke:
             return joke
 
