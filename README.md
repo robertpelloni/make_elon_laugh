@@ -59,7 +59,7 @@ ACCESS_TOKEN_SECRET = "YOUR_ACCESS_TOKEN_SECRET"
 BEARER_TOKEN = "YOUR_BEARER_TOKEN"
 
 # --- THE BOT CONTEXT ---
-ELON_USER_ID = "44196397"  # Elon Musk's definitive X User ID
+TARGET_USER_IDS = ["44196397", "2941621343"]  # Target user IDs
 
 PSYTRANCE_TRACKS = [
     "Astral Projection - Dancing Galaxy (Old-school Martian anthem)",
@@ -93,7 +93,7 @@ def main():
             # Fetch the single most recent tweet from Elon
             # v2 API user tweets endpoint
             response = client.get_users_tweets(
-                id=ELON_USER_ID, 
+                id=user_id,
                 max_results=5, 
                 tweet_fields=["id", "text"]
             )

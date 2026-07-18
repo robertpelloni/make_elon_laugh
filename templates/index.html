@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emperor Musk Bot Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #15202b;
+            color: #ffffff;
+            margin: 0;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #38444d;
+            margin-bottom: 2rem;
+        }
+        h1 { margin: 0; color: #1da1f2; }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .card {
+            background-color: #192734;
+            border: 1px solid #38444d;
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #8899a6;
+            display: flex;
+            align-items: center;
+        }
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #1da1f2;
+            margin: 1rem 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: bold;
+        }
+        .status-badge.success { background-color: rgba(23, 191, 99, 0.2); color: #17bf63; }
+        .status-badge.error { background-color: rgba(224, 36, 94, 0.2); color: #e0245e; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #38444d;
+        }
+        th { color: #8899a6; font-weight: normal; }
+        a { color: #1da1f2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        /* Tooltip Container */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 0.5rem;
+            cursor: help;
+        }
+        .tooltip-icon {
+            background: #38444d;
+            color: #fff;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -100px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: normal;
+            font-size: 0.9rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛸 Emperor Musk Bot Dashboard</h1>
+            <p>System Diagnostics & Analytics</p>
+        </div>
+
+        <div class="card-grid">
+            <!-- Analytics Card -->
+            <div class="card">
+                <h2>Total Replies
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">The total number of tweets successfully replied to and logged in the SQLite database.</span>
+                    </div>
+                </h2>
+                <div class="stat-value">{{ stats.total_replies }}</div>
+                <p style="color: #8899a6; font-size: 0.9rem;">Historical replies tracked across all sessions.</p>
+            </div>
+
+            <!-- Engagement Card -->
+            <div class="card">
+                <h2>Total Engagement
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Cumulative likes and retweets gathered by the bot's replies.</span>
+                    </div>
+                </h2>
+                <div class="stat-value" style="color: #e0245e;">{{ stats.total_likes }} ❤️</div>
+                <div class="stat-value" style="color: #17bf63; font-size: 2rem;">{{ stats.total_retweets }} 🔁</div>
+                <p style="color: #8899a6; font-size: 0.9rem;">Historical engagement metrics.</p>
+            </div>
+
+            <!-- Configuration Card -->
+            <div class="card">
+                <h2>System Configuration
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Current health checks for environment variables and persistent storage.</span>
+                    </div>
+                </h2>
+                <div style="margin-top: 1rem;">
+                    <div style="margin-bottom: 1rem;">
+                        <span style="color: #8899a6; margin-right: 1rem;">API Keys:</span>
+                        {% if config.api_key_configured %}
+                            <span class="status-badge success">Configured</span>
+                        {% else %}
+                            <span class="status-badge error">Missing / Default</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span style="color: #8899a6; margin-right: 1rem;">Database:</span>
+                        {% if config.db_exists %}
+                            <span class="status-badge success">Connected ({{ config.db_path }})</span>
+                        {% else %}
+                            <span class="status-badge error">Not Found</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Table -->
+        <div class="card" style="margin-top: 1.5rem;">
+            <h2>Recent Activity
+                <div class="tooltip"><span class="tooltip-icon">?</span>
+                  <span class="tooltiptext">The 5 most recent tweet IDs successfully recorded by the bot. Click the ID to view the tweet on X.</span>
+                </div>
+            </h2>
+            {% if stats.recent_replies %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tweet ID</th>
+                        <th>Timestamp (UTC)</th>
+                        <th>Likes</th>
+                        <th>Retweets</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reply in stats.recent_replies %}
+                    <tr>
+                        <td><a href="https://twitter.com/elonmusk/status/{{ reply.tweet_id }}" target="_blank">{{ reply.tweet_id }}</a></td>
+                        <td>{{ reply.replied_at }}</td>
+                        <td style="color: #e0245e;">{{ reply.likes }}</td>
+                        <td style="color: #17bf63;">{{ reply.retweets }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: #8899a6; margin-top: 1rem;">No replies recorded yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
