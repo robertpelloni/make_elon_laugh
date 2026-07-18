@@ -7,5 +7,5 @@
 - [x] Add a `Dockerfile` for easier deployment.
 
 # Next Tasks
-- [ ] Explore dynamic content generation (LLM API integration for jokes).
+- [x] Explore dynamic content generation (LLM API integration for jokes).
 - [ ] Explore sentiment analysis pivot before replying.

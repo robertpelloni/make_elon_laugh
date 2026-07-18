@@ -7,7 +7,7 @@
 *   Implement dry-run testing mode.
 
 ## Phase 2: Dynamic Content & Smarter Polling
-*   Integrate an external joke API or LLM to generate dynamic, contextual responses.
+*   [x] Integrate an external joke API or LLM to generate dynamic, contextual responses.
 *   Move away from static user IDs to dynamic configuration.
 *   Implement Webhooks/Streaming API instead of polling (if API tier allows) to reduce credit consumption.
 

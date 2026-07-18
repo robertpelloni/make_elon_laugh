@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from auth import validate_api_keys, get_twitter_client
 import sys
 from bot import validate_tweet_content, validate_api_tweets, main
@@ -10,6 +10,7 @@ import db
 from analytics import AnalyticsTracker
 import tweepy
 from joke_generator import generate_joke
+import joke_generator
 
 
 class TestBotValidation(unittest.TestCase):
@@ -399,10 +400,38 @@ class TestAuthModule(unittest.TestCase):
 
 class TestJokeGenerator(unittest.TestCase):
     def test_generate_joke_returns_string(self):
+        # Fallback case: no context provided
         joke = generate_joke()
         self.assertIsInstance(joke, str)
         self.assertTrue(len(joke) > 0)
         self.assertLessEqual(len(joke), 280)
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
+    @patch('joke_generator.openai.OpenAI')
+    def test_generate_joke_llm_success(self, mock_openai_class):
+        # Setup mock LLM response
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="Dynamic AI Joke 🤖"))]
+        mock_client.chat.completions.create.return_value = mock_response
+
+        joke = generate_joke("Test context")
+        self.assertEqual(joke, "Dynamic AI Joke 🤖")
+        mock_client.chat.completions.create.assert_called_once()
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
+    @patch('joke_generator.openai.OpenAI')
+    def test_generate_joke_llm_failure_fallback(self, mock_openai_class):
+        # Simulate LLM API error
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception("API Down")
+
+        # It should catch the exception and return a static fallback joke
+        joke = generate_joke("Test context")
+        self.assertIsInstance(joke, str)
+        self.assertIn(joke, joke_generator.STATIC_JOKES)
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):

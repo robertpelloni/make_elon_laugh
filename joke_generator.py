@@ -1,4 +1,14 @@
 import random
+import os
+import logging
+
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 # Clean, tactful jokes about space, engineering, and Mars (20 jokes)
 STATIC_JOKES = [
@@ -26,17 +36,59 @@ STATIC_JOKES = [
 ]
 
 
+def fetch_llm_joke(context_tweet_text):
+    """
+    Fetches a dynamic joke from an LLM given the context tweet text.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return None
+
+    if not OPENAI_AVAILABLE:
+        logger.warning("OPENAI_API_KEY is set, but openai package is not installed.")
+        return None
+
+    try:
+        client = openai.OpenAI(api_key=api_key)
+
+        prompt = (
+            "You are a helpful, tactful, and clean bot that responds to Elon Musk's tweets "
+            "with relevant, short space or engineering-themed jokes.\n"
+            f"Context tweet: \"{context_tweet_text}\"\n"
+            "Generate one short, very funny joke in response to the context. "
+            "Keep it under 200 characters and include exactly one relevant emoji."
+        )
+
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a witty, clean comedian specializing in space and engineering."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=60,
+            temperature=0.8
+        )
+
+        joke = response.choices[0].message.content.strip()
+        if joke:
+            return joke
+
+    except Exception as e:
+        logger.error(f"Error fetching joke from LLM: {e}")
+
+    return None
+
+
 def generate_joke(context_tweet_text=None):
     """
     Generates a space or engineering-themed joke.
-    Currently returns a random joke from the static curated list.
-    Designed to be extended in the future to call an LLM API
-    based on the `context_tweet_text`.
+    Calls an LLM API based on the `context_tweet_text` if configured.
+    Falls back to a random joke from the static curated list.
     """
-
-    # In the future:
-    # if LLM_API_KEY is configured:
-    #     return fetch_llm_joke(context_tweet_text)
+    if context_tweet_text:
+        dynamic_joke = fetch_llm_joke(context_tweet_text)
+        if dynamic_joke:
+            return dynamic_joke
 
     # Fallback to static list
     return random.choice(STATIC_JOKES)
