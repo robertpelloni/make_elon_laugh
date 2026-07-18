@@ -13,8 +13,9 @@ from joke_generator import generate_joke
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- THE BOT CONTEXT ---
-# Elon Musk's X User ID is the default, but can be overridden
-TARGET_USER_ID = os.environ.get("TARGET_USER_ID", "44196397")
+# Comma-separated list of target user IDs (defaults to Elon Musk)
+TARGET_USER_IDS_STR = os.environ.get("TARGET_USER_IDS", "44196397")
+TARGET_USER_IDS = [u_id.strip() for u_id in TARGET_USER_IDS_STR.split(",") if u_id.strip()]
 
 
 def validate_tweet_content(content):
@@ -142,16 +143,17 @@ async def main():
                 new_tweets = []
 
                 if not args.dry_run:
-                    # Fetch the single most recent tweet from the user
-                    response = await async_call_api_with_backoff(
-                        lambda: client.get_users_tweets(
-                            id=TARGET_USER_ID,
-                            max_results=5,
-                            tweet_fields=["id", "text"]
+                    # Fetch recent tweets from all target users
+                    for user_id in TARGET_USER_IDS:
+                        response = await async_call_api_with_backoff(
+                            lambda u_id=user_id: client.get_users_tweets(
+                                id=u_id,
+                                max_results=5,
+                                tweet_fields=["id", "text"]
+                            )
                         )
-                    )
-                    if response and response.data:
-                        new_tweets = validate_api_tweets(response.data, tracker)
+                        if response and response.data:
+                            new_tweets.extend(validate_api_tweets(response.data, tracker))
                 else:
                     # Simulate finding a new tweet in dry-run mode
                     class DummyTweet:
