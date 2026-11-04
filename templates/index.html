@@ -304,6 +304,15 @@
             word-break: break-word;
         }
 
+        .meme-preview-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-top: 0.75rem;
+            display: none;
+        }
+
         /* Logs viewer */
         .log-terminal {
             background-color: #0b0e14;
@@ -498,12 +507,19 @@
                         <button type="button" class="btn" onclick="testGeneration('joke')">Generate Joke 🚀</button>
                         <button type="button" class="btn btn-outline" onclick="testGeneration('fact')">Generate Fact 🪐</button>
                         <button type="button" class="btn btn-outline" onclick="testGeneration('auto')">Auto Content 🎲</button>
+                        <button type="button" class="btn btn-outline" id="btn-meme" onclick="testMemeCard()">
+                            🖼️ Meme Card
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Generates a visual 600x340 graphic card formatted for Twitter/X image attachment.</span>
+                            </div>
+                        </button>
                     </div>
                 </form>
 
                 <div style="margin-top: 1rem;">
                     <label>Generated Content Preview:</label>
                     <div id="gen-preview" class="preview-box">Click a button above to generate a preview...</div>
+                    <img id="meme-preview-img" class="meme-preview-img" alt="Meme Card Preview">
                 </div>
             </section>
 
@@ -624,6 +640,8 @@
 
         async function testGeneration(type = 'auto') {
             const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            memeImg.style.display = 'none';
             const tweetText = document.getElementById('sample-tweet').value;
             preview.textContent = "Generating content...";
             try {
@@ -642,6 +660,30 @@
                 }
             } catch (err) {
                 preview.textContent = "Request failed: " + err.message;
+            }
+        }
+
+        async function testMemeCard() {
+            const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            preview.textContent = "Generating visual meme card...";
+            try {
+                const tweetText = document.getElementById('sample-tweet').value;
+                const res = await fetch('/api/test-generate-meme', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: tweetText})
+                });
+                const data = await res.json();
+                if (data.success && data.image_b64) {
+                    preview.innerHTML = `<strong>${data.text}</strong><br><small style="color: var(--accent-retweet);">Visual card rendered successfully!</small>`;
+                    memeImg.src = "data:image/png;base64," + data.image_b64;
+                    memeImg.style.display = 'block';
+                } else {
+                    preview.textContent = data.error || "Failed to generate meme card.";
+                }
+            } catch (err) {
+                preview.textContent = "Meme card generation error: " + err.message;
             }
         }
 

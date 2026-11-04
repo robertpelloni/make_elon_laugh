@@ -46,7 +46,7 @@ def get_version():
                 return f.read().strip()
         except Exception:
             pass
-    return "0.7.0"
+    return "0.8.0"
 
 
 def get_db_stats():
@@ -159,6 +159,28 @@ def api_test_generate():
         # Check if content matches static facts
         ctype = "fact" if content in joke_generator.STATIC_FACTS else "joke"
         return jsonify({"content": content, "content_type": ctype, "skipped": False})
+
+
+@app.route('/api/test-generate-meme', methods=['POST'])
+def api_test_generate_meme():
+    """
+    Generates a visual meme card as a base64 PNG image based on content text.
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "").strip()
+    if not text:
+        text = joke_generator.generate_content()
+
+    try:
+        b64_image = joke_generator.generate_meme_card_b64(text)
+        return jsonify({
+            "success": True,
+            "text": text,
+            "image_b64": b64_image
+        })
+    except Exception as e:
+        app.logger.error(f"Meme card generation error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/config', methods=['GET', 'POST'])

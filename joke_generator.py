@@ -1,12 +1,15 @@
-import random
-import os
+import base64
 import logging
+import os
+import random
 
 try:
     import openai
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
+
+import meme_generator
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +130,14 @@ def generate_content(context_tweet_text=None):
         return random.choice(STATIC_JOKES)
     else:
         return random.choice(STATIC_FACTS)
+
+
+def generate_meme_card_b64(text, title="Emperor Musk Bot"):
+    """
+    Renders text to a visual meme card and returns a base64-encoded PNG string.
+    """
+    raw_bytes = meme_generator.create_meme_card(text, title=title)
+    return base64.b64encode(raw_bytes).decode('utf-8')
 
 
 # Aliasing for backward compatibility

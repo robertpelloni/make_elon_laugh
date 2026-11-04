@@ -2,9 +2,9 @@
 
 [![CI/CD Pipeline](https://github.com/robertpelloni/make_elon_laugh/actions/workflows/ci.yml/badge.svg)](https://github.com/robertpelloni/make_elon_laugh/actions)
 
-A playful, tactful Twitter (X) autonomous humor bot designed to engage with Elon Musk and space/engineering topics with lighthearted, clean jokes and fascinating astrophysics facts.
+A playful, tactful Twitter (X) autonomous humor bot designed to engage with Elon Musk and space/engineering topics with lighthearted, clean jokes, fascinating astrophysics facts, and visual meme cards.
 
-Built with Python, Tweepy (async), OpenAI API, Flask, and SQLite.
+Built with Python, Tweepy (async), OpenAI API, Pillow, Flask, and SQLite.
 
 ---
 
@@ -12,6 +12,7 @@ Built with Python, Tweepy (async), OpenAI API, Flask, and SQLite.
 
 - **Consolidated Command Center**: A unified single-page monitoring dashboard (`http://localhost:5000`) showing real-time engagement metrics, live diagnostics logs, and system health status.
 - **Interactive Sentiment & Content Sandbox**: Test joke and astrophysics fact generation right from the browser. Supports OpenAI dynamic responses with sentiment analysis that automatically skips serious or tragic tweets.
+- **Visual Meme / Infographic Card Generator**: Generates formatted graphic cards for tweets or dashboard preview using Pillow (`meme_generator.py`).
 - **Dynamic Account Tracking**: Track multiple user IDs simultaneously and adjust monitored accounts directly through the UI.
 - **State Persistence & Analytics**: Stores replied tweet history and tracks cumulative likes and retweets using SQLite.
 - **Safety & Rate Limiting**: Exponential backoff with jitter protection against HTTP 429 Too Many Requests and network latency dropouts.
