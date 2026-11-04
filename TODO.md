@@ -7,7 +7,8 @@
 - [x] Implement visual meme/infographic card generation (`meme_generator.py`) and UI preview.
 - [x] Add automated test coverage and verification for dashboard endpoints, meme generator, and system tray.
 - [x] Verify visual rendering using Playwright end-to-end testing.
+- [x] Add dark/light UI theme switcher in dashboard settings with persistence and API support.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Add dark/light UI theme switcher in dashboard settings.
+- [ ] Explore multi-agent tone profiles (e.g., Cynical AI vs. Earnest Rocket Scientist).

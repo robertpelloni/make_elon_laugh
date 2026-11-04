@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-04
+
+### Added
+- **Dynamic Light/Dark Theme Switcher**: Dual-palette CSS variable design system across `templates/index.html` with instant header toggle and persistence in `localStorage`.
+- **System Theme Preference API**: Added `/api/theme` (GET/POST) endpoint to `dashboard.py` to synchronize and persist user theme selections with the runtime environment.
+- **Frontend Playwright Visual Verification**: Captured and verified full-page screenshot of the dashboard in Light mode.
+- **Theme API Unit Testing**: Added unit tests in `test_bot.py` covering valid/invalid theme updates and retrieval (61 total unit tests passing).
+
 ## [0.8.0] - 2026-11-04
 
 ### Added

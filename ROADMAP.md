@@ -18,3 +18,4 @@
 *   [x] Consolidated single-page command center to monitor bot status, logs, and success rates.
 *   [x] Add interactive testing sandboxes and runtime target configuration to web dashboard.
 *   [x] Provide a cross-platform desktop system tray companion (`tray.py`).
+*   [x] Dynamic Theme Engine with Dark/Light mode switcher and persistent API state.

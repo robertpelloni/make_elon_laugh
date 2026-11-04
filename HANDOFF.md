@@ -1,27 +1,35 @@
-# Session Handoff Document
+# Session Handoff & Continuity Guide
 
-## State of the Project (v0.8.0)
-The `make_elon_laugh` project has expanded with an interactive visual meme/infographic card generation pipeline (`meme_generator.py`) alongside the unified Command Center web dashboard (`dashboard.py`, `templates/index.html`) and desktop system tray companion (`tray.py`).
+## Session Overview
+- **Repository**: `make_elon_laugh` (Emperor Musk Bot)
+- **Active Branch**: `jules-8067423937083367268-08d72221`
+- **Current Version**: `0.9.0` (tracked centrally in `VERSION.md`)
 
-## Architectural Highlights in v0.8.0
-1. **Visual Meme Card Generator (`meme_generator.py`)**:
-   - Renders 600x340 space-themed cards with styled headers, custom line wrapping, and branding accents.
-   - Accessible via `joke_generator.generate_meme_card_b64()` and `/api/test-generate-meme`.
-   - Directly integrated into the Command Center sandbox with interactive preview.
-2. **Consolidated Single-Page UI**:
-   - High-value Hero Metrics (Total Verified Replies, Likes, Retweets, System Health status).
-   - Interactive Content Generation & Sentiment Sandbox (direct testing of jokes, facts, and sensitivity detection).
-   - Monitored Accounts & Bot Runtime Settings (dynamic updates to tracked user IDs without server restarts).
-   - Verified Reply History table with direct links to status updates on X.
-   - Live Diagnostics & Execution Log Terminal (streaming logs from in-memory ring buffer).
-   - Tooltip markers on every major control and metric for instant contextual guidance.
-3. **Desktop System Tray Companion (`tray.py`)**:
-   - Cross-platform system tray icon offering dashboard launch, on-demand cycle execution, and clean server shutdown.
-   - Gracefully detects headless environments and falls back safely without crashes.
-4. **Testing & Code Quality**:
-   - 60 unit tests in `test_bot.py` covering all endpoints, meme generation, error boundaries, and system tray logic with 88% overall coverage.
-   - 100% compliant with `flake8` standards.
+## Key Accomplishments in Current Turn
+1. **Consolidated Command Center Dashboard (v0.7.0)**:
+   - Eliminated fragmented subpages; merged all operational functions, hero metrics, target account settings, sentiment analysis sandbox, and diagnostics logs into one unified page (`templates/index.html`).
+   - Added tooltip markers (`?`) to all major metrics and controls to provide full operational guidance.
+   - Built endpoints: `/api/stats`, `/api/logs`, `/api/test-generate`, `/api/config`, `/api/run-check`, `/api/shutdown`.
+2. **Desktop System Tray Companion (`tray.py`)**:
+   - Implemented a desktop system tray icon using Pillow and `pystray`.
+   - Offers actions to launch the dashboard, trigger dry-run checks, and quit servers.
+   - Features robust headless environment detection (e.g. Docker/CI without `$DISPLAY`) that gracefully avoids GUI startup failures.
+3. **Visual Meme / Infographic Card Generator (v0.8.0)**:
+   - Implemented `meme_generator.py` using Pillow to render clean 600x340 graphic cards formatted for Twitter/X.
+   - Connected `joke_generator.generate_meme_card_b64()` and `/api/test-generate-meme` in `dashboard.py`.
+   - Added `🖼️ Meme Card` button, tooltip, and live image preview in the Command Center UI.
+4. **Dynamic Theme Engine (v0.9.0)**:
+   - Added Dark/Light theme switching with CSS custom variables in `templates/index.html`.
+   - Added persistence via browser `localStorage` and synchronized via `/api/theme` (GET/POST) in `dashboard.py`.
+   - Verified visually via Playwright with screenshots in `/tmp/dashboard_light_theme.png`.
+5. **Testing & QA**:
+   - 61 unit tests passing in `test_bot.py`.
+   - `flake8 .` passes with 0 warnings.
+   - Test coverage tracked at 87%+.
 
-## Next Steps for Successors
-- Maintain version tracking via `VERSION.md`.
-- Leverage `meme_generator.create_meme_card` if adding automatic Twitter image attachment uploads via the v1.1/v2 media upload API.
+## Running the Application
+- Bot Dry-Run: `python3 bot.py --dry-run`
+- Start Full Stack: `./start.sh`
+- Dashboard URL: `http://localhost:5000`
+- Tests: `python3 -m unittest test_bot.py`
+- Linter: `flake8 .`

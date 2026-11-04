@@ -539,6 +539,29 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         self.assertTrue(response.get_json()["success"])
         self.assertTrue(mock_thread.called)
 
+    def test_api_theme_get_and_post(self):
+        # GET default
+        get_res = self.client.get('/api/theme')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("theme", get_res.get_json())
+
+        # POST valid theme: light
+        post_res = self.client.post('/api/theme', json={"theme": "light"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["theme"], "light")
+
+        # POST valid theme: dark
+        post_res = self.client.post('/api/theme', json={"theme": "dark"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["theme"], "dark")
+
+        # POST invalid theme
+        bad_res = self.client.post('/api/theme', json={"theme": "neon-rainbow"})
+        self.assertEqual(bad_res.status_code, 400)
+        self.assertFalse(bad_res.get_json()["success"])
+
 
 class TestTrayCompanion(unittest.TestCase):
 

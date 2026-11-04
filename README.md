@@ -11,6 +11,7 @@ Built with Python, Tweepy (async), OpenAI API, Pillow, Flask, and SQLite.
 ## Features
 
 - **Consolidated Command Center**: A unified single-page monitoring dashboard (`http://localhost:5000`) showing real-time engagement metrics, live diagnostics logs, and system health status.
+- **Dynamic Light/Dark Theme Switcher**: Toggle effortlessly between dark and light themes with persistence across sessions via `localStorage` and the `/api/theme` endpoint.
 - **Interactive Sentiment & Content Sandbox**: Test joke and astrophysics fact generation right from the browser. Supports OpenAI dynamic responses with sentiment analysis that automatically skips serious or tragic tweets.
 - **Visual Meme / Infographic Card Generator**: Generates formatted graphic cards for tweets or dashboard preview using Pillow (`meme_generator.py`).
 - **Dynamic Account Tracking**: Track multiple user IDs simultaneously and adjust monitored accounts directly through the UI.

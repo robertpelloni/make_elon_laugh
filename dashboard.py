@@ -33,6 +33,9 @@ log_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(mess
 logging.getLogger().addHandler(log_handler)
 logging.getLogger().setLevel(logging.INFO)
 
+# Default system theme preference: "dark" or "light"
+CURRENT_THEME = os.environ.get("DASHBOARD_THEME", "dark")
+
 # Initial startup log
 logging.info("Emperor Musk Bot Dashboard initialized and monitoring.")
 
@@ -107,6 +110,24 @@ def index():
         config=config_status,
         version=get_version()
     )
+
+
+@app.route('/api/theme', methods=['GET', 'POST'])
+def api_theme():
+    """
+    Retrieves or updates the system default UI theme preference ('dark' or 'light').
+    """
+    global CURRENT_THEME
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        theme = data.get("theme", "").lower().strip()
+        if theme in ["dark", "light"]:
+            CURRENT_THEME = theme
+            logging.info(f"Dashboard theme preference updated to '{CURRENT_THEME}'.")
+            return jsonify({"success": True, "theme": CURRENT_THEME})
+        return jsonify({"success": False, "error": "Invalid theme. Must be 'dark' or 'light'."}), 400
+
+    return jsonify({"theme": CURRENT_THEME})
 
 
 @app.route('/api/stats')
