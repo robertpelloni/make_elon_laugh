@@ -303,6 +303,20 @@ class TestDatabaseStorage(unittest.TestCase):
         self.assertIn("222", tweets)
         self.assertEqual(len(tweets), 2)
 
+    def test_joke_ratings_storage(self):
+        # Test recording ratings
+        success_up = db.record_joke_rating("Hilarious joke!", 1, "great timing", self.test_db)
+        self.assertTrue(success_up)
+        success_down = db.record_joke_rating("Lame pun", -1, None, self.test_db)
+        self.assertTrue(success_down)
+
+        ratings = db.get_joke_ratings(limit=5, db_path=self.test_db)
+        self.assertEqual(len(ratings), 2)
+        self.assertEqual(ratings[0]["content"], "Lame pun")
+        self.assertEqual(ratings[0]["rating"], -1)
+        self.assertEqual(ratings[1]["content"], "Hilarious joke!")
+        self.assertEqual(ratings[1]["rating"], 1)
+
     @patch('db.get_db_connection')
     def test_db_exceptions_handled_gracefully(self, mock_get_db):
         mock_get_db.side_effect = sqlite3.Error("Simulated DB error")
@@ -580,6 +594,25 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         bad_res = self.client.post('/api/persona', json={"persona": "non_existent_persona"})
         self.assertEqual(bad_res.status_code, 400)
         self.assertFalse(bad_res.get_json()["success"])
+
+    def test_api_ratings_endpoints(self):
+        # GET ratings
+        get_res = self.client.get('/api/ratings')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("ratings", get_res.get_json())
+
+        # POST valid rating
+        post_res = self.client.post('/api/ratings', json={"content": "Rocket test", "rating": 1})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+
+        # POST missing content
+        bad_res1 = self.client.post('/api/ratings', json={"rating": 1})
+        self.assertEqual(bad_res1.status_code, 400)
+
+        # POST invalid rating value
+        bad_res2 = self.client.post('/api/ratings', json={"content": "Rocket", "rating": 5})
+        self.assertEqual(bad_res2.status_code, 400)
 
     def test_joke_generator_personas(self):
         # Verify all persona structures and content generation

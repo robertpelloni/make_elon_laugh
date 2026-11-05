@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-11-05
+
+### Added
+- **Community Joke Rating System (`db.py`)**: Added `joke_ratings` table schema, migration logic, and helper functions (`record_joke_rating`, `get_joke_ratings`) tracking operator approval (+1/-1 votes and notes).
+- **Humor Feedback REST API (`/api/ratings`)**: Added GET/POST endpoints to `dashboard.py` enabling client-side voting and retrieval of recent reviews.
+- **Humor Approval Dashboard Metric & Thumbs Voting (`templates/index.html`)**: Added a 4th Hero metric card ("Humor Approval %") to the Command Center and thumbs up/down rating buttons directly on generated content preview boxes with live toast feedback.
+- **Database Statistics Enhancement**: Enhanced `get_db_stats()` to aggregate total reviews and approval percentages.
+- **Unit Testing**: Added unit tests in `test_bot.py` covering rating storage and API endpoints (65 unit tests passing, 88% overall test coverage, 0 flake8 errors).
+
 ## [0.10.0] - 2026-11-05
 
 ### Added

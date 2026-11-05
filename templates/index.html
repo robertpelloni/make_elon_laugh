@@ -475,6 +475,19 @@
 
             <div class="card">
                 <div class="card-header">
+                    <span class="card-title">Humor Approval
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Percentage of positive ratings submitted by operators on generated humor and facts.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-warning);">⭐ Quality</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-warning);" id="stat-approval">{{ stats.approval_rate }}%</div>
+                <div class="stat-sub" id="stat-ratings-sub">{{ stats.total_ratings }} reviews logged</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
                     <span class="card-title">System Status
                         <div class="tooltip"><span class="tooltip-icon">?</span>
                           <span class="tooltiptext">Overall operational health indicator covering database, credentials, and polling safety.</span>
@@ -553,7 +566,14 @@
                 </form>
 
                 <div style="margin-top: 1rem;">
-                    <label>Generated Content Preview:</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label>Generated Content Preview:</label>
+                        <div id="rating-controls" style="display: none; gap: 0.35rem; align-items: center;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                        </div>
+                    </div>
                     <div id="gen-preview" class="preview-box">Click a button above to generate a preview...</div>
                     <img id="meme-preview-img" class="meme-preview-img" alt="Meme Card Preview">
                 </div>
@@ -720,9 +740,32 @@
             }
         }
 
+        let lastGeneratedText = "";
+
+        async function ratePreview(ratingVal) {
+            if (!lastGeneratedText) return;
+            try {
+                const res = await fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: lastGeneratedText, rating: ratingVal})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const tag = ratingVal > 0 ? "👍 Upvoted!" : "👎 Downvoted!";
+                    document.getElementById('rating-controls').innerHTML = `<span style="color: var(--success); font-size: 0.85rem; font-weight: bold;">${tag}</span>`;
+                    refreshAll();
+                }
+            } catch (e) {
+                console.error("Error submitting rating", e);
+            }
+        }
+
         async function testGeneration(type = 'auto') {
             const preview = document.getElementById('gen-preview');
             const memeImg = document.getElementById('meme-preview-img');
+            const ratingControls = document.getElementById('rating-controls');
+            ratingControls.style.display = 'none';
             memeImg.style.display = 'none';
             const tweetText = document.getElementById('sample-tweet').value;
             const persona = document.getElementById('persona-select').value;
@@ -737,7 +780,14 @@
                 if (data.skipped) {
                     preview.innerHTML = `<span style="color: var(--accent-warning);">⚠️ Filter Triggered: Content generation SKIPPED because context was detected as serious/tragic.</span>`;
                 } else if (data.content) {
+                    lastGeneratedText = data.content;
                     preview.innerHTML = `<strong>${data.content}</strong><br><small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">Persona: ${data.persona || persona} | Type: ${data.content_type} | Length: ${data.content.length} chars (within 280 char limit)</small>`;
+                    ratingControls.innerHTML = `
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                    `;
+                    ratingControls.style.display = 'flex';
                 } else {
                     preview.textContent = data.error || "No content generated.";
                 }
@@ -826,6 +876,10 @@
                 document.getElementById('stat-replies').textContent = data.total_replies;
                 document.getElementById('stat-likes').textContent = data.total_likes;
                 document.getElementById('stat-retweets').textContent = data.total_retweets;
+                if (document.getElementById('stat-approval')) {
+                    document.getElementById('stat-approval').textContent = (data.approval_rate || 100) + '%';
+                    document.getElementById('stat-ratings-sub').textContent = (data.total_ratings || 0) + ' reviews logged';
+                }
             } catch (err) {
                 console.error("Stats refresh error:", err);
             }

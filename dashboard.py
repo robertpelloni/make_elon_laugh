@@ -57,7 +57,15 @@ def get_version():
 
 def get_db_stats():
     """Fetches statistics from the SQLite database."""
-    stats = {"total_replies": 0, "total_likes": 0, "total_retweets": 0, "recent_replies": []}
+    stats = {
+        "total_replies": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "recent_replies": [],
+        "total_ratings": 0,
+        "positive_ratings": 0,
+        "approval_rate": 100
+    }
     db_path = db.DB_PATH
 
     if not os.path.exists(db_path):
@@ -84,6 +92,16 @@ def get_db_stats():
                 {"tweet_id": r[0], "replied_at": r[1], "likes": r[2], "retweets": r[3]}
                 for r in cursor.fetchall()
             ]
+
+            # Check if joke_ratings table exists before querying
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='joke_ratings'")
+            if cursor.fetchone():
+                cursor.execute("SELECT COUNT(*), SUM(CASE WHEN rating > 0 THEN 1 ELSE 0 END) FROM joke_ratings")
+                rating_row = cursor.fetchone()
+                if rating_row and rating_row[0]:
+                    stats["total_ratings"] = rating_row[0]
+                    stats["positive_ratings"] = rating_row[1] or 0
+                    stats["approval_rate"] = int((stats["positive_ratings"] / stats["total_ratings"]) * 100)
 
     except sqlite3.Error as e:
         app.logger.error(f"Database error: {e}")
@@ -113,6 +131,44 @@ def index():
         config=config_status,
         version=get_version()
     )
+
+
+@app.route('/api/ratings', methods=['GET', 'POST'])
+def api_ratings():
+    """
+    Submits an operator rating (+1 upvote or -1 downvote) or lists recent ratings.
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        content = data.get("content", "").strip()
+        rating = data.get("rating")
+        notes = data.get("notes", "").strip() or None
+
+        if not content:
+            return jsonify({"success": False, "error": "Content is required for rating."}), 400
+
+        try:
+            rating_val = int(rating)
+            if rating_val not in [1, -1]:
+                return jsonify({"success": False, "error": "Rating must be 1 (upvote) or -1 (downvote)."}), 400
+        except (TypeError, ValueError):
+            return jsonify({"success": False, "error": "Invalid rating format. Must be 1 or -1."}), 400
+
+        success = db.record_joke_rating(content, rating_val, notes=notes)
+        if success:
+            logging.info(f"Recorded {'upvote (+1)' if rating_val > 0 else 'downvote (-1)'} for content preview.")
+            return jsonify({
+                "success": True,
+                "message": "Rating recorded successfully.",
+                "stats": get_db_stats()
+            })
+        return jsonify({"success": False, "error": "Failed to record rating in database."}), 500
+
+    limit = request.args.get("limit", 10, type=int)
+    return jsonify({
+        "ratings": db.get_joke_ratings(limit=limit),
+        "stats": get_db_stats()
+    })
 
 
 @app.route('/api/persona', methods=['GET', 'POST'])

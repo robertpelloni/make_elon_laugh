@@ -9,6 +9,7 @@
 - [x] Verify visual rendering using Playwright end-to-end testing.
 - [x] Add dark/light UI theme switcher in dashboard settings with persistence and API support.
 - [x] Add multi-persona humor profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with live selector in dashboard.
+- [x] Add community joke rating and approval tracking system (+1/-1 votes, approval rate metric card, `/api/ratings`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

@@ -40,6 +40,17 @@ def init_db(db_path=DB_PATH):
                 cursor.execute("ALTER TABLE replied_tweets ADD COLUMN likes INTEGER DEFAULT 0")
                 cursor.execute("ALTER TABLE replied_tweets ADD COLUMN retweets INTEGER DEFAULT 0")
 
+            # Table for operator/community ratings and reviews on humor and facts
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS joke_ratings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content TEXT NOT NULL,
+                    rating INTEGER NOT NULL, -- 1 for upvote, -1 for downvote
+                    notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -94,4 +105,44 @@ def get_tweets_for_engagement_polling(limit=10, db_path=DB_PATH):
             return [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
         logger.error(f"Database error fetching tweets for engagement polling: {e}")
+        return []
+
+
+def record_joke_rating(content, rating, notes=None, db_path=DB_PATH):
+    """Records an operator or community rating (+1 or -1) for humor/fact content."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO joke_ratings (content, rating, notes) VALUES (?, ?, ?)",
+                (content.strip(), int(rating), notes.strip() if notes else None)
+            )
+            conn.commit()
+            return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error while recording joke rating: {e}")
+        return False
+
+
+def get_joke_ratings(limit=10, db_path=DB_PATH):
+    """Retrieves the most recent humor/fact ratings."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, content, rating, notes, created_at FROM joke_ratings ORDER BY id DESC LIMIT ?",
+                (limit,)
+            )
+            return [
+                {
+                    "id": r[0],
+                    "content": r[1],
+                    "rating": r[2],
+                    "notes": r[3],
+                    "created_at": r[4]
+                }
+                for r in cursor.fetchall()
+            ]
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching joke ratings: {e}")
         return []

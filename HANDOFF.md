@@ -3,7 +3,7 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.10.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.11.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
 1. **Consolidated Command Center Dashboard (v0.7.0)**:
@@ -27,10 +27,14 @@
    - Created `/api/persona` (GET/POST) in `dashboard.py` to allow live persona switching.
    - Integrated an interactive `<select>` persona dropdown in the Command Center dashboard with real-time feedback and tooltips.
    - Verified visually with Playwright and screenshot `/tmp/dashboard_persona_preview.png`.
-6. **Testing & QA**:
-   - 63 unit tests passing in `test_bot.py`.
+6. **Community Joke Rating & Review System (v0.11.0)**:
+   - Added `joke_ratings` table schema to SQLite database via `db.init_db()` migration, recording content, rating (+1/-1), and notes.
+   - Built `/api/ratings` (GET/POST) endpoints and integrated into `dashboard.get_db_stats()`.
+   - Wired interactive thumbs-up / thumbs-down buttons to sandbox previews and added "Humor Approval" hero metric card to Command Center dashboard.
+7. **Testing & QA**:
+   - 65 unit tests passing in `test_bot.py`.
    - `flake8 .` passes with 0 warnings.
-   - Test coverage tracked at 87%+.
+   - Test coverage tracked at 88%+.
 
 ## Running the Application
 - Bot Dry-Run: `python3 bot.py --dry-run`
