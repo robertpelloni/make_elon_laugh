@@ -26,6 +26,7 @@
 
 ## Phase 4: Autonomous Operations & Multi-Platform Syndication (Upcoming)
 *   [x] Automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`).
+*   [x] Automated digest external webhook dispatch engine (`webhook.py`, `/api/webhook`, Discord/Slack/Generic adapters).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
 *   [ ] Bluesky & Mastodon social federation syndication engine.
-*   [ ] Automated digest email/webhook delivery trigger.
+*   [ ] Automated recurring cron worker for weekly digest webhook broadcast.

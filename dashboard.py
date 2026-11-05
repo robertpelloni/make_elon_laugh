@@ -11,6 +11,7 @@ import db
 import digest
 import joke_generator
 import scheduler
+import webhook
 
 
 app = Flask(__name__)
@@ -467,6 +468,73 @@ def api_digest():
         "success": True,
         "format": "json",
         "digest": summary
+    })
+
+
+@app.route('/api/webhook', methods=['GET', 'POST'])
+def api_webhook():
+    """
+    Manages digest webhook delivery configuration and manual test dispatch.
+    GET: Returns current webhook configuration (masked URL).
+    POST: Updates webhook URL and adapter, or triggers a test dispatch.
+          Body: {
+            "webhook_url": "...",
+            "adapter": "slack|discord|generic",
+            "dispatch_now": true|false
+          }
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        new_url = data.get("webhook_url")
+        new_adapter = data.get("adapter")
+        dispatch_now = data.get("dispatch_now", False)
+
+        if new_url is not None:
+            webhook.DEFAULT_WEBHOOK_URL = new_url.strip()
+        if new_adapter is not None:
+            webhook.DEFAULT_ADAPTER = new_adapter.strip().lower()
+
+        if dispatch_now:
+            target_url = webhook.DEFAULT_WEBHOOK_URL
+            if not target_url:
+                return jsonify({"success": False, "error": "No webhook URL configured."}), 400
+
+            # Generate latest 7-day digest
+            summary = digest.generate_performance_digest(days=7)
+            payload = webhook.format_webhook_payload(summary, adapter=webhook.DEFAULT_ADAPTER)
+
+            success, status_or_err = webhook.dispatch_webhook(target_url, payload)
+            if success:
+                return jsonify({
+                    "success": True,
+                    "message": f"Webhook dispatched successfully (HTTP {status_or_err}).",
+                    "adapter": webhook.DEFAULT_ADAPTER
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": f"Webhook dispatch failed: {status_or_err}"
+                }), 502
+
+        return jsonify({
+            "success": True,
+            "message": "Webhook settings updated.",
+            "adapter": webhook.DEFAULT_ADAPTER
+        })
+
+    # GET: return masked URL for operator review
+    url = webhook.DEFAULT_WEBHOOK_URL
+    masked_url = ""
+    if url:
+        if len(url) > 16:
+            masked_url = url[:10] + "..." + url[-6:]
+        else:
+            masked_url = "***"
+
+    return jsonify({
+        "configured": bool(url),
+        "masked_url": masked_url,
+        "adapter": webhook.DEFAULT_ADAPTER
     })
 
 

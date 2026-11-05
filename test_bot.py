@@ -16,6 +16,8 @@ import digest
 import scheduler
 import tray
 import meme_generator
+import webhook
+import urllib.error
 
 
 class TestBotValidation(unittest.TestCase):
@@ -825,6 +827,86 @@ class TestPerformanceDigest(unittest.TestCase):
         self.assertTrue(data_md["success"])
         self.assertEqual(data_md["format"], "markdown")
         self.assertIn("Weekly Performance Digest", data_md["markdown"])
+
+
+class TestWebhookDispatcher(unittest.TestCase):
+    def setUp(self):
+        webhook.DEFAULT_WEBHOOK_URL = ""
+        webhook.DEFAULT_ADAPTER = "generic"
+
+    def test_webhook_payload_formatting_slack(self):
+        sample = {
+            "window_days": 7,
+            "replies": {"total_replies": 8, "total_likes": 32, "total_retweets": 12},
+            "ratings": {"approval_rate": 88.5, "top_humor": [{"content": "Quantum humor"}]},
+            "queue": {"sent": 4, "pending": 2}
+        }
+        payload = webhook.format_slack_payload(sample)
+        self.assertEqual(payload["text"], "Weekly Performance Digest")
+        self.assertGreater(len(payload["blocks"]), 1)
+        self.assertIn("Tactful Humor Bot", payload["blocks"][0]["text"]["text"])
+
+    def test_webhook_payload_formatting_discord(self):
+        sample = {
+            "window_days": 7,
+            "replies": {"total_replies": 5, "total_likes": 15, "total_retweets": 3},
+            "ratings": {"approval_rate": 100.0, "top_humor": []},
+            "queue": {"sent": 2, "pending": 1}
+        }
+        payload = webhook.format_discord_payload(sample)
+        self.assertIn("embeds", payload)
+        self.assertEqual(len(payload["embeds"]), 1)
+        self.assertIn("Tactful Humor Bot", payload["embeds"][0]["title"])
+
+    @patch('urllib.request.urlopen')
+    def test_webhook_dispatch_success_and_retry(self, mock_urlopen):
+        # Test success on first try
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        ok, status = webhook.dispatch_webhook("https://example.com/webhook", {"test": 123})
+        self.assertTrue(ok)
+        self.assertEqual(status, 200)
+
+        # Test retry failure
+        mock_urlopen.side_effect = urllib.error.URLError("Network down")
+        ok_fail, err = webhook.dispatch_webhook("https://example.com/webhook", {"test": 123}, max_retries=2)
+        self.assertFalse(ok_fail)
+        self.assertIn("Network down", err)
+
+    @patch('urllib.request.urlopen')
+    def test_api_webhook_endpoint(self, mock_urlopen):
+        client = dashboard.app.test_client()
+
+        # GET initially empty
+        res = client.get('/api/webhook')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertFalse(data["configured"])
+
+        # POST update URL and adapter
+        res_post = client.post('/api/webhook', json={
+            "webhook_url": "https://hooks.slack.com/services/T00/B00/XXXX",
+            "adapter": "slack"
+        })
+        self.assertEqual(res_post.status_code, 200)
+        self.assertTrue(res_post.get_json()["success"])
+
+        # GET should now report configured
+        res_after = client.get('/api/webhook')
+        data_after = res_after.get_json()
+        self.assertTrue(data_after["configured"])
+        self.assertEqual(data_after["adapter"], "slack")
+
+        # POST test dispatch with mock urlopen
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res_dispatch = client.post('/api/webhook', json={"dispatch_now": True})
+        self.assertEqual(res_dispatch.status_code, 200)
+        self.assertTrue(res_dispatch.get_json()["success"])
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):

@@ -777,6 +777,30 @@
                 </div>
             </div>
 
+            <!-- Webhook Dispatch & Alerts Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        📡 Automated Webhook Dispatch (Discord, Slack, Generic)
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Push weekly digest statistics to Slack channels, Discord webhooks, or generic reporting servers.</span>
+                        </div>
+                    </span>
+                    <span id="webhook-status-badge" class="status-badge warn" style="font-size: 0.75rem;">Not Configured</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 1; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <select id="webhook-adapter-select" style="font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                        <option value="generic">Generic JSON</option>
+                        <option value="discord">Discord Embed</option>
+                        <option value="slack">Slack Blocks</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="saveWebhookSettings()">Save URL</button>
+                    <button class="btn btn-primary btn-sm" onclick="triggerWebhookTest()">Test Dispatch</button>
+                </div>
+                <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
+            </div>
+
             <!-- Markdown preview modal / expander -->
             <div id="digest-md-container" style="display: none; margin-top: 1rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 8px; padding: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -1144,6 +1168,79 @@
             }
         }
 
+        async function fetchWebhookConfig() {
+            try {
+                const res = await fetch('/api/webhook');
+                const data = await res.json();
+                const badge = document.getElementById('webhook-status-badge');
+                const urlInput = document.getElementById('webhook-url-input');
+                const adapterSelect = document.getElementById('webhook-adapter-select');
+
+                if (data.adapter) adapterSelect.value = data.adapter;
+
+                if (data.configured) {
+                    badge.textContent = `Configured (${data.masked_url})`;
+                    badge.className = 'status-badge ok';
+                } else {
+                    badge.textContent = 'Not Configured';
+                    badge.className = 'status-badge warn';
+                }
+            } catch (err) {
+                console.error("Error loading webhook config:", err);
+            }
+        }
+
+        async function saveWebhookSettings() {
+            const url = document.getElementById('webhook-url-input').value.trim();
+            const adapter = document.getElementById('webhook-adapter-select').value;
+            const feedback = document.getElementById('webhook-feedback');
+
+            try {
+                const res = await fetch('/api/webhook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({webhook_url: url, adapter: adapter})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ Webhook settings saved successfully.";
+                    feedback.style.color = "var(--accent-success)";
+                    fetchWebhookConfig();
+                } else {
+                    feedback.textContent = "❌ Failed to save: " + (data.error || "Unknown error");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error saving: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
+        async function triggerWebhookTest() {
+            const feedback = document.getElementById('webhook-feedback');
+            feedback.textContent = "⏳ Transmitting digest payload to webhook...";
+            feedback.style.color = "var(--text-muted)";
+
+            try {
+                const res = await fetch('/api/webhook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({dispatch_now: true})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "🚀 " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Webhook dispatch failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error triggering webhook: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -1169,6 +1266,7 @@
         fetchLogs();
         fetchScheduledTweets();
         fetchPerformanceDigest();
+        fetchWebhookConfig();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

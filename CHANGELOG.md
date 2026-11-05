@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-11-05
+
+### Added
+- **Automated Digest Webhook Dispatcher (`webhook.py`)**: Supports automated and manual dispatch of performance digests to external webhook receivers with exponential backoff and jitter retry mechanics.
+- **Platform Payload Adapters**: Built-in support for Discord (`embeds`), Slack (`blocks`), and Generic JSON payload formats.
+- **Webhook Management REST API (`/api/webhook`)**: Added GET/POST endpoint in `dashboard.py` to inspect configured webhook URL (masked), update target endpoint and platform adapter, and trigger immediate test dispatches.
+- **Command Center Webhook Integration UI (`templates/index.html`)**: Added intuitive Webhook Dispatch & Alerts controls within the Weekly Performance Digest card featuring status pill indicators, adapter selectors, URL inputs, and one-click test execution.
+- **Unit Test Coverage**: Added 4 unit tests in `test_bot.py` covering Slack and Discord formatting adapters, mock network dispatch with retries, and `/api/webhook` REST interactions (76 unit tests passing, 88% overall test coverage).
+
 ## [0.14.0] - 2026-11-05
 
 ### Added
