@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-11-05
+
+### Added
+- **Weekly Visual Calendar Grid (`templates/index.html` & `dashboard.py`)**: Added a 7-day Monday–Sunday visual calendar planner strip showing pending scheduled tweet counts per day with day-of-week active indicators.
+- **Queue Status Metrics Pill**: Integrated real-time pending and sent counts directly into the Scheduled Tweet Queue card header (`X Pending / Y Sent`).
+- **Enhanced Schedule REST API**: `/api/schedule` GET endpoint now computes and returns `weekly_calendar` breakdown and comprehensive queue metrics (`pending`, `sent`, `cancelled`).
+- **Comprehensive Unit Tests**: Added unit tests in `test_bot.py` verifying `/api/schedule` returns `weekly_calendar` and queue metrics accurately.
+- **Playwright Frontend Visual Verification**: Captured full-page visual rendering confirming 7-day calendar planner layout and dynamic queue updates.
+
 ## [0.12.0] - 2026-11-05
 
 ### Added

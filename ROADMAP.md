@@ -22,3 +22,9 @@
 *   [x] Multi-Persona Humor Profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with tailored prompts.
 *   [x] Community Joke Rating & Review System (+1/-1 votes, approval rate metric card, `/api/ratings`).
 *   [x] Scheduled Tweet Queuing System (`scheduler.py`, `scheduled_tweets` schema, `/api/schedule`, and queue management UI).
+*   [x] Weekly Visual Calendar Planner & Queue Metrics Breakdown (`/api/schedule` weekly distribution and 7-day visual planner grid).
+
+## Phase 4: Autonomous Operations & Multi-Platform Syndication (Upcoming)
+*   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
+*   [ ] Bluesky & Mastodon social federation syndication engine.
+*   [ ] Automated weekly performance digest emailed or webhooked to operators.

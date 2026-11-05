@@ -3,10 +3,16 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.12.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.13.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
-1. **Scheduled Tweet Queue System (v0.12.0)**:
+1. **Weekly Visual Calendar Grid & Queue Metrics (v0.13.0)**:
+   - Designed and built a 7-day visual planner grid (`#calendar-grid`, Mon–Sun) directly integrated into the Scheduled Tweet Queue card.
+   - Added a live status badge (`#queue-metrics-badge`) detailing pending vs sent count aggregates.
+   - Updated `/api/schedule` in `dashboard.py` to dynamically compute `weekly_calendar` day distribution and queue `metrics`.
+   - Verified visually via Playwright headless screenshot (`/home/jules/verification/calendar_queue_clean.png`).
+   - Added test coverage in `test_bot.py` verifying `/api/schedule` weekly calendar breakdown.
+2. **Scheduled Tweet Queue System (v0.12.0)**:
    - Added `scheduler.py` handling autonomous queue polling, batch processing, and dispatching.
    - Migrated SQLite schema in `db.py` to add `scheduled_tweets` (`schedule_tweet`, `get_scheduled_tweets`, `update_scheduled_tweet_status`).
    - Implemented `/api/schedule` in `dashboard.py` supporting GET (queue retrieval), POST (delayed post scheduling with ISO/datetime parsing and persona tagging), and DELETE (cancelling pending items).

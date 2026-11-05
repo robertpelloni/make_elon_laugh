@@ -636,7 +636,13 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         # GET schedule
         get_res = self.client.get('/api/schedule')
         self.assertEqual(get_res.status_code, 200)
-        self.assertIn("scheduled_tweets", get_res.get_json())
+        data = get_res.get_json()
+        self.assertIn("scheduled_tweets", data)
+        self.assertIn("weekly_calendar", data)
+        self.assertIn("metrics", data)
+        self.assertIn("pending", data["metrics"])
+        self.assertIn("sent", data["metrics"])
+        self.assertIn("cancelled", data["metrics"])
 
         # POST valid schedule
         post_res = self.client.post('/api/schedule', json={
@@ -646,6 +652,12 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         })
         self.assertEqual(post_res.status_code, 200)
         tid = post_res.get_json()["id"]
+
+        # Verify weekly_calendar reflects the newly scheduled pending tweet
+        get_res_after = self.client.get('/api/schedule')
+        calendar_after = get_res_after.get_json()["weekly_calendar"]
+        # 2026-11-10 is a Tuesday
+        self.assertGreaterEqual(calendar_after.get("Tue", 0), 1)
 
         # POST missing fields
         bad_post = self.client.post('/api/schedule', json={"content": ""})

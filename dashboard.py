@@ -401,8 +401,42 @@ def api_schedule():
     # GET request
     status = request.args.get("status")
     limit = request.args.get("limit", 20, type=int)
+    tweets = db.get_scheduled_tweets(status=status, limit=limit)
+
+    # Compute calendar distribution across 7 days of current week (Monday=0 to Sunday=6)
+    calendar_breakdown = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
+    day_abbrs = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    total_pending = 0
+    total_sent = 0
+    total_cancelled = 0
+
+    all_recent = db.get_scheduled_tweets(limit=100)
+    for t in all_recent:
+        st = t.get("status", "pending")
+        if st == "pending":
+            total_pending += 1
+            # Add to day breakdown if parsable
+            try:
+                date_str = t.get("scheduled_time", "").split(" ")[0]
+                dt = time.strptime(date_str, "%Y-%m-%d")
+                weekday = day_abbrs[dt.tm_wday]
+                calendar_breakdown[weekday] += 1
+            except Exception:
+                pass
+        elif st == "sent":
+            total_sent += 1
+        elif st == "cancelled":
+            total_cancelled += 1
+
     return jsonify({
-        "scheduled_tweets": db.get_scheduled_tweets(status=status, limit=limit)
+        "scheduled_tweets": tweets,
+        "metrics": {
+            "pending": total_pending,
+            "sent": total_sent,
+            "cancelled": total_cancelled
+        },
+        "weekly_calendar": calendar_breakdown
     })
 
 

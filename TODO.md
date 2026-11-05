@@ -11,7 +11,9 @@
 - [x] Add multi-persona humor profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with live selector in dashboard.
 - [x] Add community joke rating and approval tracking system (+1/-1 votes, approval rate metric card, `/api/ratings`).
 - [x] Implement autonomous scheduled tweet queue (`scheduler.py`, `scheduled_tweets` table, `/api/schedule`, and queue management UI).
+- [x] Add weekly calendar visual view and queue metrics breakdown for scheduled tweets (`/api/schedule`, `#calendar-grid`, `#queue-metrics-badge`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Add weekly calendar visual view for scheduled tweets.
+- [ ] Drag-and-drop reschedule functionality across the weekly visual calendar.
+- [ ] Multi-image meme card attachments support in scheduled tweets.
