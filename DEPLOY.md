@@ -11,6 +11,9 @@
    ```bash
    cp .env.example .env
    # Edit .env with your Twitter API and OpenAI credentials
+   # Optional settings:
+   # BOT_PERSONA=tactful_engineer | witty_ai | deadpan_astronomer
+   # DASHBOARD_THEME=dark | light
    ```
 3. Run the complete service (Dashboard + Bot):
    ```bash

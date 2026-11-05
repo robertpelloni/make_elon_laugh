@@ -36,6 +36,9 @@ logging.getLogger().setLevel(logging.INFO)
 # Default system theme preference: "dark" or "light"
 CURRENT_THEME = os.environ.get("DASHBOARD_THEME", "dark")
 
+# Default persona preference
+CURRENT_PERSONA = os.environ.get("BOT_PERSONA", "tactful_engineer")
+
 # Initial startup log
 logging.info("Emperor Musk Bot Dashboard initialized and monitoring.")
 
@@ -112,6 +115,41 @@ def index():
     )
 
 
+@app.route('/api/persona', methods=['GET', 'POST'])
+def api_persona():
+    """
+    Retrieves or updates the active humor and content persona profile.
+    """
+    global CURRENT_PERSONA
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        persona = data.get("persona", "").lower().strip()
+        if persona in joke_generator.PERSONAS:
+            CURRENT_PERSONA = persona
+            os.environ["BOT_PERSONA"] = persona
+            logging.info(f"Bot humor persona switched to '{CURRENT_PERSONA}'.")
+            return jsonify({
+                "success": True,
+                "persona": CURRENT_PERSONA,
+                "details": joke_generator.PERSONAS[CURRENT_PERSONA]
+            })
+        return jsonify({
+            "success": False,
+            "error": f"Invalid persona. Choose from: {list(joke_generator.PERSONAS.keys())}"
+        }), 400
+
+    return jsonify({
+        "current_persona": CURRENT_PERSONA,
+        "personas": {
+            k: {
+                "display_name": v["display_name"],
+                "description": v["description"]
+            }
+            for k, v in joke_generator.PERSONAS.items()
+        }
+    })
+
+
 @app.route('/api/theme', methods=['GET', 'POST'])
 def api_theme():
     """
@@ -145,41 +183,42 @@ def api_logs():
 @app.route('/api/test-generate', methods=['POST'])
 def api_test_generate():
     """
-    Simulates content generation (joke or fact) with optional context tweet and sentiment evaluation.
+    Simulates content generation (joke or fact) with optional context tweet, sentiment evaluation, and persona.
     """
     data = request.get_json(silent=True) or {}
     context_tweet = data.get("context_tweet", "").strip() or None
     req_type = data.get("type", "auto").lower()
+    persona = data.get("persona", CURRENT_PERSONA).lower().strip()
+    pdata = joke_generator.get_persona(persona)
 
     if req_type == "joke":
         if context_tweet:
-            content = joke_generator.fetch_llm_content(context_tweet, "joke")
+            content = joke_generator.fetch_llm_content(context_tweet, "joke", persona=persona)
             if content is None and os.environ.get("OPENAI_API_KEY"):
                 # LLM filtered or returned SKIP
                 return jsonify({"skipped": True, "message": "Context detected as serious/tragic."})
             if not content:
-                content = random.choice(joke_generator.STATIC_JOKES)
+                content = random.choice(pdata["jokes"])
         else:
-            content = random.choice(joke_generator.STATIC_JOKES)
-        return jsonify({"content": content, "content_type": "joke", "skipped": False})
+            content = random.choice(pdata["jokes"])
+        return jsonify({"content": content, "content_type": "joke", "persona": persona, "skipped": False})
 
     elif req_type == "fact":
         if context_tweet:
-            content = joke_generator.fetch_llm_content(context_tweet, "fact")
+            content = joke_generator.fetch_llm_content(context_tweet, "fact", persona=persona)
             if content is None and os.environ.get("OPENAI_API_KEY"):
                 return jsonify({"skipped": True, "message": "Context detected as serious/tragic."})
             if not content:
-                content = random.choice(joke_generator.STATIC_FACTS)
+                content = random.choice(pdata["facts"])
         else:
-            content = random.choice(joke_generator.STATIC_FACTS)
-        return jsonify({"content": content, "content_type": "fact", "skipped": False})
+            content = random.choice(pdata["facts"])
+        return jsonify({"content": content, "content_type": "fact", "persona": persona, "skipped": False})
 
     else:
         # Auto content generation using joke_generator.generate_content
-        content = joke_generator.generate_content(context_tweet)
-        # Check if content matches static facts
-        ctype = "fact" if content in joke_generator.STATIC_FACTS else "joke"
-        return jsonify({"content": content, "content_type": ctype, "skipped": False})
+        content = joke_generator.generate_content(context_tweet, persona=persona)
+        ctype = "fact" if content in pdata["facts"] else "joke"
+        return jsonify({"content": content, "content_type": ctype, "persona": persona, "skipped": False})
 
 
 @app.route('/api/test-generate-meme', methods=['POST'])

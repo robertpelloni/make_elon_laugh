@@ -8,7 +8,8 @@
 - [x] Add automated test coverage and verification for dashboard endpoints, meme generator, and system tray.
 - [x] Verify visual rendering using Playwright end-to-end testing.
 - [x] Add dark/light UI theme switcher in dashboard settings with persistence and API support.
+- [x] Add multi-persona humor profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with live selector in dashboard.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Explore multi-agent tone profiles (e.g., Cynical AI vs. Earnest Rocket Scientist).
+- [ ] Automated scheduled tweet queuing and calendar planning.

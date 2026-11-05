@@ -19,3 +19,4 @@
 *   [x] Add interactive testing sandboxes and runtime target configuration to web dashboard.
 *   [x] Provide a cross-platform desktop system tray companion (`tray.py`).
 *   [x] Dynamic Theme Engine with Dark/Light mode switcher and persistent API state.
+*   [x] Multi-Persona Humor Profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with tailored prompts.

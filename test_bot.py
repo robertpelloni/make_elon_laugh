@@ -562,6 +562,32 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         self.assertEqual(bad_res.status_code, 400)
         self.assertFalse(bad_res.get_json()["success"])
 
+    def test_api_persona_get_and_post(self):
+        # GET current persona
+        get_res = self.client.get('/api/persona')
+        self.assertEqual(get_res.status_code, 200)
+        data = get_res.get_json()
+        self.assertIn("current_persona", data)
+        self.assertIn("personas", data)
+
+        # POST valid persona
+        post_res = self.client.post('/api/persona', json={"persona": "witty_ai"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["persona"], "witty_ai")
+
+        # POST invalid persona
+        bad_res = self.client.post('/api/persona', json={"persona": "non_existent_persona"})
+        self.assertEqual(bad_res.status_code, 400)
+        self.assertFalse(bad_res.get_json()["success"])
+
+    def test_joke_generator_personas(self):
+        # Verify all persona structures and content generation
+        for pkey in ["tactful_engineer", "witty_ai", "deadpan_astronomer"]:
+            content = joke_generator.generate_content(persona=pkey)
+            self.assertIsInstance(content, str)
+            self.assertTrue(len(content) > 0)
+
 
 class TestTrayCompanion(unittest.TestCase):
 

@@ -3,7 +3,7 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.9.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.10.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
 1. **Consolidated Command Center Dashboard (v0.7.0)**:
@@ -22,8 +22,13 @@
    - Added Dark/Light theme switching with CSS custom variables in `templates/index.html`.
    - Added persistence via browser `localStorage` and synchronized via `/api/theme` (GET/POST) in `dashboard.py`.
    - Verified visually via Playwright with screenshots in `/tmp/dashboard_light_theme.png`.
-5. **Testing & QA**:
-   - 61 unit tests passing in `test_bot.py`.
+5. **Multi-Persona Content Engine (v0.10.0)**:
+   - Added three distinct persona profiles: `tactful_engineer` (Tactful Rocket Scientist), `witty_ai` (Witty Cybernetic AI), and `deadpan_astronomer` (Deadpan Deep-Space Observer) in `joke_generator.py`.
+   - Created `/api/persona` (GET/POST) in `dashboard.py` to allow live persona switching.
+   - Integrated an interactive `<select>` persona dropdown in the Command Center dashboard with real-time feedback and tooltips.
+   - Verified visually with Playwright and screenshot `/tmp/dashboard_persona_preview.png`.
+6. **Testing & QA**:
+   - 63 unit tests passing in `test_bot.py`.
    - `flake8 .` passes with 0 warnings.
    - Test coverage tracked at 87%+.
 

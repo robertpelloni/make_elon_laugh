@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-11-05
+
+### Added
+- **Multi-Persona Humor Profiles (`joke_generator.py`)**: Added selectable personality styles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with tailored LLM system prompts and curated static humor and astrophysics collections.
+- **Persona Management REST API (`/api/persona`)**: GET/POST endpoints in `dashboard.py` allowing runtime querying and switching of active personas.
+- **Interactive Persona Selector UI (`templates/index.html`)**: Added a persona dropdown, descriptive tooltips, and dynamic preview updates inside the Command Center sandbox.
+- **Unit Testing**: Added test coverage in `test_bot.py` verifying persona retrieval, switching, and generation across all personas (63 unit tests passing, 0 flake8 errors).
+
 ## [0.9.0] - 2026-11-04
 
 ### Added
