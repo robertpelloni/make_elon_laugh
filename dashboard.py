@@ -9,6 +9,7 @@ from flask import Flask, jsonify, render_template, request
 
 import db
 import joke_generator
+import scheduler
 
 
 app = Flask(__name__)
@@ -350,6 +351,59 @@ def api_run_check():
     except Exception as e:
         logging.error(f"Error in dry-run check: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/schedule', methods=['GET', 'POST', 'DELETE'])
+def api_schedule():
+    """
+    Manages scheduled and queued tweets.
+    GET: Returns list of scheduled tweets.
+    POST: Enqueues a new scheduled tweet.
+    DELETE: Cancels a scheduled tweet by ID.
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        content = data.get("content", "").strip()
+        scheduled_time = data.get("scheduled_time", "").strip()
+        persona = data.get("persona", CURRENT_PERSONA).strip()
+
+        if not content:
+            return jsonify({"success": False, "error": "Content cannot be empty."}), 400
+        if not scheduled_time:
+            return jsonify({"success": False, "error": "Scheduled time is required (YYYY-MM-DD HH:MM)."}), 400
+
+        try:
+            tweet_id = scheduler.enqueue_scheduled_tweet(content, scheduled_time, persona=persona)
+            if tweet_id:
+                logging.info(f"Enqueued scheduled tweet ID {tweet_id} for {scheduled_time}.")
+                return jsonify({
+                    "success": True,
+                    "id": tweet_id,
+                    "message": "Tweet scheduled successfully.",
+                    "scheduled_tweets": db.get_scheduled_tweets(limit=10)
+                })
+            return jsonify({"success": False, "error": "Database error while enqueuing tweet."}), 500
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 400
+
+    elif request.method == 'DELETE':
+        data = request.get_json(silent=True) or {}
+        tweet_id = data.get("id")
+        if not tweet_id:
+            return jsonify({"success": False, "error": "Tweet ID is required for cancellation."}), 400
+
+        updated = db.update_scheduled_tweet_status(tweet_id, "cancelled")
+        if updated:
+            logging.info(f"Cancelled scheduled tweet ID {tweet_id}.")
+            return jsonify({"success": True, "message": f"Tweet {tweet_id} cancelled."})
+        return jsonify({"success": False, "error": f"Failed to cancel tweet {tweet_id}."}), 404
+
+    # GET request
+    status = request.args.get("status")
+    limit = request.args.get("limit", 20, type=int)
+    return jsonify({
+        "scheduled_tweets": db.get_scheduled_tweets(status=status, limit=limit)
+    })
 
 
 @app.route('/api/shutdown', methods=['POST'])

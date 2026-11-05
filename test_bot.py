@@ -12,6 +12,7 @@ import tweepy
 from joke_generator import generate_joke
 import joke_generator
 import dashboard
+import scheduler
 import tray
 import meme_generator
 
@@ -317,6 +318,22 @@ class TestDatabaseStorage(unittest.TestCase):
         self.assertEqual(ratings[1]["content"], "Hilarious joke!")
         self.assertEqual(ratings[1]["rating"], 1)
 
+    def test_scheduled_tweets_storage(self):
+        # Schedule tweet
+        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer", self.test_db)
+        self.assertIsNotNone(tid)
+
+        pending = db.get_scheduled_tweets(status="pending", limit=5, db_path=self.test_db)
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["content"], "Starship launch tomorrow!")
+        self.assertEqual(pending[0]["status"], "pending")
+
+        # Update status
+        updated = db.update_scheduled_tweet_status(tid, "sent", self.test_db)
+        self.assertTrue(updated)
+        sent = db.get_scheduled_tweets(status="sent", limit=5, db_path=self.test_db)
+        self.assertEqual(len(sent), 1)
+
     @patch('db.get_db_connection')
     def test_db_exceptions_handled_gracefully(self, mock_get_db):
         mock_get_db.side_effect = sqlite3.Error("Simulated DB error")
@@ -615,12 +632,78 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         bad_res2 = self.client.post('/api/ratings', json={"content": "Rocket", "rating": 5})
         self.assertEqual(bad_res2.status_code, 400)
 
+    def test_api_schedule_endpoints(self):
+        # GET schedule
+        get_res = self.client.get('/api/schedule')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("scheduled_tweets", get_res.get_json())
+
+        # POST valid schedule
+        post_res = self.client.post('/api/schedule', json={
+            "content": "Scheduled falcon flight test",
+            "scheduled_time": "2026-11-10 14:00:00",
+            "persona": "witty_ai"
+        })
+        self.assertEqual(post_res.status_code, 200)
+        tid = post_res.get_json()["id"]
+
+        # POST missing fields
+        bad_post = self.client.post('/api/schedule', json={"content": ""})
+        self.assertEqual(bad_post.status_code, 400)
+
+        # DELETE (cancel) schedule
+        del_res = self.client.delete('/api/schedule', json={"id": tid})
+        self.assertEqual(del_res.status_code, 200)
+
+        # DELETE non-existent schedule
+        bad_del = self.client.delete('/api/schedule', json={"id": 999999})
+        self.assertEqual(bad_del.status_code, 404)
+
     def test_joke_generator_personas(self):
         # Verify all persona structures and content generation
         for pkey in ["tactful_engineer", "witty_ai", "deadpan_astronomer"]:
             content = joke_generator.generate_content(persona=pkey)
             self.assertIsInstance(content, str)
             self.assertTrue(len(content) > 0)
+
+
+class TestSchedulerModule(unittest.TestCase):
+
+    def setUp(self):
+        self.test_db = "test_sched_data.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_enqueue_and_process_due_tweets(self):
+        # Empty content should raise ValueError
+        with self.assertRaises(ValueError):
+            scheduler.enqueue_scheduled_tweet("", "2026-01-01 00:00:00", db_path=self.test_db)
+
+        # Enqueue past due tweet
+        tid = scheduler.enqueue_scheduled_tweet(
+            "Due scheduled joke!",
+            "2020-01-01 00:00:00",
+            persona="tactful_engineer",
+            db_path=self.test_db
+        )
+        self.assertIsNotNone(tid)
+
+        due = scheduler.get_pending_due_tweets(db_path=self.test_db)
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0]["content"], "Due scheduled joke!")
+
+        # Process due tweets
+        processed = scheduler.process_due_tweets(dry_run=True, db_path=self.test_db)
+        self.assertEqual(processed, 1)
+
+        # Pending should now be 0
+        due_after = scheduler.get_pending_due_tweets(db_path=self.test_db)
+        self.assertEqual(len(due_after), 0)
 
 
 class TestTrayCompanion(unittest.TestCase):

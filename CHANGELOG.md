@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-11-05
+
+### Added
+- **Scheduled Tweet Queuing System (`scheduler.py`)**: Built an autonomous queue system supporting enqueuing tweets with custom personas, finding pending due tweets, and batch-dispatching them.
+- **Database Schema for Scheduled Tweets (`db.py`)**: Added `scheduled_tweets` table with automatic migration and functions (`schedule_tweet`, `get_scheduled_tweets`, `update_scheduled_tweet_status`).
+- **Schedule Management REST API (`/api/schedule`)**: Added endpoints in `dashboard.py` supporting GET (retrieving queue and historical items), POST (enqueuing new timed tweets with datetime and persona validation), and DELETE (cancelling pending items).
+- **Command Center Scheduled Tweet UI (`templates/index.html`)**: Added an interactive "Scheduled Tweet Queue" section featuring datetime picker, persona selection, quick queue preview, status badges, and one-click cancellation.
+- **Visual & Automated Verification**: Verified with Playwright visual testing and added unit tests in `test_bot.py` (68 unit tests passing, 87% coverage, 0 flake8 errors).
+
 ## [0.11.0] - 2026-11-05
 
 ### Added

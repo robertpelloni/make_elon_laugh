@@ -21,3 +21,4 @@
 *   [x] Dynamic Theme Engine with Dark/Light mode switcher and persistent API state.
 *   [x] Multi-Persona Humor Profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with tailored prompts.
 *   [x] Community Joke Rating & Review System (+1/-1 votes, approval rate metric card, `/api/ratings`).
+*   [x] Scheduled Tweet Queuing System (`scheduler.py`, `scheduled_tweets` schema, `/api/schedule`, and queue management UI).

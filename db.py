@@ -51,6 +51,18 @@ def init_db(db_path=DB_PATH):
                 )
             ''')
 
+            # Table for queued and scheduled tweets
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS scheduled_tweets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    content TEXT NOT NULL,
+                    scheduled_time TIMESTAMP NOT NULL,
+                    persona TEXT DEFAULT 'tactful_engineer',
+                    status TEXT DEFAULT 'pending', -- pending, sent, cancelled
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -161,3 +173,75 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
     except sqlite3.Error as e:
         logger.error(f"Database error fetching joke ratings: {e}")
         return []
+
+
+def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH):
+    """Enqueues a tweet/joke for automated future posting."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = "INSERT INTO scheduled_tweets (content, scheduled_time, persona, status) VALUES (?, ?, ?, 'pending')"
+            try:
+                cursor.execute(sql, (content.strip(), scheduled_time, persona))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, (content.strip(), scheduled_time, persona))
+            conn.commit()
+            return cursor.lastrowid
+    except sqlite3.Error as e:
+        logger.error(f"Database error while scheduling tweet: {e}")
+        return None
+
+
+def get_scheduled_tweets(status=None, limit=20, db_path=DB_PATH):
+    """Retrieves scheduled tweets filtered optionally by status."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                if status:
+                    cursor.execute(
+                        "SELECT id, content, scheduled_time, persona, status, created_at "
+                        "FROM scheduled_tweets WHERE status = ? ORDER BY scheduled_time ASC LIMIT ?",
+                        (status, limit)
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT id, content, scheduled_time, persona, status, created_at "
+                        "FROM scheduled_tweets ORDER BY scheduled_time DESC LIMIT ?",
+                        (limit,)
+                    )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return []
+
+            return [
+                {
+                    "id": r[0],
+                    "content": r[1],
+                    "scheduled_time": r[2],
+                    "persona": r[3],
+                    "status": r[4],
+                    "created_at": r[5]
+                }
+                for r in cursor.fetchall()
+            ]
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching scheduled tweets: {e}")
+        return []
+
+
+def update_scheduled_tweet_status(tweet_id, new_status, db_path=DB_PATH):
+    """Updates the status of a scheduled tweet (e.g., 'sent', 'cancelled')."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE scheduled_tweets SET status = ? WHERE id = ?",
+                (new_status, int(tweet_id))
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating scheduled tweet {tweet_id}: {e}")
+        return False

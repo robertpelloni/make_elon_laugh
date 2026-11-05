@@ -621,6 +621,44 @@
             </section>
         </div>
 
+        <!-- SCHEDULED TWEET QUEUE CARD -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📅 Scheduled Tweet Queue
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Queue upcoming humor tweets or astrophysics facts to post automatically at specific future times.</span>
+                    </div>
+                </span>
+                <span class="stat-sub">Automated Scheduling Engine</span>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <input type="text" id="sched-content" placeholder="Enter tweet content to schedule..." style="flex: 2; min-width: 260px;" />
+                <input type="datetime-local" id="sched-time" style="flex: 1; min-width: 200px;" />
+                <button type="button" class="btn btn-primary" onclick="scheduleTweet()" style="white-space: nowrap;">
+                    ➕ Queue Tweet
+                </button>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="sched-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Content</th>
+                            <th>Scheduled Time (UTC)</th>
+                            <th>Persona</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sched-tbody">
+                        <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- RECENT ACTIVITY TABLE -->
         <section class="card" style="margin-bottom: 1.5rem;">
             <div class="card-header">
@@ -869,6 +907,93 @@
             }
         }
 
+        async function fetchScheduledTweets() {
+            const tbody = document.getElementById('sched-tbody');
+            try {
+                const res = await fetch('/api/schedule');
+                const data = await res.json();
+                const list = data.scheduled_tweets || [];
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.map(t => `
+                    <tr>
+                        <td style="font-family: monospace;">#${t.id}</td>
+                        <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${t.content}</td>
+                        <td>${t.scheduled_time}</td>
+                        <td><span class="badge badge-subtle">${t.persona}</span></td>
+                        <td>
+                            <span class="badge ${t.status === 'sent' ? 'badge-success' : (t.status === 'pending' ? 'badge-warning' : 'badge-danger')}">
+                                ${t.status.toUpperCase()}
+                            </span>
+                        </td>
+                        <td>
+                            ${t.status === 'pending' ? `<button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;" onclick="cancelScheduledTweet(${t.id})">Cancel</button>` : '-'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching scheduled tweets:", err);
+            }
+        }
+
+        async function scheduleTweet() {
+            const contentInput = document.getElementById('sched-content');
+            const timeInput = document.getElementById('sched-time');
+            const content = contentInput.value.trim();
+            const timeVal = timeInput.value.trim();
+
+            if (!content) {
+                alert("Please enter tweet content to schedule.");
+                return;
+            }
+            if (!timeVal) {
+                alert("Please select a target date and time.");
+                return;
+            }
+
+            const formattedTime = timeVal.replace("T", " ") + ":00";
+            const persona = document.getElementById('persona-select').value;
+
+            try {
+                const res = await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    contentInput.value = '';
+                    fetchScheduledTweets();
+                    alert("Tweet queued successfully!");
+                } else {
+                    alert("Failed to schedule: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error scheduling tweet: " + err.message);
+            }
+        }
+
+        async function cancelScheduledTweet(id) {
+            if (!confirm(`Cancel scheduled tweet #${id}?`)) return;
+            try {
+                const res = await fetch('/api/schedule', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchScheduledTweets();
+                } else {
+                    alert("Failed to cancel: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error cancelling tweet: " + err.message);
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -884,12 +1009,14 @@
                 console.error("Stats refresh error:", err);
             }
             fetchLogs();
+            fetchScheduledTweets();
         }
 
         // Initialize on load
         initTheme();
         initPersona();
         fetchLogs();
+        fetchScheduledTweets();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

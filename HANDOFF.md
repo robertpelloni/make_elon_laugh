@@ -3,9 +3,15 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.11.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.12.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
+1. **Scheduled Tweet Queue System (v0.12.0)**:
+   - Added `scheduler.py` handling autonomous queue polling, batch processing, and dispatching.
+   - Migrated SQLite schema in `db.py` to add `scheduled_tweets` (`schedule_tweet`, `get_scheduled_tweets`, `update_scheduled_tweet_status`).
+   - Implemented `/api/schedule` in `dashboard.py` supporting GET (queue retrieval), POST (delayed post scheduling with ISO/datetime parsing and persona tagging), and DELETE (cancelling pending items).
+   - Added Scheduled Tweet Queue section in `templates/index.html` with interactive queue tables, datetime selector, status badges, and cancel controls.
+   - Tested and verified visually via Playwright (`/tmp/dashboard_schedule_preview.png`).
 1. **Consolidated Command Center Dashboard (v0.7.0)**:
    - Eliminated fragmented subpages; merged all operational functions, hero metrics, target account settings, sentiment analysis sandbox, and diagnostics logs into one unified page (`templates/index.html`).
    - Added tooltip markers (`?`) to all major metrics and controls to provide full operational guidance.
@@ -32,9 +38,9 @@
    - Built `/api/ratings` (GET/POST) endpoints and integrated into `dashboard.get_db_stats()`.
    - Wired interactive thumbs-up / thumbs-down buttons to sandbox previews and added "Humor Approval" hero metric card to Command Center dashboard.
 7. **Testing & QA**:
-   - 65 unit tests passing in `test_bot.py`.
+   - 68 unit tests passing in `test_bot.py`.
    - `flake8 .` passes with 0 warnings.
-   - Test coverage tracked at 88%+.
+   - Test coverage tracked at 87%+.
 
 ## Running the Application
 - Bot Dry-Run: `python3 bot.py --dry-run`

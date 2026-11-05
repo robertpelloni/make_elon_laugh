@@ -10,7 +10,8 @@
 - [x] Add dark/light UI theme switcher in dashboard settings with persistence and API support.
 - [x] Add multi-persona humor profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with live selector in dashboard.
 - [x] Add community joke rating and approval tracking system (+1/-1 votes, approval rate metric card, `/api/ratings`).
+- [x] Implement autonomous scheduled tweet queue (`scheduler.py`, `scheduled_tweets` table, `/api/schedule`, and queue management UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Automated scheduled tweet queuing and calendar planning.
+- [ ] Add weekly calendar visual view for scheduled tweets.
