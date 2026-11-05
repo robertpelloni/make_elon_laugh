@@ -1,12 +1,6 @@
-# Aggressive Expansion & Pivot Ideas
+# Creative Pivots & Ideas
 
-1. **Multi-Platform Syndication**:
-   - Port the tactful humor bot engine to Bluesky, Mastodon, and Threads with a unified multi-platform abstraction layer.
-2. **Visual Meme Generation Engine**:
-   - Generate automated space/engineering infographics and meme graphics dynamically using Pillow and post media attachments along with tweets.
-3. **Rust / Go High-Performance Micro-Daemon**:
-   - Re-architect the core polling and rate limiter loop into a lightweight native binary consuming minimal memory (<10MB) for ultra-low resource edge deployment.
-4. **Discord & Telegram Bot Integrations**:
-   - Mirror real-time replies and engagement alerts directly to private Discord or Telegram community channels.
-5. **Community Humor Voting System**:
-   - Integrate an upvote/downvote mechanism within the local dashboard for operators to score jokes before publishing.
+*   **Image Generation:** Instead of just text, use an AI image generator API to create a unique space/alien meme to attach to the joke.
+*   **Fact of the Day:** [Implemented] Alternate between jokes and real, interesting astrophysics facts.
+*   **The "Space Radio" Pivot:** Turn the bot into an account that posts links to actual space-ambient music tracks or psytrance (the original prompt idea but sanitized) without directly replying to anyone, just building a thematic account.
+*   **Sentiment Analysis:** [Implemented] Read the sentiment of the target's tweet. If it's a serious tweet, skip the joke.

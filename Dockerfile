@@ -18,10 +18,6 @@ COPY rate_limiter.py /app/
 COPY db.py /app/
 COPY analytics.py /app/
 COPY dashboard.py /app/
-COPY joke_generator.py /app/
-COPY meme_generator.py /app/
-COPY tray.py /app/
-COPY VERSION.md /app/
 COPY templates/ /app/templates/
 COPY start.sh /app/
 
