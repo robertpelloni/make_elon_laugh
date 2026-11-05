@@ -6,6 +6,7 @@ import os
 
 from rate_limiter import async_call_api_with_backoff
 import db
+import scheduler
 from auth import get_twitter_client
 from analytics import AnalyticsTracker
 from joke_generator import generate_content
@@ -136,6 +137,14 @@ async def main():
             count += 1
 
             try:
+                # Process any scheduled tweets that are due
+                try:
+                    processed_count = scheduler.process_due_tweets(dry_run=args.dry_run)
+                    if processed_count > 0:
+                        logging.info(f"Dispatched {processed_count} scheduled tweet(s).")
+                except Exception as sched_err:
+                    logging.error(f"Error processing scheduled tweets: {sched_err}")
+
                 # Update engagement metrics for past replies before polling for new ones
                 if not args.dry_run:
                     await async_update_engagement_metrics(client)

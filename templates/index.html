@@ -118,10 +118,89 @@
             <p>System Diagnostics & Analytics</p>
         </div>
 
-        <div class="card-grid">
-            <!-- Analytics Card -->
-            <div class="card">
-                <h2>Total Replies
+        <!-- SCHEDULED TWEET QUEUE & WEEKLY CALENDAR CARD -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📅 Scheduled Tweet Queue & Visual Calendar
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Queue upcoming humor tweets or astrophysics facts to post automatically at specific future times. Visual calendar maps scheduled distribution across the week.</span>
+                    </div>
+                </span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <span id="queue-metrics-badge" class="status-badge ok" style="font-size: 0.75rem;">0 Pending</span>
+                    <span class="stat-sub">Automated Scheduling Engine</span>
+                </div>
+            </div>
+
+            <!-- Visual 7-day Calendar Strip -->
+            <div style="margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Weekly Post Distribution (Mon-Sun):</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Active Schedule Planner</span>
+                </div>
+                <div id="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; text-align: center;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Mon</div>
+                        <div id="cal-Mon" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Tue</div>
+                        <div id="cal-Tue" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Wed</div>
+                        <div id="cal-Wed" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Thu</div>
+                        <div id="cal-Thu" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Fri</div>
+                        <div id="cal-Fri" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Sat</div>
+                        <div id="cal-Sat" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Sun</div>
+                        <div id="cal-Sun" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <input type="text" id="sched-content" placeholder="Enter tweet content to schedule..." style="flex: 2; min-width: 260px;" />
+                <input type="datetime-local" id="sched-time" style="flex: 1; min-width: 200px;" />
+                <button type="button" class="btn btn-primary" onclick="scheduleTweet()" style="white-space: nowrap;">
+                    ➕ Queue Tweet
+                </button>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table id="sched-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Content</th>
+                            <th>Scheduled Time (UTC)</th>
+                            <th>Persona</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sched-tbody">
+                        <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- RECENT ACTIVITY TABLE -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📜 Verified Reply History
                     <div class="tooltip"><span class="tooltip-icon">?</span>
                       <span class="tooltiptext">The total number of tweets successfully replied to and logged in the SQLite database.</span>
                     </div>
@@ -130,9 +209,57 @@
                 <p style="color: #8899a6; font-size: 0.9rem;">Historical replies tracked across all sessions.</p>
             </div>
 
-            <!-- Engagement Card -->
-            <div class="card">
-                <h2>Total Engagement
+        <!-- WEEKLY PERFORMANCE DIGEST CARD -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📊 Weekly Performance Digest & Insights
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Rolling 7-day performance analytics across bot replies, engagement, scheduled operations, and community approval.</span>
+                    </div>
+                </span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="Export Markdown summary">Export Markdown</button>
+                    <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">7-Day Replies</div>
+                    <div id="digest-replies" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">0</div>
+                    <div id="digest-engagement-rate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 avg likes/reply</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Engagement Total</div>
+                    <div id="digest-likes-rts" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-heart);">0 ❤️ / 0 🔁</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Public metric polling</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Queue Dispatches</div>
+                    <div id="digest-queue-sent" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">0 Dispatched</div>
+                    <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
+                    <div id="digest-approval" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">100%</div>
+                    <div id="digest-ratings-breakdown" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 ratings evaluated</div>
+                </div>
+            </div>
+
+            <!-- Markdown preview modal / expander -->
+            <div id="digest-md-container" style="display: none; margin-top: 1rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; font-size: 0.9rem;">Markdown Performance Report</span>
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('digest-md-container').style.display='none'">Close</button>
+                </div>
+                <textarea id="digest-md-text" style="width: 100%; height: 160px; font-family: monospace; font-size: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); padding: 0.5rem;" readonly></textarea>
+            </div>
+        </section>
+
+        <!-- LIVE LOGS & EXECUTION VIEWER -->
+        <section class="card">
+            <div class="card-header">
+                <span class="card-title">📟 Live Execution Logs & Diagnostics
                     <div class="tooltip"><span class="tooltip-icon">?</span>
                       <span class="tooltiptext">Cumulative likes and retweets gathered by the bot's replies.</span>
                     </div>
@@ -203,5 +330,374 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+        // Theme initialization and toggle
+        function initTheme() {
+            const saved = localStorage.getItem('bot_dashboard_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('bot_dashboard_theme', next);
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({theme: next})
+            }).catch(e => console.log('Theme sync error', e));
+        }
+
+        async function fetchLogs() {
+            const terminal = document.getElementById('log-terminal');
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                if (data.logs && data.logs.length > 0) {
+                    terminal.textContent = data.logs.join('\n');
+                } else {
+                    terminal.textContent = "No log records currently available.";
+                }
+                terminal.scrollTop = terminal.scrollHeight;
+            } catch (err) {
+                terminal.textContent = "Error fetching logs: " + err.message;
+            }
+        }
+
+        async function changePersona(persona) {
+            try {
+                const res = await fetch('/api/persona', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchLogs();
+                }
+            } catch (e) {
+                console.error("Failed to update persona", e);
+            }
+        }
+
+        async function initPersona() {
+            try {
+                const res = await fetch('/api/persona');
+                const data = await res.json();
+                if (data.current_persona) {
+                    document.getElementById('persona-select').value = data.current_persona;
+                }
+            } catch (e) {
+                console.error("Error fetching persona", e);
+            }
+        }
+
+        let lastGeneratedText = "";
+
+        async function ratePreview(ratingVal) {
+            if (!lastGeneratedText) return;
+            try {
+                const res = await fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: lastGeneratedText, rating: ratingVal})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const tag = ratingVal > 0 ? "👍 Upvoted!" : "👎 Downvoted!";
+                    document.getElementById('rating-controls').innerHTML = `<span style="color: var(--success); font-size: 0.85rem; font-weight: bold;">${tag}</span>`;
+                    refreshAll();
+                }
+            } catch (e) {
+                console.error("Error submitting rating", e);
+            }
+        }
+
+        async function testGeneration(type = 'auto') {
+            const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            const ratingControls = document.getElementById('rating-controls');
+            ratingControls.style.display = 'none';
+            memeImg.style.display = 'none';
+            const tweetText = document.getElementById('sample-tweet').value;
+            const persona = document.getElementById('persona-select').value;
+            preview.textContent = "Generating content...";
+            try {
+                const res = await fetch('/api/test-generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({context_tweet: tweetText, type: type, persona: persona})
+                });
+                const data = await res.json();
+                if (data.skipped) {
+                    preview.innerHTML = `<span style="color: var(--accent-warning);">⚠️ Filter Triggered: Content generation SKIPPED because context was detected as serious/tragic.</span>`;
+                } else if (data.content) {
+                    lastGeneratedText = data.content;
+                    preview.innerHTML = `<strong>${data.content}</strong><br><small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">Persona: ${data.persona || persona} | Type: ${data.content_type} | Length: ${data.content.length} chars (within 280 char limit)</small>`;
+                    ratingControls.innerHTML = `
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                    `;
+                    ratingControls.style.display = 'flex';
+                } else {
+                    preview.textContent = data.error || "No content generated.";
+                }
+            } catch (err) {
+                preview.textContent = "Request failed: " + err.message;
+            }
+        }
+
+        async function testMemeCard() {
+            const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            preview.textContent = "Generating visual meme card...";
+            try {
+                const tweetText = document.getElementById('sample-tweet').value;
+                const res = await fetch('/api/test-generate-meme', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: tweetText})
+                });
+                const data = await res.json();
+                if (data.success && data.image_b64) {
+                    preview.innerHTML = `<strong>${data.text}</strong><br><small style="color: var(--accent-retweet);">Visual card rendered successfully!</small>`;
+                    memeImg.src = "data:image/png;base64," + data.image_b64;
+                    memeImg.style.display = 'block';
+                } else {
+                    preview.textContent = data.error || "Failed to generate meme card.";
+                }
+            } catch (err) {
+                preview.textContent = "Meme card generation error: " + err.message;
+            }
+        }
+
+        async function saveConfig() {
+            const targetIds = document.getElementById('target-ids').value;
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({target_user_ids: targetIds})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Configuration updated successfully! Active targets: " + data.target_user_ids);
+                } else {
+                    alert("Error: " + (data.error || "Could not update configuration"));
+                }
+            } catch (err) {
+                alert("Failed to save config: " + err.message);
+            }
+        }
+
+        async function triggerRunCheck() {
+            const btn = document.getElementById('btn-run-check');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ Simulating...";
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/run-check', {method: 'POST'});
+                const data = await res.json();
+                alert(data.message || "Dry-run check completed successfully!");
+                refreshAll();
+            } catch (err) {
+                alert("Dry-run error: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function confirmShutdown() {
+            if (confirm("Are you sure you want to stop the Emperor Musk Bot servers?")) {
+                try {
+                    const res = await fetch('/api/shutdown', {method: 'POST'});
+                    const data = await res.json();
+                    alert(data.message || "Servers shutting down.");
+                } catch (err) {
+                    alert("Server shutdown requested: " + err.message);
+                }
+            }
+        }
+
+        async function fetchScheduledTweets() {
+            const tbody = document.getElementById('sched-tbody');
+            const metricsBadge = document.getElementById('queue-metrics-badge');
+            try {
+                const res = await fetch('/api/schedule');
+                const data = await res.json();
+                const list = data.scheduled_tweets || [];
+
+                // Update calendar numbers
+                if (data.weekly_calendar) {
+                    for (const [day, count] of Object.entries(data.weekly_calendar)) {
+                        const el = document.getElementById(`cal-${day}`);
+                        if (el) el.textContent = count;
+                    }
+                }
+
+                // Update metrics badge
+                if (data.metrics && metricsBadge) {
+                    metricsBadge.textContent = `${data.metrics.pending || 0} Pending / ${data.metrics.sent || 0} Sent`;
+                }
+
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
+                    return;
+                }
+                function escapeHtml(str) {
+                    if (!str) return '';
+                    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+                }
+                tbody.innerHTML = list.map(t => `
+                    <tr>
+                        <td style="font-family: monospace;">#${escapeHtml(String(t.id))}</td>
+                        <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
+                        <td>${escapeHtml(t.scheduled_time)}</td>
+                        <td><span class="status-badge ok" style="font-size: 0.75rem;">${escapeHtml(t.persona)}</span></td>
+                        <td>
+                            <span class="status-badge ${t.status === 'sent' ? 'ok' : (t.status === 'pending' ? 'warn' : 'alert')}">
+                                ${escapeHtml(t.status.toUpperCase())}
+                            </span>
+                        </td>
+                        <td>
+                            ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="cancelScheduledTweet(${escapeHtml(String(t.id))})">Cancel</button>` : '-'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching scheduled tweets:", err);
+            }
+        }
+
+        async function scheduleTweet() {
+            const contentInput = document.getElementById('sched-content');
+            const timeInput = document.getElementById('sched-time');
+            const content = contentInput.value.trim();
+            const timeVal = timeInput.value.trim();
+
+            if (!content) {
+                alert("Please enter tweet content to schedule.");
+                return;
+            }
+            if (!timeVal) {
+                alert("Please select a target date and time.");
+                return;
+            }
+
+            const formattedTime = timeVal.replace("T", " ") + ":00";
+            const persona = document.getElementById('persona-select').value;
+
+            try {
+                const res = await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    contentInput.value = '';
+                    fetchScheduledTweets();
+                    alert("Tweet queued successfully!");
+                } else {
+                    alert("Failed to schedule: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error scheduling tweet: " + err.message);
+            }
+        }
+
+        async function cancelScheduledTweet(id) {
+            if (!confirm(`Cancel scheduled tweet #${id}?`)) return;
+            try {
+                const res = await fetch('/api/schedule', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: id})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchScheduledTweets();
+                } else {
+                    alert("Failed to cancel: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error cancelling tweet: " + err.message);
+            }
+        }
+
+        async function fetchPerformanceDigest() {
+            try {
+                const res = await fetch('/api/digest');
+                const data = await res.json();
+                if (data.success && data.digest) {
+                    const d = data.digest;
+                    document.getElementById('digest-replies').textContent = d.replies.total_replies || 0;
+                    document.getElementById('digest-engagement-rate').textContent = `${d.replies.avg_likes_per_reply || 0} avg likes/reply`;
+                    document.getElementById('digest-likes-rts').textContent = `${d.replies.total_likes || 0} ❤️ / ${d.replies.total_retweets || 0} 🔁`;
+                    document.getElementById('digest-queue-sent').textContent = `${d.queue.sent || 0} Dispatched`;
+
+                    const personaKeys = Object.keys(d.queue.persona_distribution || {});
+                    const personaStr = personaKeys.length > 0
+                        ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
+                        : 'None';
+                    document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
+                    document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;
+                }
+            } catch (err) {
+                console.error("Performance digest fetch error:", err);
+            }
+        }
+
+        async function exportDigestMarkdown() {
+            try {
+                const res = await fetch('/api/digest?format=markdown');
+                const data = await res.json();
+                if (data.success && data.markdown) {
+                    const container = document.getElementById('digest-md-container');
+                    const textarea = document.getElementById('digest-md-text');
+                    textarea.value = data.markdown;
+                    container.style.display = 'block';
+                    textarea.select();
+                } else {
+                    alert("Failed to generate Markdown report.");
+                }
+            } catch (err) {
+                alert("Error exporting digest: " + err.message);
+            }
+        }
+
+        async function refreshAll() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-replies').textContent = data.total_replies;
+                document.getElementById('stat-likes').textContent = data.total_likes;
+                document.getElementById('stat-retweets').textContent = data.total_retweets;
+                if (document.getElementById('stat-approval')) {
+                    document.getElementById('stat-approval').textContent = (data.approval_rate || 100) + '%';
+                    document.getElementById('stat-ratings-sub').textContent = (data.total_ratings || 0) + ' reviews logged';
+                }
+            } catch (err) {
+                console.error("Stats refresh error:", err);
+            }
+            fetchLogs();
+            fetchScheduledTweets();
+            fetchPerformanceDigest();
+        }
+
+        // Initialize on load
+        initTheme();
+        initPersona();
+        fetchLogs();
+        fetchScheduledTweets();
+        fetchPerformanceDigest();
+        setInterval(fetchLogs, 10000);
+    </script>
 </body>
 </html>

@@ -11,6 +11,11 @@ from analytics import AnalyticsTracker
 import tweepy
 from joke_generator import generate_joke
 import joke_generator
+import dashboard
+import digest
+import scheduler
+import tray
+import meme_generator
 
 
 class TestBotValidation(unittest.TestCase):
@@ -343,6 +348,36 @@ class TestDatabaseStorage(unittest.TestCase):
         self.assertIn("222", tweets)
         self.assertEqual(len(tweets), 2)
 
+    def test_joke_ratings_storage(self):
+        # Test recording ratings
+        success_up = db.record_joke_rating("Hilarious joke!", 1, "great timing", self.test_db)
+        self.assertTrue(success_up)
+        success_down = db.record_joke_rating("Lame pun", -1, None, self.test_db)
+        self.assertTrue(success_down)
+
+        ratings = db.get_joke_ratings(limit=5, db_path=self.test_db)
+        self.assertEqual(len(ratings), 2)
+        self.assertEqual(ratings[0]["content"], "Lame pun")
+        self.assertEqual(ratings[0]["rating"], -1)
+        self.assertEqual(ratings[1]["content"], "Hilarious joke!")
+        self.assertEqual(ratings[1]["rating"], 1)
+
+    def test_scheduled_tweets_storage(self):
+        # Schedule tweet
+        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer", self.test_db)
+        self.assertIsNotNone(tid)
+
+        pending = db.get_scheduled_tweets(status="pending", limit=5, db_path=self.test_db)
+        self.assertEqual(len(pending), 1)
+        self.assertEqual(pending[0]["content"], "Starship launch tomorrow!")
+        self.assertEqual(pending[0]["status"], "pending")
+
+        # Update status
+        updated = db.update_scheduled_tweet_status(tid, "sent", self.test_db)
+        self.assertTrue(updated)
+        sent = db.get_scheduled_tweets(status="sent", limit=5, db_path=self.test_db)
+        self.assertEqual(len(sent), 1)
+
     @patch('db.get_db_connection')
     def test_db_exceptions_handled_gracefully(self, mock_get_db):
         # Simulate an SQLite error to ensure the fail-safe works
@@ -447,6 +482,406 @@ class TestJokeGenerator(unittest.TestCase):
         joke = generate_joke("Test context")
         self.assertIsInstance(joke, str)
         self.assertTrue(joke in joke_generator.STATIC_JOKES or joke in joke_generator.STATIC_FACTS)
+
+
+class TestMemeGenerator(unittest.TestCase):
+
+    def test_create_meme_card_valid(self):
+        # Must return valid PNG bytes
+        img_bytes = meme_generator.create_meme_card("This is a test joke card! 🚀")
+        self.assertIsInstance(img_bytes, bytes)
+        self.assertTrue(len(img_bytes) > 0)
+        # PNG signature check: \x89PNG\r\n\x1a\n
+        self.assertTrue(img_bytes.startswith(b'\x89PNG\r\n\x1a\n'))
+
+    def test_create_meme_card_empty_or_invalid(self):
+        # Empty string or non-string should fall back cleanly
+        img_bytes = meme_generator.create_meme_card("")
+        self.assertTrue(img_bytes.startswith(b'\x89PNG\r\n\x1a\n'))
+        img_bytes_none = meme_generator.create_meme_card(None)
+        self.assertTrue(img_bytes_none.startswith(b'\x89PNG\r\n\x1a\n'))
+
+
+class TestDashboardAndEndpoints(unittest.TestCase):
+
+    def setUp(self):
+        db.init_db()
+        dashboard.app.config['TESTING'] = True
+        self.client = dashboard.app.test_client()
+
+    def test_index_route(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Emperor Musk Bot", response.data)
+        self.assertIn(b"Command Center", response.data)
+
+    def test_api_stats_route(self):
+        response = self.client.get('/api/stats')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("total_replies", data)
+        self.assertIn("total_likes", data)
+        self.assertIn("total_retweets", data)
+
+    def test_api_logs_route(self):
+        response = self.client.get('/api/logs')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("logs", data)
+        self.assertIsInstance(data["logs"], list)
+
+    def test_api_test_generate_joke(self):
+        response = self.client.post(
+            '/api/test-generate',
+            json={"type": "joke"}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("content", data)
+        self.assertEqual(data["content_type"], "joke")
+
+    def test_api_test_generate_fact(self):
+        response = self.client.post(
+            '/api/test-generate',
+            json={"type": "fact"}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("content", data)
+        self.assertEqual(data["content_type"], "fact")
+
+    def test_api_test_generate_auto(self):
+        response = self.client.post(
+            '/api/test-generate',
+            json={"type": "auto"}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertIn("content", data)
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "fake_key"})
+    @patch('joke_generator.openai.OpenAI')
+    def test_api_test_generate_sentiment_skip(self, mock_openai_class):
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="SKIP"))]
+        mock_client.chat.completions.create.return_value = mock_response
+
+        response = self.client.post(
+            '/api/test-generate',
+            json={"context_tweet": "Tragic event occurred", "type": "joke"}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data.get("skipped"))
+
+    def test_api_test_generate_meme_endpoint(self):
+        response = self.client.post(
+            '/api/test-generate-meme',
+            json={"text": "Custom test joke 🛸"}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["text"], "Custom test joke 🛸")
+        self.assertIn("image_b64", data)
+        self.assertTrue(len(data["image_b64"]) > 0)
+
+    def test_api_config_get_and_post(self):
+        get_res = self.client.get('/api/config')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("target_user_ids", get_res.get_json())
+
+        # Update targets
+        post_res = self.client.post(
+            '/api/config',
+            json={"target_user_ids": "12345, 67890"}
+        )
+        self.assertEqual(post_res.status_code, 200)
+        self.assertEqual(post_res.get_json()["target_user_ids"], "12345,67890")
+
+        # Invalid post
+        err_res = self.client.post('/api/config', json={"target_user_ids": "   "})
+        self.assertEqual(err_res.status_code, 400)
+
+    @patch('db.init_db')
+    @patch('db.record_reply')
+    @patch('db.update_engagement')
+    def test_api_run_check_success(self, mock_update, mock_record, mock_init):
+        response = self.client.post('/api/run-check')
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("tweet_id", data)
+
+    @patch('db.init_db')
+    def test_api_run_check_failure(self, mock_init):
+        mock_init.side_effect = Exception("DB Init Error")
+        response = self.client.post('/api/run-check')
+        self.assertEqual(response.status_code, 500)
+        self.assertFalse(response.get_json()["success"])
+
+    @patch('threading.Thread')
+    def test_api_shutdown(self, mock_thread):
+        response = self.client.post('/api/shutdown')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.get_json()["success"])
+        self.assertTrue(mock_thread.called)
+
+    def test_api_theme_get_and_post(self):
+        # GET default
+        get_res = self.client.get('/api/theme')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("theme", get_res.get_json())
+
+        # POST valid theme: light
+        post_res = self.client.post('/api/theme', json={"theme": "light"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["theme"], "light")
+
+        # POST valid theme: dark
+        post_res = self.client.post('/api/theme', json={"theme": "dark"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["theme"], "dark")
+
+        # POST invalid theme
+        bad_res = self.client.post('/api/theme', json={"theme": "neon-rainbow"})
+        self.assertEqual(bad_res.status_code, 400)
+        self.assertFalse(bad_res.get_json()["success"])
+
+    def test_api_persona_get_and_post(self):
+        # GET current persona
+        get_res = self.client.get('/api/persona')
+        self.assertEqual(get_res.status_code, 200)
+        data = get_res.get_json()
+        self.assertIn("current_persona", data)
+        self.assertIn("personas", data)
+
+        # POST valid persona
+        post_res = self.client.post('/api/persona', json={"persona": "witty_ai"})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+        self.assertEqual(post_res.get_json()["persona"], "witty_ai")
+
+        # POST invalid persona
+        bad_res = self.client.post('/api/persona', json={"persona": "non_existent_persona"})
+        self.assertEqual(bad_res.status_code, 400)
+        self.assertFalse(bad_res.get_json()["success"])
+
+    def test_api_ratings_endpoints(self):
+        # GET ratings
+        get_res = self.client.get('/api/ratings')
+        self.assertEqual(get_res.status_code, 200)
+        self.assertIn("ratings", get_res.get_json())
+
+        # POST valid rating
+        post_res = self.client.post('/api/ratings', json={"content": "Rocket test", "rating": 1})
+        self.assertEqual(post_res.status_code, 200)
+        self.assertTrue(post_res.get_json()["success"])
+
+        # POST missing content
+        bad_res1 = self.client.post('/api/ratings', json={"rating": 1})
+        self.assertEqual(bad_res1.status_code, 400)
+
+        # POST invalid rating value
+        bad_res2 = self.client.post('/api/ratings', json={"content": "Rocket", "rating": 5})
+        self.assertEqual(bad_res2.status_code, 400)
+
+    def test_api_schedule_endpoints(self):
+        # GET schedule
+        get_res = self.client.get('/api/schedule')
+        self.assertEqual(get_res.status_code, 200)
+        data = get_res.get_json()
+        self.assertIn("scheduled_tweets", data)
+        self.assertIn("weekly_calendar", data)
+        self.assertIn("metrics", data)
+        self.assertIn("pending", data["metrics"])
+        self.assertIn("sent", data["metrics"])
+        self.assertIn("cancelled", data["metrics"])
+
+        # POST valid schedule
+        post_res = self.client.post('/api/schedule', json={
+            "content": "Scheduled falcon flight test",
+            "scheduled_time": "2026-11-10 14:00:00",
+            "persona": "witty_ai"
+        })
+        self.assertEqual(post_res.status_code, 200)
+        tid = post_res.get_json()["id"]
+
+        # Verify weekly_calendar reflects the newly scheduled pending tweet
+        get_res_after = self.client.get('/api/schedule')
+        calendar_after = get_res_after.get_json()["weekly_calendar"]
+        # 2026-11-10 is a Tuesday
+        self.assertGreaterEqual(calendar_after.get("Tue", 0), 1)
+
+        # POST missing fields
+        bad_post = self.client.post('/api/schedule', json={"content": ""})
+        self.assertEqual(bad_post.status_code, 400)
+
+        # DELETE (cancel) schedule
+        del_res = self.client.delete('/api/schedule', json={"id": tid})
+        self.assertEqual(del_res.status_code, 200)
+
+        # DELETE non-existent schedule
+        bad_del = self.client.delete('/api/schedule', json={"id": 999999})
+        self.assertEqual(bad_del.status_code, 404)
+
+    def test_joke_generator_personas(self):
+        # Verify all persona structures and content generation
+        for pkey in ["tactful_engineer", "witty_ai", "deadpan_astronomer"]:
+            content = joke_generator.generate_content(persona=pkey)
+            self.assertIsInstance(content, str)
+            self.assertTrue(len(content) > 0)
+
+
+class TestSchedulerModule(unittest.TestCase):
+
+    def setUp(self):
+        self.test_db = "test_sched_data.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_enqueue_and_process_due_tweets(self):
+        # Empty content should raise ValueError
+        with self.assertRaises(ValueError):
+            scheduler.enqueue_scheduled_tweet("", "2026-01-01 00:00:00", db_path=self.test_db)
+
+        # Enqueue past due tweet
+        tid = scheduler.enqueue_scheduled_tweet(
+            "Due scheduled joke!",
+            "2020-01-01 00:00:00",
+            persona="tactful_engineer",
+            db_path=self.test_db
+        )
+        self.assertIsNotNone(tid)
+
+        due = scheduler.get_pending_due_tweets(db_path=self.test_db)
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0]["content"], "Due scheduled joke!")
+
+        # Process due tweets
+        processed = scheduler.process_due_tweets(dry_run=True, db_path=self.test_db)
+        self.assertEqual(processed, 1)
+
+        # Pending should now be 0
+        due_after = scheduler.get_pending_due_tweets(db_path=self.test_db)
+        self.assertEqual(len(due_after), 0)
+
+
+class TestTrayCompanion(unittest.TestCase):
+
+    def test_generate_tray_icon_image(self):
+        img = tray.generate_tray_icon_image()
+        self.assertIsNotNone(img)
+        self.assertEqual(img.size, (64, 64))
+
+    @patch('webbrowser.open')
+    def test_open_dashboard(self, mock_browser):
+        tray.open_dashboard()
+        mock_browser.assert_called_with("http://localhost:5000")
+
+    @patch('urllib.request.urlopen')
+    def test_trigger_check(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = b'{"success": true}'
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        tray.trigger_check()
+        self.assertTrue(mock_urlopen.called)
+
+    @patch('tray.TRAY_AVAILABLE', False)
+    def test_run_tray_unavailable(self):
+        result = tray.run_tray()
+        self.assertFalse(result)
+
+    @patch('tray.TRAY_AVAILABLE', True)
+    @patch.dict(os.environ, {}, clear=True)
+    def test_run_tray_headless_linux(self):
+        with patch('sys.platform', 'linux'):
+            result = tray.run_tray()
+            self.assertFalse(result)
+
+
+class TestPerformanceDigest(unittest.TestCase):
+    def setUp(self):
+        self.test_db = "test_digest_data.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_digest_calculation_empty_db(self):
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(res["replies"]["total_replies"], 0)
+        self.assertEqual(res["replies"]["total_likes"], 0)
+        self.assertEqual(res["queue"]["total_scheduled"], 0)
+        self.assertEqual(res["ratings"]["total_ratings"], 0)
+        self.assertEqual(res["ratings"]["approval_rate"], 0.0)
+
+    def test_digest_weekly_aggregation(self):
+        # Insert simulated reply with likes & retweets
+        db.record_reply("1001", db_path=self.test_db)
+        db.update_engagement("1001", likes=15, retweets=4, db_path=self.test_db)
+
+        # Insert scheduled tweet
+        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db)
+
+        # Insert ratings (+1 and -1)
+        db.record_joke_rating("Hilarious space joke", 1, notes="Super funny", db_path=self.test_db)
+        db.record_joke_rating("Boring pun", -1, notes="Not funny", db_path=self.test_db)
+
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(res["replies"]["total_replies"], 1)
+        self.assertEqual(res["replies"]["total_likes"], 15)
+        self.assertEqual(res["replies"]["total_retweets"], 4)
+        self.assertEqual(res["replies"]["avg_likes_per_reply"], 15.0)
+
+        self.assertEqual(res["queue"]["total_scheduled"], 1)
+        self.assertEqual(res["queue"]["pending"], 1)
+        self.assertEqual(res["queue"]["persona_distribution"].get("witty_ai"), 1)
+
+        self.assertEqual(res["ratings"]["total_ratings"], 2)
+        self.assertEqual(res["ratings"]["upvotes"], 1)
+        self.assertEqual(res["ratings"]["downvotes"], 1)
+        self.assertEqual(res["ratings"]["approval_rate"], 50.0)
+        self.assertEqual(len(res["ratings"]["top_humor"]), 1)
+        self.assertEqual(res["ratings"]["top_humor"][0]["content"], "Hilarious space joke")
+
+    def test_digest_markdown_export(self):
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        md = digest.export_digest_markdown(res)
+        self.assertIn("Tactful Humor Bot — Weekly Performance Digest", md)
+        self.assertIn("Total Replies Dispatched", md)
+        self.assertIn("Humor Approval Rate", md)
+
+    def test_api_digest_endpoint(self):
+        client = dashboard.app.test_client()
+
+        # Test default JSON format
+        res = client.get('/api/digest?days=7')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["format"], "json")
+        self.assertIn("replies", data["digest"])
+
+        # Test Markdown format
+        res_md = client.get('/api/digest?days=7&format=markdown')
+        self.assertEqual(res_md.status_code, 200)
+        data_md = res_md.get_json()
+        self.assertTrue(data_md["success"])
+        self.assertEqual(data_md["format"], "markdown")
+        self.assertIn("Weekly Performance Digest", data_md["markdown"])
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):

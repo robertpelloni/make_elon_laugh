@@ -11,7 +11,19 @@
 *   [x] Move away from static user IDs to dynamic configuration.
 *   Implement Webhooks/Streaming API instead of polling (if API tier allows) to reduce credit consumption.
 
-## Phase 3: Analytics & Dashboard
-*   [x] Track engagement (likes/retweets) on bot replies.
-*   [x] Build a simple local web UI or dashboard to monitor bot status, logs, and success rates.
-*   [x] Implement a database to store reply history permanently (replacing the volatile in-memory set).
+## Phase 3: Analytics & Unified Dashboard (Completed)
+*   [x] Track engagement (likes/retweets) on bot replies in SQLite.
+*   [x] Consolidated single-page command center to monitor bot status, logs, and success rates.
+*   [x] Add interactive testing sandboxes and runtime target configuration to web dashboard.
+*   [x] Provide a cross-platform desktop system tray companion (`tray.py`).
+*   [x] Dynamic Theme Engine with Dark/Light mode switcher and persistent API state.
+*   [x] Multi-Persona Humor Profiles (`tactful_engineer`, `witty_ai`, `deadpan_astronomer`) with tailored prompts.
+*   [x] Community Joke Rating & Review System (+1/-1 votes, approval rate metric card, `/api/ratings`).
+*   [x] Scheduled Tweet Queuing System (`scheduler.py`, `scheduled_tweets` schema, `/api/schedule`, and queue management UI).
+*   [x] Weekly Visual Calendar Planner & Queue Metrics Breakdown (`/api/schedule` weekly distribution and 7-day visual planner grid).
+
+## Phase 4: Autonomous Operations & Multi-Platform Syndication (Upcoming)
+*   [x] Automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`).
+*   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
+*   [ ] Bluesky & Mastodon social federation syndication engine.
+*   [ ] Automated digest email/webhook delivery trigger.
