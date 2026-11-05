@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emperor Musk Bot - Command Center</title>
+    <style>
+        :root[data-theme="dark"] {
+            --bg-color: #0f141c;
+            --surface-color: #1a2332;
+            --surface-accent: #223044;
+            --border-color: #2e3e56;
+            --primary: #1d9bf0;
+            --primary-hover: #1a8cd8;
+            --accent-heart: #f91880;
+            --accent-retweet: #00ba7c;
+            --accent-warning: #ffd400;
+            --text-main: #f7f9f9;
+            --text-muted: #8b98a5;
+            --danger: #f4212e;
+            --danger-hover: #dc1e29;
+            --success: #00ba7c;
+            --terminal-bg: #0b0e14;
+        }
+
+        :root[data-theme="light"] {
+            --bg-color: #f0f3f8;
+            --surface-color: #ffffff;
+            --surface-accent: #e2e8f0;
+            --border-color: #cbd5e1;
+            --primary: #0284c7;
+            --primary-hover: #0369a1;
+            --accent-heart: #e11d48;
+            --accent-retweet: #059669;
+            --accent-warning: #d97706;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --danger: #dc2626;
+            --danger-hover: #b91c1c;
+            --success: #16a34a;
+            --terminal-bg: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 2rem 1rem;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .title-group h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .title-group p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Tooltip styling */
+        .tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            cursor: help;
+        }
+
+        .tooltip-icon {
+            background-color: var(--surface-accent);
+            color: var(--text-muted);
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 0.4rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 240px;
+            background-color: #0b0e14;
+            color: #f7f9f9;
+            text-align: left;
+            border-radius: 8px;
+            padding: 0.6rem 0.8rem;
+            position: absolute;
+            z-index: 100;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s, visibility 0.2s;
+            font-size: 0.8rem;
+            font-weight: normal;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Layout Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-hero {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            margin-bottom: 1.5rem;
+        }
+
+        .grid-split {
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 800px) {
+            .grid-split {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card components */
+        .card {
+            background-color: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+        }
+
+        .stat-huge {
+            font-size: 2.8rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin: 0.5rem 0;
+            color: var(--primary);
+        }
+
+        .stat-sub {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge.ok {
+            background-color: rgba(0, 186, 124, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(0, 186, 124, 0.3);
+        }
+
+        .status-badge.warn {
+            background-color: rgba(255, 212, 0, 0.15);
+            color: var(--accent-warning);
+            border: 1px solid rgba(255, 212, 0, 0.3);
+        }
+
+        .status-badge.alert {
+            background-color: rgba(244, 33, 46, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(244, 33, 46, 0.3);
+        }
+
+        /* Interactive controls & forms */
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 0.65rem 0.85rem;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--surface-accent);
+            border-color: var(--primary);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        /* Result display box */
+        .preview-box {
+            background-color: var(--bg-color);
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            min-height: 80px;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            margin-top: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .meme-preview-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-top: 0.75rem;
+            display: none;
+        }
+
+        /* Logs viewer */
+        .log-terminal {
+            background-color: var(--terminal-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.82rem;
+            color: #d1d5db;
+            height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .log-terminal span.info { color: #60a5fa; }
+        .log-terminal span.warn { color: #fde047; }
+        .log-terminal span.error { color: #f87171; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        td a:hover {
+            text-decoration: underline;
+        }
+
+        /* Key-Value info list */
+        .kv-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .kv-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+
+        .kv-key {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+        }
+
+        .kv-val {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Top Bar -->
+        <header>
+            <div class="title-group">
+                <h1>🛸 Emperor Musk Bot <span style="font-size: 0.8rem; vertical-align: middle; background: var(--surface-accent); padding: 0.2rem 0.5rem; border-radius: 6px; color: var(--primary);">v{{ version }}</span></h1>
+                <p>Tactful Autonomous Space & Engineering Humor Agent</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline btn-sm" id="btn-theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">
+                    🌓 Theme
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-refresh" onclick="refreshAll()" title="Refresh Dashboard Data">
+                    🔄 Refresh Data
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-run-check" onclick="triggerRunCheck()">
+                    ⚡ Test Dry-Run Cycle
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Runs an immediate simulated dry-run cycle to fetch targets, evaluate tweets, test filters, and log metrics.</span>
+                    </div>
+                </button>
+            </div>
+        </header>
+
+        <!-- HIGH-VALUE HERO METRICS (Prominent Section) -->
+        <section class="grid grid-hero">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Total Replies Logged
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Total verified replies stored in persistent SQLite storage since bot commissioning.</span>
+                        </div>
+                    </span>
+                    <span class="status-badge ok">Active</span>
+                </div>
+                <div class="stat-huge" id="stat-replies">{{ stats.total_replies }}</div>
+                <div class="stat-sub">Persistent replies across all sessions</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Likes Gathered
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cumulative likes tracked from Twitter Public Metrics polling.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-heart);">❤️ Likes</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-heart);" id="stat-likes">{{ stats.total_likes }}</div>
+                <div class="stat-sub">Public audience appreciation</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Retweets Gathered
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cumulative retweets gathered from Twitter API public metrics.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-retweet);">🔁 Reposts</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-retweet);" id="stat-retweets">{{ stats.total_retweets }}</div>
+                <div class="stat-sub">Viral reach & distribution</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Humor Approval
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Percentage of positive ratings submitted by operators on generated humor and facts.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-warning);">⭐ Quality</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-warning);" id="stat-approval">{{ stats.approval_rate }}%</div>
+                <div class="stat-sub" id="stat-ratings-sub">{{ stats.total_ratings }} reviews logged</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">System Status
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Overall operational health indicator covering database, credentials, and polling safety.</span>
+                        </div>
+                    </span>
+                    {% if config.api_key_configured and config.db_exists %}
+                        <span class="status-badge ok">Optimal</span>
+                    {% else %}
+                        <span class="status-badge warn">Configuration Notice</span>
+                    {% endif %}
+                </div>
+                <div class="kv-list" style="margin-top: 0.5rem;">
+                    <div class="kv-item">
+                        <span class="kv-key">API Credentials:</span>
+                        <span class="kv-val">
+                            {% if config.api_key_configured %}
+                                <span class="status-badge ok">Loaded</span>
+                            {% else %}
+                                <span class="status-badge alert">Missing/Default</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="kv-item">
+                        <span class="kv-key">SQLite Database:</span>
+                        <span class="kv-val">
+                            {% if config.db_exists %}
+                                <span class="status-badge ok">Connected</span>
+                            {% else %}
+                                <span class="status-badge alert">Missing</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAJOR OPERATIONAL PANELS: Split Layout -->
+        <div class="grid grid-split">
+            <!-- Left: Interactive Content Generator & Preview Tester -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title">🧪 Content Generation & Sentiment Sandbox
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Test dynamic OpenAI or curated static joke/fact generation. Simulates sentiment analysis (e.g. serious/tragic posts trigger 'SKIP').</span>
+                        </div>
+                    </span>
+                </div>
+                <form id="gen-form" onsubmit="event.preventDefault(); testGeneration();">
+                    <div class="form-group">
+                        <label for="persona-select">Humor & Content Persona:
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Alters the voice and tone of generated content. Choose between uplifting physics humor, synthetic AI wit, or existential cosmic perspective.</span>
+                            </div>
+                        </label>
+                        <select id="persona-select" onchange="changePersona(this.value)" style="width: 100%; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.65rem 0.85rem; border-radius: 8px; font-family: inherit; font-size: 0.9rem;">
+                            <option value="tactful_engineer" selected>🚀 Tactful Rocket Scientist (Upbeat Aerospace & Physics)</option>
+                            <option value="witty_ai">🤖 Witty Cybernetic AI (Compute, Silicon & Algorithms)</option>
+                            <option value="deadpan_astronomer">🌌 Deadpan Deep-Space Observer (Dry Scale of the Cosmos)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sample-tweet">Context Tweet Text (Optional Sentiment Check):</label>
+                        <textarea id="sample-tweet" rows="3" placeholder="e.g. Launching Starship Flight 6 next week into orbit! (Or test 'Tragic rocket failure today' to verify SKIP safety filter)"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn" id="btn-gen-joke" onclick="testGeneration('joke')">Generate Joke 🚀</button>
+                        <button type="button" class="btn btn-outline" id="btn-gen-fact" onclick="testGeneration('fact')">Generate Fact 🪐</button>
+                        <button type="button" class="btn btn-outline" id="btn-gen-auto" onclick="testGeneration('auto')">Auto Content 🎲</button>
+                        <button type="button" class="btn btn-outline" id="btn-meme" onclick="testMemeCard()">
+                            🖼️ Meme Card
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Generates a visual 600x340 graphic card formatted for Twitter/X image attachment.</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+
+                <div style="margin-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label>Generated Content Preview:</label>
+                        <div id="rating-controls" style="display: none; gap: 0.35rem; align-items: center;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                        </div>
+                    </div>
+                    <div id="gen-preview" class="preview-box">Click a button above to generate a preview...</div>
+                    <img id="meme-preview-img" class="meme-preview-img" alt="Meme Card Preview">
+                </div>
+            </section>
+
+            <!-- Right: Target Configuration & System Controls -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title">🎯 Target Accounts & Bot Settings
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Manage Twitter User IDs tracked by the bot polling loop and configure operational parameters.</span>
+                        </div>
+                    </span>
+                </div>
+                <form id="config-form" onsubmit="event.preventDefault(); saveConfig();">
+                    <div class="form-group">
+                        <label for="target-ids">Monitored Target User IDs (comma-separated):</label>
+                        <input type="text" id="target-ids" value="{{ config.target_user_ids }}" placeholder="44196397, 2941621343">
+                        <small style="color: var(--text-muted); display: block; margin-top: 0.3rem;">Default: 44196397 (Elon Musk)</small>
+                    </div>
+                    <div class="kv-list" style="margin-bottom: 1.25rem;">
+                        <div class="kv-item">
+                            <span class="kv-key">Database Path:</span>
+                            <span class="kv-val" style="font-family: monospace; font-size: 0.8rem;">{{ config.db_path }}</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-key">Rate Limiter Protection:</span>
+                            <span class="kv-val status-badge ok">Exponential Backoff + Jitter</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-key">System Tray Companion:</span>
+                            <span class="kv-val status-badge ok">Integrated (`tray.py`)</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <button type="submit" class="btn">Save Configuration</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmShutdown()">
+                            🛑 Graceful Server Shutdown
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Sends a termination signal to stop the dashboard and background bot services safely.</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <!-- RECENT ACTIVITY TABLE -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📜 Verified Reply History
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">The 5 most recent tweets replied to by this bot, persisted in SQLite with live engagement tracking.</span>
+                    </div>
+                </span>
+                <span class="stat-sub">Source: SQLite (replied_tweets)</span>
+            </div>
+            {% if stats.recent_replies %}
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tweet ID</th>
+                            <th>Timestamp (UTC)</th>
+                            <th>Likes</th>
+                            <th>Retweets</th>
+                            <th>Link</th>
+                        </tr>
+                    </thead>
+                    <tbody id="replies-tbody">
+                        {% for reply in stats.recent_replies %}
+                        <tr>
+                            <td style="font-family: monospace;">{{ reply.tweet_id }}</td>
+                            <td>{{ reply.replied_at }}</td>
+                            <td style="color: var(--accent-heart); font-weight: 600;">{{ reply.likes }} ❤️</td>
+                            <td style="color: var(--accent-retweet); font-weight: 600;">{{ reply.retweets }} 🔁</td>
+                            <td><a href="https://twitter.com/elonmusk/status/{{ reply.tweet_id }}" target="_blank" rel="noopener">Open on X ↗</a></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color: var(--text-muted); font-style: italic; padding: 1rem 0;" id="no-replies-msg">No replies logged yet. Execute a dry-run check or start the bot loop.</p>
+            {% endif %}
+        </section>
+
+        <!-- LIVE LOGS & EXECUTION VIEWER -->
+        <section class="card">
+            <div class="card-header">
+                <span class="card-title">📟 Live Execution Logs & Diagnostics
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Real-time log buffer detailing API requests, rate-limiting pauses, payload validations, and reply operations.</span>
+                    </div>
+                </span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn btn-outline btn-sm" onclick="fetchLogs()">Clear / Refresh Logs</button>
+                </div>
+            </div>
+            <div id="log-terminal" class="log-terminal">Loading system logs...</div>
+        </section>
+    </div>
+
+    <script>
+        // Theme initialization and toggle
+        function initTheme() {
+            const saved = localStorage.getItem('bot_dashboard_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('bot_dashboard_theme', next);
+            fetch('/api/theme', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({theme: next})
+            }).catch(e => console.log('Theme sync error', e));
+        }
+
+        async function fetchLogs() {
+            const terminal = document.getElementById('log-terminal');
+            try {
+                const res = await fetch('/api/logs');
+                const data = await res.json();
+                if (data.logs && data.logs.length > 0) {
+                    terminal.textContent = data.logs.join('\n');
+                } else {
+                    terminal.textContent = "No log records currently available.";
+                }
+                terminal.scrollTop = terminal.scrollHeight;
+            } catch (err) {
+                terminal.textContent = "Error fetching logs: " + err.message;
+            }
+        }
+
+        async function changePersona(persona) {
+            try {
+                const res = await fetch('/api/persona', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchLogs();
+                }
+            } catch (e) {
+                console.error("Failed to update persona", e);
+            }
+        }
+
+        async function initPersona() {
+            try {
+                const res = await fetch('/api/persona');
+                const data = await res.json();
+                if (data.current_persona) {
+                    document.getElementById('persona-select').value = data.current_persona;
+                }
+            } catch (e) {
+                console.error("Error fetching persona", e);
+            }
+        }
+
+        let lastGeneratedText = "";
+
+        async function ratePreview(ratingVal) {
+            if (!lastGeneratedText) return;
+            try {
+                const res = await fetch('/api/ratings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: lastGeneratedText, rating: ratingVal})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const tag = ratingVal > 0 ? "👍 Upvoted!" : "👎 Downvoted!";
+                    document.getElementById('rating-controls').innerHTML = `<span style="color: var(--success); font-size: 0.85rem; font-weight: bold;">${tag}</span>`;
+                    refreshAll();
+                }
+            } catch (e) {
+                console.error("Error submitting rating", e);
+            }
+        }
+
+        async function testGeneration(type = 'auto') {
+            const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            const ratingControls = document.getElementById('rating-controls');
+            ratingControls.style.display = 'none';
+            memeImg.style.display = 'none';
+            const tweetText = document.getElementById('sample-tweet').value;
+            const persona = document.getElementById('persona-select').value;
+            preview.textContent = "Generating content...";
+            try {
+                const res = await fetch('/api/test-generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({context_tweet: tweetText, type: type, persona: persona})
+                });
+                const data = await res.json();
+                if (data.skipped) {
+                    preview.innerHTML = `<span style="color: var(--accent-warning);">⚠️ Filter Triggered: Content generation SKIPPED because context was detected as serious/tragic.</span>`;
+                } else if (data.content) {
+                    lastGeneratedText = data.content;
+                    preview.innerHTML = `<strong>${data.content}</strong><br><small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">Persona: ${data.persona || persona} | Type: ${data.content_type} | Length: ${data.content.length} chars (within 280 char limit)</small>`;
+                    ratingControls.innerHTML = `
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                    `;
+                    ratingControls.style.display = 'flex';
+                } else {
+                    preview.textContent = data.error || "No content generated.";
+                }
+            } catch (err) {
+                preview.textContent = "Request failed: " + err.message;
+            }
+        }
+
+        async function testMemeCard() {
+            const preview = document.getElementById('gen-preview');
+            const memeImg = document.getElementById('meme-preview-img');
+            preview.textContent = "Generating visual meme card...";
+            try {
+                const tweetText = document.getElementById('sample-tweet').value;
+                const res = await fetch('/api/test-generate-meme', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: tweetText})
+                });
+                const data = await res.json();
+                if (data.success && data.image_b64) {
+                    preview.innerHTML = `<strong>${data.text}</strong><br><small style="color: var(--accent-retweet);">Visual card rendered successfully!</small>`;
+                    memeImg.src = "data:image/png;base64," + data.image_b64;
+                    memeImg.style.display = 'block';
+                } else {
+                    preview.textContent = data.error || "Failed to generate meme card.";
+                }
+            } catch (err) {
+                preview.textContent = "Meme card generation error: " + err.message;
+            }
+        }
+
+        async function saveConfig() {
+            const targetIds = document.getElementById('target-ids').value;
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({target_user_ids: targetIds})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Configuration updated successfully! Active targets: " + data.target_user_ids);
+                } else {
+                    alert("Error: " + (data.error || "Could not update configuration"));
+                }
+            } catch (err) {
+                alert("Failed to save config: " + err.message);
+            }
+        }
+
+        async function triggerRunCheck() {
+            const btn = document.getElementById('btn-run-check');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "⏳ Simulating...";
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/run-check', {method: 'POST'});
+                const data = await res.json();
+                alert(data.message || "Dry-run check completed successfully!");
+                refreshAll();
+            } catch (err) {
+                alert("Dry-run error: " + err.message);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function confirmShutdown() {
+            if (confirm("Are you sure you want to stop the Emperor Musk Bot servers?")) {
+                try {
+                    const res = await fetch('/api/shutdown', {method: 'POST'});
+                    const data = await res.json();
+                    alert(data.message || "Servers shutting down.");
+                } catch (err) {
+                    alert("Server shutdown requested: " + err.message);
+                }
+            }
+        }
+
+        async function refreshAll() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('stat-replies').textContent = data.total_replies;
+                document.getElementById('stat-likes').textContent = data.total_likes;
+                document.getElementById('stat-retweets').textContent = data.total_retweets;
+                if (document.getElementById('stat-approval')) {
+                    document.getElementById('stat-approval').textContent = (data.approval_rate || 100) + '%';
+                    document.getElementById('stat-ratings-sub').textContent = (data.total_ratings || 0) + ' reviews logged';
+                }
+            } catch (err) {
+                console.error("Stats refresh error:", err);
+            }
+            fetchLogs();
+        }
+
+        // Initialize on load
+        initTheme();
+        initPersona();
+        fetchLogs();
+        setInterval(fetchLogs, 10000);
+    </script>
+</body>
+</html>

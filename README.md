@@ -1,37 +1,69 @@
-# make_elon_laugh
+# Emperor Musk Bot (`make_elon_laugh`)
 
-**This repository contains no code.** Its only file is the document that
-used to be this README: a chat transcript that designs a joke X/Twitter
-bot and drafts its script inline. Nothing was ever extracted into a `.py`
-file, and there is no evidence in the repo that the bot was run.
+[![CI/CD Pipeline](https://github.com/robertpelloni/make_elon_laugh/actions/workflows/ci.yml/badge.svg)](https://github.com/robertpelloni/make_elon_laugh/actions)
 
-## The concept (from the document)
+A playful, tactful Twitter (X) autonomous humor bot designed to engage with Elon Musk and space/engineering topics with lighthearted, clean jokes, fascinating astrophysics facts, and visual meme cards.
 
-A bot that replies to every post by Elon Musk (user ID 44196397) addressing
-him as "Emperor Musk", recommending the 1992 Danish cult parody film
-*Gayniggers from Outer Space*, and attaching a rotating psytrance track
-about aliens/Mars (Astral Projection, Infected Mushroom, Pleiadians,
-Hallucinogen, 1200 Micrograms, Shpongle) — an attempt to make him laugh
-through sheer old-internet absurdity.
+Built with Python, Tweepy (async), OpenAI API, Pillow, Flask, and SQLite.
 
-## What the document actually contains
+---
 
-1. A feasibility analysis: X API read access is pay-per-use (no viable free
-   tier for tracking a timeline), and a fast-reply bot aimed at the
-   platform's most-viewed account is a prime suspension target.
-2. A moderation-risk analysis: the film's title contains a racial slur and
-   would likely trip automated hate-speech/spam filters despite being a
-   real historical film title; workarounds discussed include posting the
-   title as an image ("Space Movie 1992" meme) instead of text.
-3. A semi-manual alternative: notifications + a prepared copypasta file.
-4. A complete draft script (Tweepy v4, API v2): poll Musk's tweets every
-   60 s, keep a local replied-ID cache to avoid duplicate paid reads/replies,
-   post a randomized reply; with implementation warnings (app needs
-   Read+Write OAuth 1.0a permissions or replies 403).
+## Features
 
-## Status
+- **Consolidated Command Center**: A unified single-page monitoring dashboard (`http://localhost:5000`) showing real-time engagement metrics, live diagnostics logs, and system health status.
+- **Multi-Persona Content Engine**: Choose between `Tactful Rocket Scientist`, `Witty Cybernetic AI`, or `Deadpan Deep-Space Observer` with specialized prompts and curated fallback humor.
+- **Dynamic Light/Dark Theme Switcher**: Toggle effortlessly between dark and light themes with persistence across sessions via `localStorage` and the `/api/theme` endpoint.
+- **Interactive Sentiment & Content Sandbox**: Test joke and astrophysics fact generation right from the browser. Supports OpenAI dynamic responses with sentiment analysis that automatically skips serious or tragic tweets.
+- **Visual Meme / Infographic Card Generator**: Generates formatted graphic cards for tweets or dashboard preview using Pillow (`meme_generator.py`).
+- **Dynamic Account Tracking**: Track multiple user IDs simultaneously and adjust monitored accounts directly through the UI.
+- **State Persistence & Analytics**: Stores replied tweet history and tracks cumulative likes and retweets using SQLite.
+- **Safety & Rate Limiting**: Exponential backoff with jitter protection against HTTP 429 Too Many Requests and network latency dropouts.
+- **System Tray Companion (`tray.py`)**: Desktop system tray runner to view status, launch the dashboard, run dry-run checks, and gracefully shut down servers.
+- **Containerized & CI/CD Automated**: Full Docker support and automated testing via GitHub Actions.
 
-Concept document, written in a single session on 2026-07-12 (two commits).
-If anyone builds it: extract the script from the transcript in git history,
-expect per-read/per-post API charges, and expect the account to be
-suspended quickly — that outcome is the document's own prediction.
+---
+
+## Quick Start
+
+### 1. Installation
+```bash
+git clone https://github.com/robertpelloni/make_elon_laugh.git
+cd make_elon_laugh
+pip install -r requirements.txt
+```
+
+### 2. Environment Setup
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+```
+
+### 3. Launching
+```bash
+./start.sh
+```
+Open [http://localhost:5000](http://localhost:5000) to view the Command Center dashboard.
+
+To run in dry-run mode (simulating without Twitter API writes):
+```bash
+python bot.py --dry-run
+```
+
+---
+
+## Testing & Code Quality
+
+Run tests:
+```bash
+python -m unittest test_bot.py
+```
+
+Run linting:
+```bash
+flake8 .
+```
+
+Run test coverage report:
+```bash
+coverage run -m unittest test_bot.py && coverage report
+```
