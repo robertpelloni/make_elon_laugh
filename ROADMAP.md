@@ -25,6 +25,7 @@
 *   [x] Weekly Visual Calendar Planner & Queue Metrics Breakdown (`/api/schedule` weekly distribution and 7-day visual planner grid).
 
 ## Phase 4: Autonomous Operations & Multi-Platform Syndication (Upcoming)
+*   [x] Automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
 *   [ ] Bluesky & Mastodon social federation syndication engine.
-*   [ ] Automated weekly performance digest emailed or webhooked to operators.
+*   [ ] Automated digest email/webhook delivery trigger.

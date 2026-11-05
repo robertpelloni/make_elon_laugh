@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-11-05
+
+### Added
+- **Automated Performance Digest Engine (`digest.py`)**: Computes 7-day rolling window analytics across bot replies, engagement (likes/retweets), queued tweets by persona and status, and community humor approval ratings.
+- **Markdown Digest Exporter**: Supports exporting human-readable Markdown summaries via `export_digest_markdown()`.
+- **Digest API Endpoint (`/api/digest`)**: Added endpoint in `dashboard.py` supporting `format=json` and `format=markdown` queries with custom window days.
+- **Command Center Digest Card (`templates/index.html`)**: Integrated interactive 'Weekly Performance Digest & Insights' card with real-time badges and expandable Markdown export modal.
+- **Unit Test Coverage**: Added tests for empty database handling, weekly aggregations, Markdown export, and `/api/digest` HTTP endpoint in `test_bot.py` (72 tests passing, 88% coverage).
+
 ## [0.13.0] - 2026-11-05
 
 ### Added

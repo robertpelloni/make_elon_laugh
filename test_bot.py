@@ -12,6 +12,7 @@ import tweepy
 from joke_generator import generate_joke
 import joke_generator
 import dashboard
+import digest
 import scheduler
 import tray
 import meme_generator
@@ -749,6 +750,81 @@ class TestTrayCompanion(unittest.TestCase):
         with patch('sys.platform', 'linux'):
             result = tray.run_tray()
             self.assertFalse(result)
+
+
+class TestPerformanceDigest(unittest.TestCase):
+    def setUp(self):
+        self.test_db = "test_digest_data.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_digest_calculation_empty_db(self):
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(res["replies"]["total_replies"], 0)
+        self.assertEqual(res["replies"]["total_likes"], 0)
+        self.assertEqual(res["queue"]["total_scheduled"], 0)
+        self.assertEqual(res["ratings"]["total_ratings"], 0)
+        self.assertEqual(res["ratings"]["approval_rate"], 0.0)
+
+    def test_digest_weekly_aggregation(self):
+        # Insert simulated reply with likes & retweets
+        db.record_reply("1001", db_path=self.test_db)
+        db.update_engagement("1001", likes=15, retweets=4, db_path=self.test_db)
+
+        # Insert scheduled tweet
+        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db)
+
+        # Insert ratings (+1 and -1)
+        db.record_joke_rating("Hilarious space joke", 1, notes="Super funny", db_path=self.test_db)
+        db.record_joke_rating("Boring pun", -1, notes="Not funny", db_path=self.test_db)
+
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(res["replies"]["total_replies"], 1)
+        self.assertEqual(res["replies"]["total_likes"], 15)
+        self.assertEqual(res["replies"]["total_retweets"], 4)
+        self.assertEqual(res["replies"]["avg_likes_per_reply"], 15.0)
+
+        self.assertEqual(res["queue"]["total_scheduled"], 1)
+        self.assertEqual(res["queue"]["pending"], 1)
+        self.assertEqual(res["queue"]["persona_distribution"].get("witty_ai"), 1)
+
+        self.assertEqual(res["ratings"]["total_ratings"], 2)
+        self.assertEqual(res["ratings"]["upvotes"], 1)
+        self.assertEqual(res["ratings"]["downvotes"], 1)
+        self.assertEqual(res["ratings"]["approval_rate"], 50.0)
+        self.assertEqual(len(res["ratings"]["top_humor"]), 1)
+        self.assertEqual(res["ratings"]["top_humor"][0]["content"], "Hilarious space joke")
+
+    def test_digest_markdown_export(self):
+        res = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        md = digest.export_digest_markdown(res)
+        self.assertIn("Tactful Humor Bot — Weekly Performance Digest", md)
+        self.assertIn("Total Replies Dispatched", md)
+        self.assertIn("Humor Approval Rate", md)
+
+    def test_api_digest_endpoint(self):
+        client = dashboard.app.test_client()
+
+        # Test default JSON format
+        res = client.get('/api/digest?days=7')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["format"], "json")
+        self.assertIn("replies", data["digest"])
+
+        # Test Markdown format
+        res_md = client.get('/api/digest?days=7&format=markdown')
+        self.assertEqual(res_md.status_code, 200)
+        data_md = res_md.get_json()
+        self.assertTrue(data_md["success"])
+        self.assertEqual(data_md["format"], "markdown")
+        self.assertIn("Weekly Performance Digest", data_md["markdown"])
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):

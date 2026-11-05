@@ -12,4 +12,5 @@
 - Community Joke Rating System allows operators to vote thumbs up (+1) or thumbs down (-1) on generated content via `/api/ratings`, with an approval rate metric card and persistent SQLite storage.
 - Scheduled Tweet Queue System is powered by `scheduler.py`, `db.py` (`scheduled_tweets`), and `/api/schedule` (GET, POST, DELETE), allowing delayed post dispatching and cancellation from the Command Center UI.
 - Weekly Visual Calendar Planner and Queue Metrics Badge map upcoming scheduled post distribution across Monday–Sunday in `templates/index.html` and compute metrics via `dashboard.py`.
-- The project maintains comprehensive test coverage with 68 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.
+- Automated Weekly Performance Digest Engine (`digest.py`) computes 7-day rolling performance metrics (replies, engagement, persona distribution, and community approval) exportable to Markdown and viewable via `/api/digest` and the Command Center UI.
+- The project maintains comprehensive test coverage with 72 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.

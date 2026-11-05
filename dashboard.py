@@ -8,6 +8,7 @@ import time
 from flask import Flask, jsonify, render_template, request
 
 import db
+import digest
 import joke_generator
 import scheduler
 
@@ -437,6 +438,35 @@ def api_schedule():
             "cancelled": total_cancelled
         },
         "weekly_calendar": calendar_breakdown
+    })
+
+
+@app.route('/api/digest', methods=['GET'])
+def api_digest():
+    """
+    Returns rolling weekly performance analytics and summary metrics.
+    Query params:
+      days: integer window length (default 7)
+      format: 'json' (default) or 'markdown'
+    """
+    days = request.args.get('days', default=7, type=int)
+    fmt = request.args.get('format', default='json', type=str).lower()
+
+    summary = digest.generate_performance_digest(days=days)
+
+    if fmt == 'markdown':
+        md_text = digest.export_digest_markdown(summary)
+        return jsonify({
+            "success": True,
+            "format": "markdown",
+            "markdown": md_text,
+            "digest": summary
+        })
+
+    return jsonify({
+        "success": True,
+        "format": "json",
+        "digest": summary
     })
 
 

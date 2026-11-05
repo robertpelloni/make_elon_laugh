@@ -12,8 +12,9 @@
 - [x] Add community joke rating and approval tracking system (+1/-1 votes, approval rate metric card, `/api/ratings`).
 - [x] Implement autonomous scheduled tweet queue (`scheduler.py`, `scheduled_tweets` table, `/api/schedule`, and queue management UI).
 - [x] Add weekly calendar visual view and queue metrics breakdown for scheduled tweets (`/api/schedule`, `#calendar-grid`, `#queue-metrics-badge`).
+- [x] Implement automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`, and Command Center digest card).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Drag-and-drop reschedule functionality across the weekly visual calendar.
+- [ ] Automated digest email/webhook delivery dispatch trigger.
 - [ ] Multi-image meme card attachments support in scheduled tweets.

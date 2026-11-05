@@ -740,6 +740,53 @@
             {% endif %}
         </section>
 
+        <!-- WEEKLY PERFORMANCE DIGEST CARD -->
+        <section class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <span class="card-title">📊 Weekly Performance Digest & Insights
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Rolling 7-day performance analytics across bot replies, engagement, scheduled operations, and community approval.</span>
+                    </div>
+                </span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="Export Markdown summary">Export Markdown</button>
+                    <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">7-Day Replies</div>
+                    <div id="digest-replies" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">0</div>
+                    <div id="digest-engagement-rate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 avg likes/reply</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Engagement Total</div>
+                    <div id="digest-likes-rts" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-heart);">0 ❤️ / 0 🔁</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Public metric polling</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Queue Dispatches</div>
+                    <div id="digest-queue-sent" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">0 Dispatched</div>
+                    <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
+                </div>
+                <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
+                    <div id="digest-approval" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">100%</div>
+                    <div id="digest-ratings-breakdown" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 ratings evaluated</div>
+                </div>
+            </div>
+
+            <!-- Markdown preview modal / expander -->
+            <div id="digest-md-container" style="display: none; margin-top: 1rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 8px; padding: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; font-size: 0.9rem;">Markdown Performance Report</span>
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('digest-md-container').style.display='none'">Close</button>
+                </div>
+                <textarea id="digest-md-text" style="width: 100%; height: 160px; font-family: monospace; font-size: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); padding: 0.5rem;" readonly></textarea>
+            </div>
+        </section>
+
         <!-- LIVE LOGS & EXECUTION VIEWER -->
         <section class="card">
             <div class="card-header">
@@ -1054,6 +1101,49 @@
             }
         }
 
+        async function fetchPerformanceDigest() {
+            try {
+                const res = await fetch('/api/digest');
+                const data = await res.json();
+                if (data.success && data.digest) {
+                    const d = data.digest;
+                    document.getElementById('digest-replies').textContent = d.replies.total_replies || 0;
+                    document.getElementById('digest-engagement-rate').textContent = `${d.replies.avg_likes_per_reply || 0} avg likes/reply`;
+                    document.getElementById('digest-likes-rts').textContent = `${d.replies.total_likes || 0} ❤️ / ${d.replies.total_retweets || 0} 🔁`;
+                    document.getElementById('digest-queue-sent').textContent = `${d.queue.sent || 0} Dispatched`;
+
+                    const personaKeys = Object.keys(d.queue.persona_distribution || {});
+                    const personaStr = personaKeys.length > 0
+                        ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
+                        : 'None';
+                    document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
+                    document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;
+                }
+            } catch (err) {
+                console.error("Performance digest fetch error:", err);
+            }
+        }
+
+        async function exportDigestMarkdown() {
+            try {
+                const res = await fetch('/api/digest?format=markdown');
+                const data = await res.json();
+                if (data.success && data.markdown) {
+                    const container = document.getElementById('digest-md-container');
+                    const textarea = document.getElementById('digest-md-text');
+                    textarea.value = data.markdown;
+                    container.style.display = 'block';
+                    textarea.select();
+                } else {
+                    alert("Failed to generate Markdown report.");
+                }
+            } catch (err) {
+                alert("Error exporting digest: " + err.message);
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -1070,6 +1160,7 @@
             }
             fetchLogs();
             fetchScheduledTweets();
+            fetchPerformanceDigest();
         }
 
         // Initialize on load
@@ -1077,6 +1168,7 @@
         initPersona();
         fetchLogs();
         fetchScheduledTweets();
+        fetchPerformanceDigest();
         setInterval(fetchLogs, 10000);
     </script>
 </body>
