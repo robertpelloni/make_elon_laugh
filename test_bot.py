@@ -430,6 +430,7 @@ class TestMemeGenerator(unittest.TestCase):
 class TestDashboardAndEndpoints(unittest.TestCase):
 
     def setUp(self):
+        db.init_db()
         dashboard.app.config['TESTING'] = True
         self.client = dashboard.app.test_client()
 

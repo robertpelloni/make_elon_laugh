@@ -113,10 +113,18 @@ def record_joke_rating(content, rating, notes=None, db_path=DB_PATH):
     try:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO joke_ratings (content, rating, notes) VALUES (?, ?, ?)",
-                (content.strip(), int(rating), notes.strip() if notes else None)
-            )
+            try:
+                cursor.execute(
+                    "INSERT INTO joke_ratings (content, rating, notes) VALUES (?, ?, ?)",
+                    (content.strip(), int(rating), notes.strip() if notes else None)
+                )
+            except sqlite3.OperationalError:
+                # Table might not exist yet; auto-initialize and retry once
+                init_db(db_path)
+                cursor.execute(
+                    "INSERT INTO joke_ratings (content, rating, notes) VALUES (?, ?, ?)",
+                    (content.strip(), int(rating), notes.strip() if notes else None)
+                )
             conn.commit()
             return True
     except sqlite3.Error as e:
@@ -129,10 +137,17 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
     try:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT id, content, rating, notes, created_at FROM joke_ratings ORDER BY id DESC LIMIT ?",
-                (limit,)
-            )
+            try:
+                cursor.execute(
+                    "SELECT id, content, rating, notes, created_at FROM joke_ratings ORDER BY id DESC LIMIT ?",
+                    (limit,)
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(
+                    "SELECT id, content, rating, notes, created_at FROM joke_ratings ORDER BY id DESC LIMIT ?",
+                    (limit,)
+                )
             return [
                 {
                     "id": r[0],
