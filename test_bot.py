@@ -1037,6 +1037,141 @@ class TestDigestCLIAndDownload(unittest.TestCase):
             shutil.rmtree(temp_dir)
 
 
+class TestEnrichedPerformanceDigest(unittest.TestCase):
+    """Validates multi-window delta comparisons and operational health scorecard generation."""
+
+    def setUp(self):
+        self.test_db = "test_enriched_digest.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_compute_delta_helper(self):
+        """Tests delta math and percentage calculations across boundary values."""
+        # 50% increase
+        d1 = digest._compute_delta(15, 10)
+        self.assertEqual(d1["diff"], 5)
+        self.assertEqual(d1["pct"], 50.0)
+
+        # 50% decrease
+        d2 = digest._compute_delta(5, 10)
+        self.assertEqual(d2["diff"], -5)
+        self.assertEqual(d2["pct"], -50.0)
+
+        # Growth from zero base
+        d3 = digest._compute_delta(10, 0)
+        self.assertEqual(d3["diff"], 10)
+        self.assertEqual(d3["pct"], 100.0)
+
+        # Zero to zero
+        d4 = digest._compute_delta(0, 0)
+        self.assertEqual(d4["diff"], 0)
+        self.assertEqual(d4["pct"], 0.0)
+
+    def test_multi_window_deltas_and_scorecard(self):
+        """Verifies multi-window query aggregation, deltas, and health scorecard states."""
+        # Insert previous period reply (8 days ago)
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (101, datetime('now', '-8 days'), 20, 5)
+                """
+            )
+            # Insert current period reply (2 days ago)
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (102, datetime('now', '-2 days'), 50, 15)
+                """
+            )
+            # Insert previous period scheduled tweet (sent 10 days ago)
+            cursor.execute(
+                """
+                INSERT INTO scheduled_tweets
+                (content, scheduled_time, persona, status, created_at)
+                VALUES ('Old joke', datetime('now', '-10 days'), 'tactful_engineer',
+                        'sent', datetime('now', '-10 days'))
+                """
+            )
+            # Insert current period scheduled tweet (sent 1 day ago)
+            cursor.execute(
+                """
+                INSERT INTO scheduled_tweets
+                (content, scheduled_time, persona, status, created_at)
+                VALUES ('New joke', datetime('now', '-1 day'), 'tactful_engineer',
+                        'sent', datetime('now', '-1 day'))
+                """
+            )
+            # Insert ratings (positive sentiment)
+            cursor.execute(
+                """
+                INSERT INTO joke_ratings (content, rating, notes, created_at)
+                VALUES ('Great joke!', 1, 'Operator approved', datetime('now', '-1 day'))
+                """
+            )
+            conn.commit()
+
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+
+        # Replies deltas: cur=1, prev=1 -> diff=0, pct=0.0
+        self.assertEqual(d["deltas"]["replies"]["current"], 1)
+        self.assertEqual(d["deltas"]["replies"]["previous"], 1)
+        self.assertEqual(d["deltas"]["replies"]["diff"], 0)
+
+        # Likes deltas: cur=50, prev=20 -> diff=30, pct=150.0
+        self.assertEqual(d["deltas"]["likes"]["current"], 50)
+        self.assertEqual(d["deltas"]["likes"]["previous"], 20)
+        self.assertEqual(d["deltas"]["likes"]["diff"], 30)
+        self.assertEqual(d["deltas"]["likes"]["pct"], 150.0)
+
+        # Retweets deltas: cur=15, prev=5 -> diff=10, pct=200.0
+        self.assertEqual(d["deltas"]["retweets"]["current"], 15)
+        self.assertEqual(d["deltas"]["retweets"]["previous"], 5)
+        self.assertEqual(d["deltas"]["retweets"]["diff"], 10)
+        self.assertEqual(d["deltas"]["retweets"]["pct"], 200.0)
+
+        # Queue sent deltas: cur=1, prev=1
+        self.assertEqual(d["deltas"]["queue_sent"]["current"], 1)
+        self.assertEqual(d["deltas"]["queue_sent"]["previous"], 1)
+
+        # Health scorecard
+        sc = d["health_scorecard"]
+        self.assertTrue(sc["db_connected"])
+        self.assertEqual(sc["queue_backlog"], 0)
+        self.assertEqual(sc["sentiment_status"], "Positive")
+        self.assertEqual(sc["overall_health"], "Healthy")
+
+        # Verify markdown export format includes scorecard and deltas
+        md = digest.export_digest_markdown(d)
+        self.assertIn("## 🩺 System Operational Health Scorecard", md)
+        self.assertIn("- **Overall Status:** Healthy", md)
+        self.assertIn("+30 (+150.0%) vs prior 7d", md)
+
+    def test_scorecard_sentiment_thresholds(self):
+        """Verifies neutral, moderate, and needs review sentiment thresholds in scorecard."""
+        # Empty DB (no ratings)
+        d_empty = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(d_empty["health_scorecard"]["sentiment_status"], "Neutral (No Data)")
+
+        # Negative ratings (low approval)
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            for _ in range(5):
+                cursor.execute(
+                    "INSERT INTO joke_ratings (content, rating, created_at) VALUES ('Bad', -1, datetime('now'))"
+                )
+            conn.commit()
+
+        d_neg = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(d_neg["health_scorecard"]["sentiment_status"], "Needs Review")
+
+
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
     @patch('bot.db.init_db')
     @patch('bot.get_twitter_client')

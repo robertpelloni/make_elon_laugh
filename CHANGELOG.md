@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-11-06
+
+### Added
+- **Multi-Window Delta Trend Comparison Engine (`digest.py`)**: Enhanced `generate_performance_digest()` to compute previous-period delta trends (comparing replies, accumulated likes, retweets, and queued dispatches against the preceding window of identical duration).
+- **Operational Health Scorecard (`digest.py`, `templates/index.html`)**: Added automated health scoring tracking database connectivity, pending queue backlog, and community humor sentiment status.
+- **Enriched Markdown Report Generator**: Updated `export_digest_markdown()` and CLI `generate_digest.py` with the System Operational Health Scorecard and multi-window delta trend lines.
+- **Command Center Scorecard UI (`templates/index.html`)**: Added dynamic health banner (Overall Health, DB Connection, Backlog count, Sentiment) and inline delta trend tags (+diff, % change vs prior window) across digest metrics.
+- **Comprehensive Unit Tests**: Added `TestEnrichedPerformanceDigest` in `test_bot.py` with 3 tests covering delta math, multi-period database aggregation, and sentiment status thresholds (85 unit tests passing, 0 flake8 errors).
+
 ## [0.17.0] - 2026-11-06
 
 ### Added
