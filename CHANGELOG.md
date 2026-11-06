@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-11-06
+
+### Added
+- **Standalone Digest CLI & File Exporter (`generate_digest.py`)**: Dedicated command-line utility to generate rolling performance digests and export them into Markdown and JSON files in `reports/` or stream directly to stdout.
+- **Direct Digest Download REST Endpoint (`/api/digest/download`)**: Added endpoint in `dashboard.py` returning timestamped file attachments in Markdown (`.md`) or JSON (`.json`) formats.
+- **Command Center Report Download Controls (`templates/index.html`)**: Added one-click "Download .MD" and "Download .JSON" direct action buttons into the Weekly Performance Digest card.
+- **Comprehensive Unit Tests**: Added 3 unit tests in `test_bot.py` covering file saving, markdown/json download endpoints, and attachment headers (82 unit tests passing, 88% test coverage, 0 flake8 errors).
+
 ## [0.16.0] - 2026-11-06
 
 ### Added

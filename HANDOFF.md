@@ -3,10 +3,18 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.16.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.17.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
-1. **Automated Recurring Digest Broadcast Worker (v0.16.0)**:
+1. **Performance Digest CLI Generator & File Export (`generate_digest.py`) (v0.17.0)**:
+   - Implemented `generate_digest.py` allowing manual or automated execution to generate performance summaries across customizable day windows.
+   - Supports exporting formatted Markdown (`.md`) and JSON (`.json`) files directly into `reports/` or stdout.
+2. **Direct Report Attachment Download REST Endpoint (`/api/digest/download`) (v0.17.0)**:
+   - Added `/api/digest/download` in `dashboard.py` returning timestamped attachments for Markdown and JSON reports.
+   - Added "Download .MD" and "Download .JSON" direct action buttons into the Command Center Weekly Performance Digest card.
+   - Verified visually via Playwright headless browser screenshot (`/home/jules/verification/digest_download_controls.png`).
+   - Added 3 comprehensive unit tests in `test_bot.py` (82 total unit tests passing, 88% code coverage, 0 flake8 errors).
+3. **Automated Recurring Digest Broadcast Worker (v0.16.0)**:
    - Implemented `check_and_dispatch_recurring_digest(dry_run, current_time)` in `webhook.py` supporting configurable recurring broadcast intervals (24h daily, 72h 3-day, 168h weekly) and time throttling.
    - Integrated automated recurring digest checks directly into `bot.py`'s continuous asynchronous polling loop.
    - Expanded `/api/webhook` in `dashboard.py` to get/set recurring preferences (`auto_dispatch`, `interval_hours`) and report last broadcast time.

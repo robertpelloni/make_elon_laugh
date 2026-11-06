@@ -1,4 +1,6 @@
 import collections
+import datetime
+import json
 import logging
 import os
 import random
@@ -469,6 +471,38 @@ def api_digest():
         "format": "json",
         "digest": summary
     })
+
+
+@app.route('/api/digest/download', methods=['GET'])
+def api_digest_download():
+    """
+    Directly streams the performance digest as a downloadable attachment.
+    Query params:
+      days: integer window length (default 7)
+      format: 'markdown' (default, .md) or 'json' (.json)
+    """
+    days = request.args.get('days', default=7, type=int)
+    fmt = request.args.get('format', default='markdown', type=str).lower()
+
+    summary = digest.generate_performance_digest(days=days)
+    timestamp_slug = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+    if fmt == 'json':
+        content = json.dumps(summary, indent=2)
+        filename = f"digest_{timestamp_slug}.json"
+        mimetype = "application/json"
+    else:
+        content = digest.export_digest_markdown(summary)
+        filename = f"digest_{timestamp_slug}.md"
+        mimetype = "text/markdown"
+
+    response = app.response_class(
+        response=content,
+        status=200,
+        mimetype=mimetype
+    )
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 @app.route('/api/webhook', methods=['GET', 'POST'])

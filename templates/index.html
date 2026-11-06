@@ -749,7 +749,9 @@
                     </div>
                 </span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="Export Markdown summary">Export Markdown</button>
+                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
                 </div>
             </div>

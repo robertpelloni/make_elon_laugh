@@ -960,6 +960,83 @@ class TestWebhookDispatcher(unittest.TestCase):
         self.assertTrue(dispatched_third)
 
 
+class TestDigestCLIAndDownload(unittest.TestCase):
+    def setUp(self):
+        self.app = dashboard.app.test_client()
+        self.app.testing = True
+
+    @patch('digest.generate_performance_digest')
+    def test_digest_download_markdown(self, mock_gen):
+        mock_gen.return_value = {
+            "window_days": 7,
+            "generated_at": "2026-11-06T00:00:00Z",
+            "replies": {
+                "total": 5,
+                "engagement": {"total_likes": 10, "avg_likes": 2.0, "total_retweets": 4, "avg_retweets": 0.8}
+            },
+            "scheduled": {"total": 2, "pending": 1, "sent": 1, "cancelled": 0, "personas": {"witty_ai": 2}},
+            "humor_ratings": {
+                "total_reviews": 5, "approval_rate_percent": 100.0, "upvotes": 5, "downvotes": 0, "top_rated": []
+            }
+        }
+        res = self.app.get('/api/digest/download?format=markdown')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/markdown')
+        self.assertIn('attachment;', res.headers.get('Content-Disposition', ''))
+        self.assertIn('.md', res.headers.get('Content-Disposition', ''))
+        self.assertIn('# 🚀 Tactful Humor Bot', res.data.decode('utf-8'))
+
+    @patch('digest.generate_performance_digest')
+    def test_digest_download_json(self, mock_gen):
+        import json as json_mod
+        mock_gen.return_value = {"window_days": 7, "replies": {"total": 0}}
+        res = self.app.get('/api/digest/download?format=json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'application/json')
+        self.assertIn('attachment;', res.headers.get('Content-Disposition', ''))
+        self.assertIn('.json', res.headers.get('Content-Disposition', ''))
+        data = json_mod.loads(res.data.decode('utf-8'))
+        self.assertEqual(data["window_days"], 7)
+
+    @patch('generate_digest.generate_performance_digest')
+    def test_generate_digest_cli_save_files(self, mock_gen):
+        import generate_digest
+        import json as json_mod
+        import tempfile
+        import shutil
+
+        mock_gen.return_value = {
+            "window_days": 7,
+            "generated_at": "2026-11-06T00:00:00Z",
+            "replies": {
+                "total": 1,
+                "engagement": {"total_likes": 0, "avg_likes": 0, "total_retweets": 0, "avg_retweets": 0}
+            },
+            "scheduled": {"total": 0, "pending": 0, "sent": 0, "cancelled": 0, "personas": {}},
+            "humor_ratings": {
+                "total_reviews": 0, "approval_rate_percent": 0.0, "upvotes": 0, "downvotes": 0, "top_rated": []
+            }
+        }
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            saved = generate_digest.save_digest_files(mock_gen.return_value, out_dir=temp_dir, export_format="both")
+            self.assertIn("markdown", saved)
+            self.assertIn("json", saved)
+            self.assertTrue(os.path.exists(saved["markdown"]))
+            self.assertTrue(os.path.exists(saved["json"]))
+
+            with open(saved["markdown"], "r", encoding="utf-8") as f:
+                md_text = f.read()
+                self.assertIn("# 🚀 Tactful Humor Bot", md_text)
+
+            with open(saved["json"], "r", encoding="utf-8") as f:
+                json_data = json_mod.load(f)
+                self.assertEqual(json_data["window_days"], 7)
+        finally:
+            shutil.rmtree(temp_dir)
+
+
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
     @patch('bot.db.init_db')
     @patch('bot.get_twitter_client')
