@@ -3,10 +3,35 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.14.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.17.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
-1. **Automated Weekly Performance Digest Engine (v0.14.0)**:
+1. **Performance Digest CLI Generator & File Export (`generate_digest.py`) (v0.17.0)**:
+   - Implemented `generate_digest.py` allowing manual or automated execution to generate performance summaries across customizable day windows.
+   - Supports exporting formatted Markdown (`.md`) and JSON (`.json`) files directly into `reports/` or stdout.
+2. **Direct Report Attachment Download REST Endpoint (`/api/digest/download`) (v0.17.0)**:
+   - Added `/api/digest/download` in `dashboard.py` returning timestamped attachments for Markdown and JSON reports.
+   - Added "Download .MD" and "Download .JSON" direct action buttons into the Command Center Weekly Performance Digest card.
+   - Verified visually via Playwright headless browser screenshot (`/home/jules/verification/digest_download_controls.png`).
+   - Added 3 comprehensive unit tests in `test_bot.py` (82 total unit tests passing, 88% code coverage, 0 flake8 errors).
+3. **Automated Recurring Digest Broadcast Worker (v0.16.0)**:
+   - Implemented `check_and_dispatch_recurring_digest(dry_run, current_time)` in `webhook.py` supporting configurable recurring broadcast intervals (24h daily, 72h 3-day, 168h weekly) and time throttling.
+   - Integrated automated recurring digest checks directly into `bot.py`'s continuous asynchronous polling loop.
+   - Expanded `/api/webhook` in `dashboard.py` to get/set recurring preferences (`auto_dispatch`, `interval_hours`) and report last broadcast time.
+   - Updated Command Center UI in `templates/index.html` with an Automated Recurring Broadcast toggle, interval dropdown, and last broadcast timestamp display.
+   - Verified visually via Playwright headless browser screenshot (`/home/jules/verification/webhook_recurring_controls.png`).
+   - Added 3 comprehensive unit tests in `test_bot.py` (79 total unit tests passing, 88% code coverage, 0 flake8 errors).
+2. **Historical Script Extraction & Documentation**:
+   - Extracted the original draft Tweepy script, concepts, and feasibility/moderation risk analyses from git history into `docs/HISTORICAL_EXTRACTS.md`.
+   - Documented the architectural evolution from the initial synchronous concept to the modern asynchronous v0.16.0 multi-persona platform.
+3. **Automated Digest Webhook Dispatcher & UI Controls (v0.15.0)**:
+   - Implemented `webhook.py` supporting automated and test dispatches to external receivers (Discord, Slack, and Generic JSON endpoints) with exponential backoff and jitter retry mechanics.
+   - Built platform payload adapters formatting rich visual embeds for Discord and structured block kits for Slack.
+   - Exposed `/api/webhook` (GET/POST) in `dashboard.py` to inspect configured masked webhook URLs, update endpoints/adapters, and trigger immediate test dispatches.
+   - Integrated Webhook Dispatch & Alerts controls inside the Weekly Performance Digest card in `templates/index.html` with status badges, URL input, adapter selectors, and test triggers.
+   - Verified visually via Playwright headless screenshot (`/home/jules/verification/webhook_controls_clean.png`).
+   - Added 4 unit tests in `test_bot.py` covering Slack and Discord formatting, network dispatch/retries, and `/api/webhook` REST interactions (76 tests passing, 88% coverage).
+2. **Automated Weekly Performance Digest Engine (v0.14.0)**:
    - Implemented `digest.py` computing 7-day rolling window analytics across replies, engagement (likes/RTs), queued tweets by persona and status, and community approval ratings.
    - Added `export_digest_markdown()` for generating human-readable Markdown summaries.
    - Exposed `/api/digest` endpoint in `dashboard.py` supporting `?format=json` and `?format=markdown` with customizable day window.

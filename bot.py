@@ -7,6 +7,7 @@ import os
 from rate_limiter import async_call_api_with_backoff
 import db
 import scheduler
+import webhook
 from auth import get_twitter_client
 from analytics import AnalyticsTracker
 from joke_generator import generate_content
@@ -144,6 +145,14 @@ async def main():
                         logging.info(f"Dispatched {processed_count} scheduled tweet(s).")
                 except Exception as sched_err:
                     logging.error(f"Error processing scheduled tweets: {sched_err}")
+
+                # Check and evaluate automated recurring performance digest dispatch
+                try:
+                    dispatched, msg = webhook.check_and_dispatch_recurring_digest(dry_run=args.dry_run)
+                    if dispatched:
+                        logging.info(f"📊 [Digest Worker] {msg}")
+                except Exception as digest_err:
+                    logging.error(f"Error checking recurring digest dispatch: {digest_err}")
 
                 # Update engagement metrics for past replies before polling for new ones
                 if not args.dry_run:

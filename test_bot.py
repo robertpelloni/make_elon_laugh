@@ -16,6 +16,8 @@ import digest
 import scheduler
 import tray
 import meme_generator
+import webhook
+import urllib.error
 
 
 class TestBotValidation(unittest.TestCase):
@@ -882,6 +884,214 @@ class TestPerformanceDigest(unittest.TestCase):
         self.assertTrue(data_md["success"])
         self.assertEqual(data_md["format"], "markdown")
         self.assertIn("Weekly Performance Digest", data_md["markdown"])
+
+
+class TestWebhookDispatcher(unittest.TestCase):
+    def setUp(self):
+        webhook.DEFAULT_WEBHOOK_URL = ""
+        webhook.DEFAULT_ADAPTER = "generic"
+
+    def test_webhook_payload_formatting_slack(self):
+        sample = {
+            "window_days": 7,
+            "replies": {"total_replies": 8, "total_likes": 32, "total_retweets": 12},
+            "ratings": {"approval_rate": 88.5, "top_humor": [{"content": "Quantum humor"}]},
+            "queue": {"sent": 4, "pending": 2}
+        }
+        payload = webhook.format_slack_payload(sample)
+        self.assertEqual(payload["text"], "Weekly Performance Digest")
+        self.assertGreater(len(payload["blocks"]), 1)
+        self.assertIn("Tactful Humor Bot", payload["blocks"][0]["text"]["text"])
+
+    def test_webhook_payload_formatting_discord(self):
+        sample = {
+            "window_days": 7,
+            "replies": {"total_replies": 5, "total_likes": 15, "total_retweets": 3},
+            "ratings": {"approval_rate": 100.0, "top_humor": []},
+            "queue": {"sent": 2, "pending": 1}
+        }
+        payload = webhook.format_discord_payload(sample)
+        self.assertIn("embeds", payload)
+        self.assertEqual(len(payload["embeds"]), 1)
+        self.assertIn("Tactful Humor Bot", payload["embeds"][0]["title"])
+
+    @patch('urllib.request.urlopen')
+    def test_webhook_dispatch_success_and_retry(self, mock_urlopen):
+        # Test success on first try
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        ok, status = webhook.dispatch_webhook("https://example.com/webhook", {"test": 123})
+        self.assertTrue(ok)
+        self.assertEqual(status, 200)
+
+        # Test retry failure
+        mock_urlopen.side_effect = urllib.error.URLError("Network down")
+        ok_fail, err = webhook.dispatch_webhook("https://example.com/webhook", {"test": 123}, max_retries=2)
+        self.assertFalse(ok_fail)
+        self.assertIn("Network down", err)
+
+    @patch('urllib.request.urlopen')
+    def test_api_webhook_endpoint(self, mock_urlopen):
+        client = dashboard.app.test_client()
+
+        # GET initially empty
+        res = client.get('/api/webhook')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertFalse(data["configured"])
+
+        # POST update URL and adapter
+        res_post = client.post('/api/webhook', json={
+            "webhook_url": "https://hooks.slack.com/services/T00/B00/XXXX",
+            "adapter": "slack"
+        })
+        self.assertEqual(res_post.status_code, 200)
+        self.assertTrue(res_post.get_json()["success"])
+
+        # GET should now report configured
+        res_after = client.get('/api/webhook')
+        data_after = res_after.get_json()
+        self.assertTrue(data_after["configured"])
+        self.assertEqual(data_after["adapter"], "slack")
+
+        # POST test dispatch with mock urlopen
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        res_dispatch = client.post('/api/webhook', json={"dispatch_now": True})
+        self.assertEqual(res_dispatch.status_code, 200)
+        self.assertTrue(res_dispatch.get_json()["success"])
+
+        # POST update auto_dispatch and interval
+        res_sched = client.post('/api/webhook', json={
+            "auto_dispatch": True,
+            "interval_hours": 24
+        })
+        self.assertEqual(res_sched.status_code, 200)
+        data_sched = res_sched.get_json()
+        self.assertTrue(data_sched["auto_dispatch"])
+        self.assertEqual(data_sched["interval_hours"], 24)
+
+    def test_check_and_dispatch_recurring_digest_disabled(self):
+        webhook.AUTO_DISPATCH_ENABLED = False
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest()
+        self.assertFalse(dispatched)
+        self.assertIn("Auto-dispatch disabled", msg)
+
+    def test_check_and_dispatch_recurring_digest_no_url(self):
+        webhook.AUTO_DISPATCH_ENABLED = True
+        webhook.DEFAULT_WEBHOOK_URL = ""
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest()
+        self.assertFalse(dispatched)
+        self.assertIn("No webhook URL", msg)
+
+    @patch('webhook.dispatch_webhook')
+    def test_check_and_dispatch_recurring_digest_due_and_throttle(self, mock_dispatch):
+        webhook.AUTO_DISPATCH_ENABLED = True
+        webhook.DEFAULT_WEBHOOK_URL = "https://example.com/digest"
+        webhook.DISPATCH_INTERVAL_HOURS = 24
+        webhook.LAST_DISPATCH_TIMESTAMP = 0.0
+
+        mock_dispatch.return_value = (True, 200)
+
+        # First run (not dispatched before)
+        now = 1000000.0
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest(dry_run=False, current_time=now)
+        self.assertTrue(dispatched)
+        self.assertEqual(webhook.LAST_DISPATCH_TIMESTAMP, now)
+
+        # Second run immediately after (should throttle)
+        dispatched_second, msg_second = webhook.check_and_dispatch_recurring_digest(
+            dry_run=False, current_time=now + 3600
+        )
+        self.assertFalse(dispatched_second)
+        self.assertIn("not due yet", msg_second)
+
+        # Run after 25 hours (should dispatch again)
+        dispatched_third, msg_third = webhook.check_and_dispatch_recurring_digest(
+            dry_run=False, current_time=now + (25 * 3600)
+        )
+        self.assertTrue(dispatched_third)
+
+
+class TestDigestCLIAndDownload(unittest.TestCase):
+    def setUp(self):
+        self.app = dashboard.app.test_client()
+        self.app.testing = True
+
+    @patch('digest.generate_performance_digest')
+    def test_digest_download_markdown(self, mock_gen):
+        mock_gen.return_value = {
+            "window_days": 7,
+            "generated_at": "2026-11-06T00:00:00Z",
+            "replies": {
+                "total": 5,
+                "engagement": {"total_likes": 10, "avg_likes": 2.0, "total_retweets": 4, "avg_retweets": 0.8}
+            },
+            "scheduled": {"total": 2, "pending": 1, "sent": 1, "cancelled": 0, "personas": {"witty_ai": 2}},
+            "humor_ratings": {
+                "total_reviews": 5, "approval_rate_percent": 100.0, "upvotes": 5, "downvotes": 0, "top_rated": []
+            }
+        }
+        res = self.app.get('/api/digest/download?format=markdown')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/markdown')
+        self.assertIn('attachment;', res.headers.get('Content-Disposition', ''))
+        self.assertIn('.md', res.headers.get('Content-Disposition', ''))
+        self.assertIn('# 🚀 Tactful Humor Bot', res.data.decode('utf-8'))
+
+    @patch('digest.generate_performance_digest')
+    def test_digest_download_json(self, mock_gen):
+        import json as json_mod
+        mock_gen.return_value = {"window_days": 7, "replies": {"total": 0}}
+        res = self.app.get('/api/digest/download?format=json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'application/json')
+        self.assertIn('attachment;', res.headers.get('Content-Disposition', ''))
+        self.assertIn('.json', res.headers.get('Content-Disposition', ''))
+        data = json_mod.loads(res.data.decode('utf-8'))
+        self.assertEqual(data["window_days"], 7)
+
+    @patch('generate_digest.generate_performance_digest')
+    def test_generate_digest_cli_save_files(self, mock_gen):
+        import generate_digest
+        import json as json_mod
+        import tempfile
+        import shutil
+
+        mock_gen.return_value = {
+            "window_days": 7,
+            "generated_at": "2026-11-06T00:00:00Z",
+            "replies": {
+                "total": 1,
+                "engagement": {"total_likes": 0, "avg_likes": 0, "total_retweets": 0, "avg_retweets": 0}
+            },
+            "scheduled": {"total": 0, "pending": 0, "sent": 0, "cancelled": 0, "personas": {}},
+            "humor_ratings": {
+                "total_reviews": 0, "approval_rate_percent": 0.0, "upvotes": 0, "downvotes": 0, "top_rated": []
+            }
+        }
+
+        temp_dir = tempfile.mkdtemp()
+        try:
+            saved = generate_digest.save_digest_files(mock_gen.return_value, out_dir=temp_dir, export_format="both")
+            self.assertIn("markdown", saved)
+            self.assertIn("json", saved)
+            self.assertTrue(os.path.exists(saved["markdown"]))
+            self.assertTrue(os.path.exists(saved["json"]))
+
+            with open(saved["markdown"], "r", encoding="utf-8") as f:
+                md_text = f.read()
+                self.assertIn("# 🚀 Tactful Humor Bot", md_text)
+
+            with open(saved["json"], "r", encoding="utf-8") as f:
+                json_data = json_mod.load(f)
+                self.assertEqual(json_data["window_days"], 7)
+        finally:
+            shutil.rmtree(temp_dir)
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):

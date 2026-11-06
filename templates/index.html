@@ -218,7 +218,9 @@
                     </div>
                 </span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="Export Markdown summary">Export Markdown</button>
+                    <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
                 </div>
             </div>
@@ -244,6 +246,45 @@
                     <div id="digest-approval" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">100%</div>
                     <div id="digest-ratings-breakdown" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 ratings evaluated</div>
                 </div>
+            </div>
+
+            <!-- Webhook Dispatch & Alerts Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        📡 Automated Webhook Dispatch (Discord, Slack, Generic)
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Push weekly digest statistics to Slack channels, Discord webhooks, or generic reporting servers.</span>
+                        </div>
+                    </span>
+                    <span id="webhook-status-badge" class="status-badge warn" style="font-size: 0.75rem;">Not Configured</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 1; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <select id="webhook-adapter-select" style="font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                        <option value="generic">Generic JSON</option>
+                        <option value="discord">Discord Embed</option>
+                        <option value="slack">Slack Blocks</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="saveWebhookSettings()">Save Webhook</button>
+                    <button class="btn btn-primary btn-sm" onclick="triggerWebhookTest()">Test Dispatch</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; cursor: pointer; color: var(--text-color); margin: 0;">
+                            <input type="checkbox" id="webhook-autodispatch-toggle" onchange="saveWebhookSettings()">
+                            <span>Automated Recurring Broadcast</span>
+                        </label>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">every</span>
+                        <select id="webhook-interval-select" onchange="saveWebhookSettings()" style="font-size: 0.75rem; padding: 0.2rem 0.4rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <option value="24">24 Hours (Daily)</option>
+                            <option value="72">72 Hours (3 Days)</option>
+                            <option value="168">168 Hours (Weekly)</option>
+                        </select>
+                    </div>
+                    <div id="webhook-last-dispatch" style="font-size: 0.75rem; color: var(--text-muted);">Last Broadcast: None</div>
+                </div>
+                <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
             </div>
 
             <!-- Markdown preview modal / expander -->
@@ -672,6 +713,102 @@
             }
         }
 
+        async function fetchWebhookConfig() {
+            try {
+                const res = await fetch('/api/webhook');
+                const data = await res.json();
+                const badge = document.getElementById('webhook-status-badge');
+                const urlInput = document.getElementById('webhook-url-input');
+                const adapterSelect = document.getElementById('webhook-adapter-select');
+                const autoToggle = document.getElementById('webhook-autodispatch-toggle');
+                const intervalSelect = document.getElementById('webhook-interval-select');
+                const lastDispatch = document.getElementById('webhook-last-dispatch');
+
+                if (data.adapter) adapterSelect.value = data.adapter;
+                if (data.auto_dispatch !== undefined) autoToggle.checked = Boolean(data.auto_dispatch);
+                if (data.interval_hours !== undefined) intervalSelect.value = String(data.interval_hours);
+
+                if (data.last_dispatch && data.last_dispatch > 0) {
+                    const dt = new Date(data.last_dispatch * 1000);
+                    lastDispatch.textContent = `Last Broadcast: ${dt.toLocaleTimeString()} (${dt.toLocaleDateString()})`;
+                } else {
+                    lastDispatch.textContent = "Last Broadcast: None";
+                }
+
+                if (data.configured) {
+                    badge.textContent = `Configured (${data.masked_url})`;
+                    badge.className = 'status-badge ok';
+                } else {
+                    badge.textContent = 'Not Configured';
+                    badge.className = 'status-badge warn';
+                }
+            } catch (err) {
+                console.error("Error loading webhook config:", err);
+            }
+        }
+
+        async function saveWebhookSettings() {
+            const url = document.getElementById('webhook-url-input').value.trim();
+            const adapter = document.getElementById('webhook-adapter-select').value;
+            const autoDispatch = document.getElementById('webhook-autodispatch-toggle').checked;
+            const intervalHours = parseInt(document.getElementById('webhook-interval-select').value, 10);
+            const feedback = document.getElementById('webhook-feedback');
+
+            try {
+                const payload = {
+                    adapter: adapter,
+                    auto_dispatch: autoDispatch,
+                    interval_hours: intervalHours
+                };
+                if (url) {
+                    payload.webhook_url = url;
+                }
+
+                const res = await fetch('/api/webhook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ Webhook settings and recurring schedule saved.";
+                    feedback.style.color = "var(--accent-success)";
+                    fetchWebhookConfig();
+                } else {
+                    feedback.textContent = "❌ Failed to save: " + (data.error || "Unknown error");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error saving: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
+        async function triggerWebhookTest() {
+            const feedback = document.getElementById('webhook-feedback');
+            feedback.textContent = "⏳ Transmitting digest payload to webhook...";
+            feedback.style.color = "var(--text-muted)";
+
+            try {
+                const res = await fetch('/api/webhook', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({dispatch_now: true})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "🚀 " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Webhook dispatch failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error triggering webhook: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -697,6 +834,7 @@
         fetchLogs();
         fetchScheduledTweets();
         fetchPerformanceDigest();
+        fetchWebhookConfig();
         setInterval(fetchLogs, 10000);
     </script>
 </body>
