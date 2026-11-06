@@ -15,8 +15,9 @@
 - [x] Implement automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`, and Command Center digest card).
 - [x] Implement automated digest webhook dispatcher supporting Discord, Slack, and generic JSON endpoints (`webhook.py`, `/api/webhook`, and UI alert triggers).
 - [x] Extract and document historical Tweepy script draft and foundational concepts from commit history into `docs/HISTORICAL_EXTRACTS.md`.
+- [x] Implement automated recurring background digest webhook worker (`check_and_dispatch_recurring_digest`) in polling loop and dashboard controls.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Automated recurring cron worker for weekly digest webhook broadcast.
+- [ ] Multi-platform syndication connectors (Bluesky, Mastodon).

@@ -795,8 +795,23 @@
                         <option value="discord">Discord Embed</option>
                         <option value="slack">Slack Blocks</option>
                     </select>
-                    <button class="btn btn-secondary btn-sm" onclick="saveWebhookSettings()">Save URL</button>
+                    <button class="btn btn-secondary btn-sm" onclick="saveWebhookSettings()">Save Webhook</button>
                     <button class="btn btn-primary btn-sm" onclick="triggerWebhookTest()">Test Dispatch</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; cursor: pointer; color: var(--text-color); margin: 0;">
+                            <input type="checkbox" id="webhook-autodispatch-toggle" onchange="saveWebhookSettings()">
+                            <span>Automated Recurring Broadcast</span>
+                        </label>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">every</span>
+                        <select id="webhook-interval-select" onchange="saveWebhookSettings()" style="font-size: 0.75rem; padding: 0.2rem 0.4rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <option value="24">24 Hours (Daily)</option>
+                            <option value="72">72 Hours (3 Days)</option>
+                            <option value="168">168 Hours (Weekly)</option>
+                        </select>
+                    </div>
+                    <div id="webhook-last-dispatch" style="font-size: 0.75rem; color: var(--text-muted);">Last Broadcast: None</div>
                 </div>
                 <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
             </div>
@@ -1175,8 +1190,20 @@
                 const badge = document.getElementById('webhook-status-badge');
                 const urlInput = document.getElementById('webhook-url-input');
                 const adapterSelect = document.getElementById('webhook-adapter-select');
+                const autoToggle = document.getElementById('webhook-autodispatch-toggle');
+                const intervalSelect = document.getElementById('webhook-interval-select');
+                const lastDispatch = document.getElementById('webhook-last-dispatch');
 
                 if (data.adapter) adapterSelect.value = data.adapter;
+                if (data.auto_dispatch !== undefined) autoToggle.checked = Boolean(data.auto_dispatch);
+                if (data.interval_hours !== undefined) intervalSelect.value = String(data.interval_hours);
+
+                if (data.last_dispatch && data.last_dispatch > 0) {
+                    const dt = new Date(data.last_dispatch * 1000);
+                    lastDispatch.textContent = `Last Broadcast: ${dt.toLocaleTimeString()} (${dt.toLocaleDateString()})`;
+                } else {
+                    lastDispatch.textContent = "Last Broadcast: None";
+                }
 
                 if (data.configured) {
                     badge.textContent = `Configured (${data.masked_url})`;
@@ -1193,17 +1220,28 @@
         async function saveWebhookSettings() {
             const url = document.getElementById('webhook-url-input').value.trim();
             const adapter = document.getElementById('webhook-adapter-select').value;
+            const autoDispatch = document.getElementById('webhook-autodispatch-toggle').checked;
+            const intervalHours = parseInt(document.getElementById('webhook-interval-select').value, 10);
             const feedback = document.getElementById('webhook-feedback');
 
             try {
+                const payload = {
+                    adapter: adapter,
+                    auto_dispatch: autoDispatch,
+                    interval_hours: intervalHours
+                };
+                if (url) {
+                    payload.webhook_url = url;
+                }
+
                 const res = await fetch('/api/webhook', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({webhook_url: url, adapter: adapter})
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
                 if (data.success) {
-                    feedback.textContent = "✅ Webhook settings saved successfully.";
+                    feedback.textContent = "✅ Webhook settings and recurring schedule saved.";
                     feedback.style.color = "var(--accent-success)";
                     fetchWebhookConfig();
                 } else {

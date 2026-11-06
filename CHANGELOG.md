@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-11-06
+
+### Added
+- **Automated Recurring Digest Broadcast Worker (`webhook.py`)**: Added `check_and_dispatch_recurring_digest()` implementing background recurring broadcast intervals (e.g., 24h daily, 72h 3-day, 168h weekly) with timestamp tracking and throttling.
+- **Bot Polling Loop Recurring Digest Integration (`bot.py`)**: Integrated automated digest dispatch evaluation into the primary continuous polling loop.
+- **Webhook API Configuration Expansion (`dashboard.py`)**: Enhanced `/api/webhook` (GET/POST) to query and update `auto_dispatch` preference and `interval_hours` setting with runtime status reporting.
+- **Command Center Recurring Controls (`templates/index.html`)**: Added intuitive Recurring Digest checkbox, interval dropdown selector, and last broadcast timestamp indicators.
+- **Unit Test Coverage**: Added 3 unit tests in `test_bot.py` covering recurring digest dispatch logic (disabled, unconfigured, due dispatch, throttling) and API updates (79 unit tests passing, 88% coverage).
+
 ## [0.15.0] - 2026-11-05
 
 ### Added

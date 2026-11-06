@@ -3,13 +3,20 @@
 ## Session Overview
 - **Repository**: `make_elon_laugh` (Emperor Musk Bot)
 - **Active Branch**: `jules-8067423937083367268-08d72221`
-- **Current Version**: `0.15.0` (tracked centrally in `VERSION.md`)
+- **Current Version**: `0.16.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
-1. **Historical Script Extraction & Documentation**:
+1. **Automated Recurring Digest Broadcast Worker (v0.16.0)**:
+   - Implemented `check_and_dispatch_recurring_digest(dry_run, current_time)` in `webhook.py` supporting configurable recurring broadcast intervals (24h daily, 72h 3-day, 168h weekly) and time throttling.
+   - Integrated automated recurring digest checks directly into `bot.py`'s continuous asynchronous polling loop.
+   - Expanded `/api/webhook` in `dashboard.py` to get/set recurring preferences (`auto_dispatch`, `interval_hours`) and report last broadcast time.
+   - Updated Command Center UI in `templates/index.html` with an Automated Recurring Broadcast toggle, interval dropdown, and last broadcast timestamp display.
+   - Verified visually via Playwright headless browser screenshot (`/home/jules/verification/webhook_recurring_controls.png`).
+   - Added 3 comprehensive unit tests in `test_bot.py` (79 total unit tests passing, 88% code coverage, 0 flake8 errors).
+2. **Historical Script Extraction & Documentation**:
    - Extracted the original draft Tweepy script, concepts, and feasibility/moderation risk analyses from git history into `docs/HISTORICAL_EXTRACTS.md`.
-   - Documented the architectural evolution from the initial synchronous concept to the modern asynchronous v0.15.0 multi-persona platform.
-2. **Automated Digest Webhook Dispatcher & UI Controls (v0.15.0)**:
+   - Documented the architectural evolution from the initial synchronous concept to the modern asynchronous v0.16.0 multi-persona platform.
+3. **Automated Digest Webhook Dispatcher & UI Controls (v0.15.0)**:
    - Implemented `webhook.py` supporting automated and test dispatches to external receivers (Discord, Slack, and Generic JSON endpoints) with exponential backoff and jitter retry mechanics.
    - Built platform payload adapters formatting rich visual embeds for Discord and structured block kits for Slack.
    - Exposed `/api/webhook` (GET/POST) in `dashboard.py` to inspect configured masked webhook URLs, update endpoints/adapters, and trigger immediate test dispatches.

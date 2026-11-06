@@ -908,6 +908,57 @@ class TestWebhookDispatcher(unittest.TestCase):
         self.assertEqual(res_dispatch.status_code, 200)
         self.assertTrue(res_dispatch.get_json()["success"])
 
+        # POST update auto_dispatch and interval
+        res_sched = client.post('/api/webhook', json={
+            "auto_dispatch": True,
+            "interval_hours": 24
+        })
+        self.assertEqual(res_sched.status_code, 200)
+        data_sched = res_sched.get_json()
+        self.assertTrue(data_sched["auto_dispatch"])
+        self.assertEqual(data_sched["interval_hours"], 24)
+
+    def test_check_and_dispatch_recurring_digest_disabled(self):
+        webhook.AUTO_DISPATCH_ENABLED = False
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest()
+        self.assertFalse(dispatched)
+        self.assertIn("Auto-dispatch disabled", msg)
+
+    def test_check_and_dispatch_recurring_digest_no_url(self):
+        webhook.AUTO_DISPATCH_ENABLED = True
+        webhook.DEFAULT_WEBHOOK_URL = ""
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest()
+        self.assertFalse(dispatched)
+        self.assertIn("No webhook URL", msg)
+
+    @patch('webhook.dispatch_webhook')
+    def test_check_and_dispatch_recurring_digest_due_and_throttle(self, mock_dispatch):
+        webhook.AUTO_DISPATCH_ENABLED = True
+        webhook.DEFAULT_WEBHOOK_URL = "https://example.com/digest"
+        webhook.DISPATCH_INTERVAL_HOURS = 24
+        webhook.LAST_DISPATCH_TIMESTAMP = 0.0
+
+        mock_dispatch.return_value = (True, 200)
+
+        # First run (not dispatched before)
+        now = 1000000.0
+        dispatched, msg = webhook.check_and_dispatch_recurring_digest(dry_run=False, current_time=now)
+        self.assertTrue(dispatched)
+        self.assertEqual(webhook.LAST_DISPATCH_TIMESTAMP, now)
+
+        # Second run immediately after (should throttle)
+        dispatched_second, msg_second = webhook.check_and_dispatch_recurring_digest(
+            dry_run=False, current_time=now + 3600
+        )
+        self.assertFalse(dispatched_second)
+        self.assertIn("not due yet", msg_second)
+
+        # Run after 25 hours (should dispatch again)
+        dispatched_third, msg_third = webhook.check_and_dispatch_recurring_digest(
+            dry_run=False, current_time=now + (25 * 3600)
+        )
+        self.assertTrue(dispatched_third)
+
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
     @patch('bot.db.init_db')

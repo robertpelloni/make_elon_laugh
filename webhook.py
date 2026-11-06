@@ -19,6 +19,48 @@ logger = logging.getLogger(__name__)
 # Global runtime configuration with fallback to environment
 DEFAULT_WEBHOOK_URL = os.environ.get("DIGEST_WEBHOOK_URL", "")
 DEFAULT_ADAPTER = os.environ.get("DIGEST_WEBHOOK_ADAPTER", "generic").lower()
+AUTO_DISPATCH_ENABLED = os.environ.get("DIGEST_AUTO_DISPATCH", "false").lower() in ["true", "1", "yes"]
+DISPATCH_INTERVAL_HOURS = int(os.environ.get("DIGEST_INTERVAL_HOURS", "168"))  # default 7 days (168 hours)
+LAST_DISPATCH_TIMESTAMP = 0.0
+
+
+def check_and_dispatch_recurring_digest(dry_run=False, current_time=None):
+    """
+    Evaluates whether the automated periodic digest is due and dispatches it.
+    Returns (dispatched: bool, message: str).
+    """
+    global LAST_DISPATCH_TIMESTAMP
+
+    if not AUTO_DISPATCH_ENABLED:
+        return False, "Auto-dispatch disabled."
+
+    if not DEFAULT_WEBHOOK_URL:
+        return False, "No webhook URL configured."
+
+    now = time.time() if current_time is None else current_time
+    interval_seconds = max(1, DISPATCH_INTERVAL_HOURS) * 3600
+
+    if LAST_DISPATCH_TIMESTAMP > 0 and (now - LAST_DISPATCH_TIMESTAMP) < interval_seconds:
+        remaining_hours = round((interval_seconds - (now - LAST_DISPATCH_TIMESTAMP)) / 3600, 1)
+        return False, f"Digest not due yet. Next dispatch in ~{remaining_hours} hours."
+
+    logger.info("Executing scheduled recurring performance digest broadcast...")
+    summary = digest.generate_performance_digest(days=7)
+    payload = format_webhook_payload(summary, adapter=DEFAULT_ADAPTER)
+
+    if dry_run:
+        LAST_DISPATCH_TIMESTAMP = now
+        logger.info(f"[DRY-RUN] Recurring digest simulated dispatch to {DEFAULT_ADAPTER}.")
+        return True, "Simulated recurring dispatch (dry-run)."
+
+    success, status_or_err = dispatch_webhook(DEFAULT_WEBHOOK_URL, payload)
+    if success:
+        LAST_DISPATCH_TIMESTAMP = now
+        logger.info(f"Recurring digest successfully broadcast (HTTP {status_or_err}).")
+        return True, f"Recurring digest broadcast successful (HTTP {status_or_err})."
+
+    logger.error(f"Recurring digest broadcast failed: {status_or_err}")
+    return False, f"Dispatch error: {status_or_err}"
 
 
 def format_slack_payload(digest_data):

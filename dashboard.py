@@ -475,11 +475,13 @@ def api_digest():
 def api_webhook():
     """
     Manages digest webhook delivery configuration and manual test dispatch.
-    GET: Returns current webhook configuration (masked URL).
-    POST: Updates webhook URL and adapter, or triggers a test dispatch.
+    GET: Returns current webhook configuration (masked URL, auto dispatch status, interval).
+    POST: Updates webhook URL, adapter, auto-dispatch switch, interval, or triggers test dispatch.
           Body: {
             "webhook_url": "...",
             "adapter": "slack|discord|generic",
+            "auto_dispatch": true|false,
+            "interval_hours": 24|72|168,
             "dispatch_now": true|false
           }
     """
@@ -487,12 +489,23 @@ def api_webhook():
         data = request.get_json(silent=True) or {}
         new_url = data.get("webhook_url")
         new_adapter = data.get("adapter")
+        auto_dispatch = data.get("auto_dispatch")
+        interval_hours = data.get("interval_hours")
         dispatch_now = data.get("dispatch_now", False)
 
         if new_url is not None:
             webhook.DEFAULT_WEBHOOK_URL = new_url.strip()
         if new_adapter is not None:
             webhook.DEFAULT_ADAPTER = new_adapter.strip().lower()
+        if auto_dispatch is not None:
+            webhook.AUTO_DISPATCH_ENABLED = bool(auto_dispatch)
+        if interval_hours is not None:
+            try:
+                val = int(interval_hours)
+                if val >= 1:
+                    webhook.DISPATCH_INTERVAL_HOURS = val
+            except (ValueError, TypeError):
+                pass
 
         if dispatch_now:
             target_url = webhook.DEFAULT_WEBHOOK_URL
@@ -505,6 +518,7 @@ def api_webhook():
 
             success, status_or_err = webhook.dispatch_webhook(target_url, payload)
             if success:
+                webhook.LAST_DISPATCH_TIMESTAMP = time.time()
                 return jsonify({
                     "success": True,
                     "message": f"Webhook dispatched successfully (HTTP {status_or_err}).",
@@ -519,10 +533,12 @@ def api_webhook():
         return jsonify({
             "success": True,
             "message": "Webhook settings updated.",
-            "adapter": webhook.DEFAULT_ADAPTER
+            "adapter": webhook.DEFAULT_ADAPTER,
+            "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
+            "interval_hours": webhook.DISPATCH_INTERVAL_HOURS
         })
 
-    # GET: return masked URL for operator review
+    # GET: return masked URL and status for operator review
     url = webhook.DEFAULT_WEBHOOK_URL
     masked_url = ""
     if url:
@@ -534,7 +550,10 @@ def api_webhook():
     return jsonify({
         "configured": bool(url),
         "masked_url": masked_url,
-        "adapter": webhook.DEFAULT_ADAPTER
+        "adapter": webhook.DEFAULT_ADAPTER,
+        "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
+        "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,
+        "last_dispatch": webhook.LAST_DISPATCH_TIMESTAMP
     })
 
 

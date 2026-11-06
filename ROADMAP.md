@@ -24,9 +24,9 @@
 *   [x] Scheduled Tweet Queuing System (`scheduler.py`, `scheduled_tweets` schema, `/api/schedule`, and queue management UI).
 *   [x] Weekly Visual Calendar Planner & Queue Metrics Breakdown (`/api/schedule` weekly distribution and 7-day visual planner grid).
 
-## Phase 4: Autonomous Operations & Multi-Platform Syndication (Upcoming)
+## Phase 4: Autonomous Operations & Multi-Platform Syndication (In Progress)
 *   [x] Automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`).
 *   [x] Automated digest external webhook dispatch engine (`webhook.py`, `/api/webhook`, Discord/Slack/Generic adapters).
+*   [x] Automated recurring background worker for periodic digest webhook broadcast (`check_and_dispatch_recurring_digest`).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
 *   [ ] Bluesky & Mastodon social federation syndication engine.
-*   [ ] Automated recurring cron worker for weekly digest webhook broadcast.
