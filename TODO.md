@@ -14,6 +14,7 @@
 - [x] Add weekly calendar visual view and queue metrics breakdown for scheduled tweets (`/api/schedule`, `#calendar-grid`, `#queue-metrics-badge`).
 - [x] Implement automated weekly performance digest engine and exportable markdown report (`digest.py`, `/api/digest`, and Command Center digest card).
 - [x] Implement automated digest webhook dispatcher supporting Discord, Slack, and generic JSON endpoints (`webhook.py`, `/api/webhook`, and UI alert triggers).
+- [x] Extract and document historical Tweepy script draft and foundational concepts from commit history into `docs/HISTORICAL_EXTRACTS.md`.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

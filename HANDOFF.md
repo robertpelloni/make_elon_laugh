@@ -6,7 +6,10 @@
 - **Current Version**: `0.15.0` (tracked centrally in `VERSION.md`)
 
 ## Key Accomplishments in Current Turn
-1. **Automated Digest Webhook Dispatcher & UI Controls (v0.15.0)**:
+1. **Historical Script Extraction & Documentation**:
+   - Extracted the original draft Tweepy script, concepts, and feasibility/moderation risk analyses from git history into `docs/HISTORICAL_EXTRACTS.md`.
+   - Documented the architectural evolution from the initial synchronous concept to the modern asynchronous v0.15.0 multi-persona platform.
+2. **Automated Digest Webhook Dispatcher & UI Controls (v0.15.0)**:
    - Implemented `webhook.py` supporting automated and test dispatches to external receivers (Discord, Slack, and Generic JSON endpoints) with exponential backoff and jitter retry mechanics.
    - Built platform payload adapters formatting rich visual embeds for Discord and structured block kits for Slack.
    - Exposed `/api/webhook` (GET/POST) in `dashboard.py` to inspect configured masked webhook URLs, update endpoints/adapters, and trigger immediate test dispatches.
