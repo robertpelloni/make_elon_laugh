@@ -643,14 +643,24 @@ def api_syndication():
 @app.route('/api/syndication/metrics', methods=['GET'])
 def api_syndication_metrics():
     """
-    Returns platform-by-platform syndication counts and engagement metrics.
+    Returns platform-by-platform syndication counts and engagement metrics,
+    along with any active federation anomaly alerts.
     """
     summary = db.get_syndication_summary_metrics()
     recent = db.get_syndicated_posts_for_metrics_polling(limit=10)
+
+    perf_digest = digest.generate_performance_digest()
+    fed_alerts = [
+        a for a in perf_digest.get("alerts", [])
+        if a.get("type", "").startswith("federation_")
+    ]
+
     return jsonify({
         "success": True,
         "summary": summary,
-        "recent_posts": recent
+        "recent_posts": recent,
+        "federation_alerts": fed_alerts,
+        "federation_health": perf_digest.get("health_scorecard", {}).get("federation_health", "Idle")
     })
 
 

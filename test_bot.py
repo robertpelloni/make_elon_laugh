@@ -1581,6 +1581,49 @@ class TestSyndication(unittest.TestCase):
         res_bad = client.post('/api/split-preview', json={"text": 12345})
         self.assertEqual(res_bad.status_code, 400)
 
+    def test_federation_anomaly_alerts_and_health_scorecard(self):
+        """
+        Tests federation engagement stall detection, health scorecard status,
+        and /api/syndication/metrics response payloads.
+        """
+        # 1. Alert trigger evaluation: simulated stall
+        stalled_digest = {
+            "health_scorecard": {"db_connected": True, "queue_backlog": 0},
+            "ratings": {"total_ratings": 0, "approval_rate": 0.0},
+            "queue": {"pending": 0},
+            "syndication": {
+                "total_posts": 6,
+                "platforms": {
+                    "mastodon": {"posts": 3, "likes": 0, "shares": 0},
+                    "bluesky": {"posts": 3, "likes": 0, "shares": 0}
+                }
+            }
+        }
+        alerts = digest.evaluate_performance_alerts(stalled_digest)
+        stall_alerts = [a for a in alerts if a["type"] == "federation_engagement_stall"]
+        self.assertEqual(len(stall_alerts), 1)
+        self.assertIn("stall detected", stall_alerts[0]["message"])
+
+        # 2. Markdown and HTML export inclusion of active federation alerts
+        stalled_digest["alerts"] = alerts
+        md_report = digest.export_digest_markdown(stalled_digest)
+        self.assertIn("Active System Anomaly Alerts", md_report)
+        self.assertIn("Social federation engagement stall detected", md_report)
+
+        html_report = digest.export_digest_html(stalled_digest)
+        self.assertIn("Active System Anomaly Alerts", html_report)
+        self.assertIn("Social federation engagement stall detected", html_report)
+
+        # 3. Test /api/syndication/metrics response payload structure
+        client = dashboard.app.test_client()
+        res = client.get('/api/syndication/metrics')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("federation_alerts", data)
+        self.assertIn("federation_health", data)
+        self.assertIsInstance(data["federation_alerts"], list)
+
 
 if __name__ == "__main__":
     unittest.main()

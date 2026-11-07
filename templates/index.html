@@ -856,7 +856,10 @@
                           <span class="tooltiptext">Cross-post jokes and scheduled announcements to decentralized social networks including ActivityPub (Mastodon) and AT Protocol (Bluesky).</span>
                         </div>
                     </span>
-                    <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <span id="syndication-alert-badge" class="status-badge" style="display: none; font-size: 0.72rem; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">⚠️ Anomaly Detected</span>
+                        <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                    </div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; font-size: 0.8rem;">
                     <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
@@ -1581,6 +1584,16 @@
                     const totEl = document.getElementById('syndication-total-display');
                     if (totEl) {
                         totEl.textContent = `${sm.total_posts || 0} Posts`;
+                    }
+
+                    const alertBadge = document.getElementById('syndication-alert-badge');
+                    if (alertBadge) {
+                        if (data.federation_alerts && data.federation_alerts.length > 0) {
+                            alertBadge.style.display = 'inline-block';
+                            alertBadge.title = data.federation_alerts.map(a => a.message).join(' | ');
+                        } else {
+                            alertBadge.style.display = 'none';
+                        }
                     }
                 }
             } catch (err) {

@@ -51,6 +51,23 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
             )
         })
 
+    syn = digest_data.get("syndication", {})
+    tot_posts = syn.get("total_posts", 0)
+    syn_plats = syn.get("platforms", {})
+    tot_syn_engagement = sum(
+        p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values()
+    )
+
+    if tot_posts >= 5 and tot_syn_engagement == 0:
+        alerts.append({
+            "level": "warning",
+            "type": "federation_engagement_stall",
+            "message": (
+                f"Social federation engagement stall detected: {tot_posts} posts "
+                "syndicated with 0 total likes or shares."
+            )
+        })
+
     return alerts
 
 
@@ -120,6 +137,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "db_connected": False,
             "queue_backlog": 0,
             "sentiment_status": "Neutral (No Data)",
+            "federation_health": "Idle",
             "overall_health": "Healthy",
         },
         "alerts": [],
@@ -271,7 +289,10 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
                 for r in cursor.fetchall()
             ]
 
-            # 4. Operational Health Scorecard Metrics
+            # 4. Syndication Multi-Platform Metrics
+            digest["syndication"] = db.get_syndication_summary_metrics(db_path=db_path)
+
+            # 5. Operational Health Scorecard Metrics
             backlog = digest["queue"].get("pending", 0)
             digest["health_scorecard"]["queue_backlog"] = backlog
 
@@ -285,16 +306,26 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["sentiment_status"] = "Needs Review"
 
+            syn_posts = digest["syndication"].get("total_posts", 0)
+            syn_plats = digest["syndication"].get("platforms", {})
+            syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
+
+            if syn_posts >= 5 and syn_eng == 0:
+                digest["health_scorecard"]["federation_health"] = "Stalled (No Engagement)"
+            elif syn_posts > 0:
+                digest["health_scorecard"]["federation_health"] = "Active"
+            else:
+                digest["health_scorecard"]["federation_health"] = "Idle"
+
             if backlog > 50:
                 digest["health_scorecard"]["overall_health"] = "Degraded (High Queue Backlog)"
+            elif digest["health_scorecard"]["federation_health"] == "Stalled (No Engagement)":
+                digest["health_scorecard"]["overall_health"] = "Attention (Federation Stalled)"
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
-
-            # 5. Syndication Multi-Platform Metrics
-            digest["syndication"] = db.get_syndication_summary_metrics(db_path=db_path)
 
     except Exception as e:
         logger.error(f"Error compiling performance digest: {e}")
