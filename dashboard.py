@@ -10,6 +10,7 @@ import db
 import digest
 import joke_generator
 import scheduler
+import syndication
 import webhook
 
 
@@ -315,33 +316,170 @@ def api_digest():
 @app.route('/api/digest/download', methods=['GET'])
 def api_digest_download():
     """
-    Directly streams the performance digest as a downloadable attachment.
+    Directly streams the performance digest as a downloadable attachment with robust error resilience.
     Query params:
-      days: integer window length (default 7)
-      format: 'markdown' (default, .md) or 'json' (.json)
+      days: integer window length (default 7, bounded 1-365)
+      format: 'markdown' (default, .md), 'html' (.html), or 'json' (.json)
+      prefix: optional filename prefix (default 'digest')
     """
-    days = request.args.get('days', default=7, type=int)
-    fmt = request.args.get('format', default='markdown', type=str).lower()
+    try:
+        days = request.args.get('days', default=7, type=int)
+        if days < 1:
+            days = 7
+        elif days > 365:
+            days = 365
+    except (TypeError, ValueError):
+        days = 7
 
-    summary = digest.generate_performance_digest(days=days)
+    prefix = request.args.get('prefix', default='digest', type=str).strip()
+    clean_prefix = "".join(c for c in prefix if c.isalnum() or c in ("-", "_")).strip() or "digest"
+
+    fmt = request.args.get('format', default='markdown', type=str).lower().strip()
     timestamp_slug = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    if fmt == 'json':
-        content = json.dumps(summary, indent=2)
-        filename = f"digest_{timestamp_slug}.json"
-        mimetype = "application/json"
-    else:
-        content = digest.export_digest_markdown(summary)
-        filename = f"digest_{timestamp_slug}.md"
-        mimetype = "text/markdown"
+    try:
+        summary = digest.generate_performance_digest(days=days)
+    except Exception as e:
+        app.logger.error(f"Error generating performance digest for download: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to generate digest: {str(e)}"
+        }), 500
 
-    response = app.response_class(
-        response=content,
-        status=200,
-        mimetype=mimetype
-    )
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
+    try:
+        if fmt == 'json':
+            content = json.dumps(summary, indent=2)
+            filename = f"{clean_prefix}_{timestamp_slug}.json"
+            mimetype = "application/json"
+        elif fmt == 'html':
+            content = digest.export_digest_html(summary)
+            filename = f"{clean_prefix}_{timestamp_slug}.html"
+            mimetype = "text/html"
+        else:
+            content = digest.export_digest_markdown(summary)
+            filename = f"{clean_prefix}_{timestamp_slug}.md"
+            mimetype = "text/markdown"
+
+        response = app.response_class(
+            response=content,
+            status=200,
+            mimetype=mimetype
+        )
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        app.logger.error(f"Error exporting digest payload format '{fmt}': {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to export digest formatted as '{fmt}': {str(e)}"
+        }), 500
+
+
+@app.route('/api/syndication', methods=['GET', 'POST'])
+def api_syndication():
+    """
+    Manages social federation syndication settings and on-demand broadcast.
+    GET: Returns current syndication configuration and status for Mastodon & Bluesky.
+    POST: Updates configuration or triggers immediate test broadcast.
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        mastodon_enabled = data.get("mastodon_enabled")
+        mastodon_url = data.get("mastodon_instance_url")
+        mastodon_token = data.get("mastodon_access_token")
+        bluesky_enabled = data.get("bluesky_enabled")
+        bluesky_handle = data.get("bluesky_handle")
+        bluesky_password = data.get("bluesky_app_password")
+        broadcast_now = data.get("broadcast_now", False)
+        sample_text = data.get("text", "").strip()
+
+        if mastodon_enabled is not None:
+            syndication.MASTODON_ENABLED = bool(mastodon_enabled)
+        if mastodon_url is not None:
+            syndication.MASTODON_INSTANCE_URL = mastodon_url.strip()
+        if mastodon_token is not None:
+            syndication.MASTODON_ACCESS_TOKEN = mastodon_token.strip()
+        if bluesky_enabled is not None:
+            syndication.BLUESKY_ENABLED = bool(bluesky_enabled)
+        if bluesky_handle is not None:
+            syndication.BLUESKY_HANDLE = bluesky_handle.strip()
+        if bluesky_password is not None:
+            syndication.BLUESKY_APP_PASSWORD = bluesky_password.strip()
+
+        if broadcast_now:
+            text_to_send = sample_text or joke_generator.generate_content()
+            results = syndication.dispatch_syndicated_post(text_to_send, dry_run=True)
+            return jsonify({
+                "success": True,
+                "message": "Broadcast test executed (dry-run).",
+                "text": text_to_send,
+                "results": results
+            })
+
+        return jsonify({
+            "success": True,
+            "message": "Syndication settings updated.",
+            "mastodon_enabled": syndication.MASTODON_ENABLED,
+            "bluesky_enabled": syndication.BLUESKY_ENABLED
+        })
+
+    # GET request: return status and masked credentials
+    mast_token = syndication.MASTODON_ACCESS_TOKEN
+    masked_mast_token = ""
+    if mast_token:
+        masked_mast_token = (mast_token[:4] + "..." + mast_token[-4:]) if len(mast_token) > 8 else "***"
+
+    bsky_pwd = syndication.BLUESKY_APP_PASSWORD
+    masked_bsky_pwd = ("***" if bsky_pwd else "")
+
+    return jsonify({
+        "mastodon": {
+            "enabled": syndication.MASTODON_ENABLED,
+            "instance_url": syndication.MASTODON_INSTANCE_URL,
+            "token_configured": bool(mast_token),
+            "masked_token": masked_mast_token
+        },
+        "bluesky": {
+            "enabled": syndication.BLUESKY_ENABLED,
+            "handle": syndication.BLUESKY_HANDLE,
+            "password_configured": bool(bsky_pwd),
+            "masked_password": masked_bsky_pwd
+        },
+        "last_post": syndication.LAST_SYNDICATED_POST
+    })
+
+
+@app.route('/api/syndication/metrics', methods=['GET'])
+def api_syndication_metrics():
+    """
+    Returns platform-by-platform syndication counts and engagement metrics.
+    """
+    summary = db.get_syndication_summary_metrics()
+    recent = db.get_syndicated_posts_for_metrics_polling(limit=10)
+    return jsonify({
+        "success": True,
+        "summary": summary,
+        "recent_posts": recent
+    })
+
+
+@app.route('/api/syndication/poll', methods=['POST'])
+def api_syndication_poll():
+    """
+    Triggers an on-demand engagement poll for all active syndicated posts across Mastodon and Bluesky.
+    """
+    poll_results = syndication.poll_all_syndicated_metrics(limit=25, dry_run=True)
+    summary = db.get_syndication_summary_metrics()
+    return jsonify({
+        "success": True,
+        "message": (
+            f"Polled {poll_results.get('updated_posts', 0)} syndicated posts: "
+            f"+{poll_results.get('likes_polled', 0)} likes, "
+            f"+{poll_results.get('shares_polled', 0)} shares."
+        ),
+        "poll_results": poll_results,
+        "summary": summary
+    })
 
 
 @app.route('/api/webhook', methods=['GET', 'POST'])

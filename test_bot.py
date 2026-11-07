@@ -1090,8 +1090,229 @@ class TestDigestCLIAndDownload(unittest.TestCase):
             with open(saved["json"], "r", encoding="utf-8") as f:
                 json_data = json_mod.load(f)
                 self.assertEqual(json_data["window_days"], 7)
+
+            # Test export_format="all" including HTML
+            saved_all = generate_digest.save_digest_files(mock_gen.return_value, out_dir=temp_dir, export_format="all")
+            self.assertIn("markdown", saved_all)
+            self.assertIn("html", saved_all)
+            self.assertIn("json", saved_all)
+            self.assertTrue(os.path.exists(saved_all["html"]))
+            with open(saved_all["html"], "r", encoding="utf-8") as f:
+                html_text = f.read()
+                self.assertIn("<!DOCTYPE html>", html_text)
         finally:
             shutil.rmtree(temp_dir)
+
+
+class TestEnrichedPerformanceDigest(unittest.TestCase):
+    """Validates multi-window delta comparisons and operational health scorecard generation."""
+
+    def setUp(self):
+        self.test_db = "test_enriched_digest.db"
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+        db.init_db(self.test_db)
+
+    def tearDown(self):
+        if os.path.exists(self.test_db):
+            os.remove(self.test_db)
+
+    def test_compute_delta_helper(self):
+        """Tests delta math and percentage calculations across boundary values."""
+        # 50% increase
+        d1 = digest._compute_delta(15, 10)
+        self.assertEqual(d1["diff"], 5)
+        self.assertEqual(d1["pct"], 50.0)
+
+        # 50% decrease
+        d2 = digest._compute_delta(5, 10)
+        self.assertEqual(d2["diff"], -5)
+        self.assertEqual(d2["pct"], -50.0)
+
+        # Growth from zero base
+        d3 = digest._compute_delta(10, 0)
+        self.assertEqual(d3["diff"], 10)
+        self.assertEqual(d3["pct"], 100.0)
+
+        # Zero to zero
+        d4 = digest._compute_delta(0, 0)
+        self.assertEqual(d4["diff"], 0)
+        self.assertEqual(d4["pct"], 0.0)
+
+    def test_multi_window_deltas_and_scorecard(self):
+        """Verifies multi-window query aggregation, deltas, and health scorecard states."""
+        # Insert previous period reply (8 days ago)
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (101, datetime('now', '-8 days'), 20, 5)
+                """
+            )
+            # Insert current period reply (2 days ago)
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (102, datetime('now', '-2 days'), 50, 15)
+                """
+            )
+            # Insert previous period scheduled tweet (sent 10 days ago)
+            cursor.execute(
+                """
+                INSERT INTO scheduled_tweets
+                (content, scheduled_time, persona, status, created_at)
+                VALUES ('Old joke', datetime('now', '-10 days'), 'tactful_engineer',
+                        'sent', datetime('now', '-10 days'))
+                """
+            )
+            # Insert current period scheduled tweet (sent 1 day ago)
+            cursor.execute(
+                """
+                INSERT INTO scheduled_tweets
+                (content, scheduled_time, persona, status, created_at)
+                VALUES ('New joke', datetime('now', '-1 day'), 'tactful_engineer',
+                        'sent', datetime('now', '-1 day'))
+                """
+            )
+            # Insert ratings (positive sentiment)
+            cursor.execute(
+                """
+                INSERT INTO joke_ratings (content, rating, notes, created_at)
+                VALUES ('Great joke!', 1, 'Operator approved', datetime('now', '-1 day'))
+                """
+            )
+            conn.commit()
+
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+
+        # Replies deltas: cur=1, prev=1 -> diff=0, pct=0.0
+        self.assertEqual(d["deltas"]["replies"]["current"], 1)
+        self.assertEqual(d["deltas"]["replies"]["previous"], 1)
+        self.assertEqual(d["deltas"]["replies"]["diff"], 0)
+
+        # Likes deltas: cur=50, prev=20 -> diff=30, pct=150.0
+        self.assertEqual(d["deltas"]["likes"]["current"], 50)
+        self.assertEqual(d["deltas"]["likes"]["previous"], 20)
+        self.assertEqual(d["deltas"]["likes"]["diff"], 30)
+        self.assertEqual(d["deltas"]["likes"]["pct"], 150.0)
+
+        # Retweets deltas: cur=15, prev=5 -> diff=10, pct=200.0
+        self.assertEqual(d["deltas"]["retweets"]["current"], 15)
+        self.assertEqual(d["deltas"]["retweets"]["previous"], 5)
+        self.assertEqual(d["deltas"]["retweets"]["diff"], 10)
+        self.assertEqual(d["deltas"]["retweets"]["pct"], 200.0)
+
+        # Queue sent deltas: cur=1, prev=1
+        self.assertEqual(d["deltas"]["queue_sent"]["current"], 1)
+        self.assertEqual(d["deltas"]["queue_sent"]["previous"], 1)
+
+        # Health scorecard
+        sc = d["health_scorecard"]
+        self.assertTrue(sc["db_connected"])
+        self.assertEqual(sc["queue_backlog"], 0)
+        self.assertEqual(sc["sentiment_status"], "Positive")
+        self.assertEqual(sc["overall_health"], "Healthy")
+
+        # Verify markdown export format includes scorecard and deltas
+        md = digest.export_digest_markdown(d)
+        self.assertIn("## 🩺 System Operational Health Scorecard", md)
+        self.assertIn("- **Overall Status:** Healthy", md)
+        self.assertIn("+30 (+150.0%) vs prior 7d", md)
+
+    def test_scorecard_sentiment_thresholds(self):
+        """Verifies neutral, moderate, and needs review sentiment thresholds in scorecard."""
+        # Empty DB (no ratings)
+        d_empty = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(d_empty["health_scorecard"]["sentiment_status"], "Neutral (No Data)")
+
+        # Negative ratings (low approval)
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            for _ in range(5):
+                cursor.execute(
+                    "INSERT INTO joke_ratings (content, rating, created_at) VALUES ('Bad', -1, datetime('now'))"
+                )
+            conn.commit()
+
+        d_neg = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertEqual(d_neg["health_scorecard"]["sentiment_status"], "Needs Review")
+
+    def test_html_export_and_threshold_alerts(self):
+        """Verifies HTML report formatting and threshold-based performance alerts."""
+        # Test alert trigger when backlog is high and ratings are low
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        d["queue"]["pending"] = 60  # > 50 threshold
+        d["ratings"]["total_ratings"] = 10
+        d["ratings"]["approval_rate"] = 30.0  # < 40% threshold
+
+        alerts = digest.evaluate_performance_alerts(d)
+        self.assertEqual(len(alerts), 2)
+        alert_types = [a["type"] for a in alerts]
+        self.assertIn("queue_backlog_high", alert_types)
+        self.assertIn("low_humor_approval", alert_types)
+
+        # Attach evaluated alerts to digest dictionary
+        d["alerts"] = alerts
+
+        # Verify export_digest_html output
+        html = digest.export_digest_html(d)
+        self.assertTrue(html.startswith("<!DOCTYPE html>"))
+        self.assertIn("Tactful Humor Bot — Performance Digest", html)
+        self.assertIn("Active System Anomaly Alerts (2)", html)
+        self.assertIn("<h2>🩺 System Operational Health</h2>", html)
+        self.assertIn("<h2>📈 Public Replies &amp; Engagement Deltas</h2>", html)
+        self.assertIn("<h2>🌐 Social Federation Reach</h2>", html)
+
+    def test_top_reply_extraction_and_report_rendering(self):
+        """Verifies top-performing reply extraction and presentation in HTML/MD reports."""
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (501, datetime('now', '-2 days'), 10, 2),
+                       (502, datetime('now', '-1 day'), 45, 12)
+                """
+            )
+            conn.commit()
+
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertIsNotNone(d["replies"]["top_reply"])
+        self.assertEqual(d["replies"]["top_reply"]["tweet_id"], "502")
+        self.assertEqual(d["replies"]["top_reply"]["likes"], 45)
+        self.assertEqual(d["replies"]["top_reply"]["retweets"], 12)
+
+        # Verify Markdown rendering
+        md = digest.export_digest_markdown(d)
+        self.assertIn("Top Performing Reply", md)
+        self.assertIn("502", md)
+        self.assertIn("45 likes", md)
+
+        # Verify HTML rendering
+        html = digest.export_digest_html(d)
+        self.assertIn("Top Performing Reply", html)
+        self.assertIn("502", html)
+        self.assertIn("45 likes", html)
+
+        # Verify Webhook formatting
+        import webhook
+        slack_p = webhook.format_slack_payload(d)
+        self.assertTrue(any("Top Reply" in b.get("text", {}).get("text", "") for b in slack_p.get("blocks", [])))
+
+        discord_p = webhook.format_discord_payload(d)
+        fields = discord_p.get("embeds", [{}])[0].get("fields", [])
+        self.assertTrue(any(f.get("name") == "Top Performing Reply" for f in fields))
+
+    def test_download_html_digest_endpoint(self):
+        """Verifies /api/digest/download returns styled HTML attachment when format=html."""
+        import dashboard
+        client = dashboard.app.test_client()
+        res = client.get('/api/digest/download?format=html')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/html')
+        self.assertIn('.html', res.headers.get('Content-Disposition', ''))
+        self.assertIn(b'<!DOCTYPE html>', res.data)
 
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
@@ -1106,6 +1327,266 @@ class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
 
         # Verify db was initialized
         self.assertTrue(mock_init_db.called)
+
+
+class TestSyndication(unittest.TestCase):
+    """Unit tests for multi-platform federation syndication (Mastodon and Bluesky)."""
+
+    def setUp(self):
+        import syndication
+        # Save module state
+        self.orig_mastodon_enabled = syndication.MASTODON_ENABLED
+        self.orig_mastodon_instance = syndication.MASTODON_INSTANCE_URL
+        self.orig_mastodon_token = syndication.MASTODON_ACCESS_TOKEN
+        self.orig_bluesky_enabled = syndication.BLUESKY_ENABLED
+        self.orig_bluesky_handle = syndication.BLUESKY_HANDLE
+        self.orig_bluesky_password = syndication.BLUESKY_APP_PASSWORD
+
+    def tearDown(self):
+        import syndication
+        syndication.MASTODON_ENABLED = self.orig_mastodon_enabled
+        syndication.MASTODON_INSTANCE_URL = self.orig_mastodon_instance
+        syndication.MASTODON_ACCESS_TOKEN = self.orig_mastodon_token
+        syndication.BLUESKY_ENABLED = self.orig_bluesky_enabled
+        syndication.BLUESKY_HANDLE = self.orig_bluesky_handle
+        syndication.BLUESKY_APP_PASSWORD = self.orig_bluesky_password
+
+    def test_format_payloads(self):
+        import syndication
+        m_payload = syndication.format_mastodon_payload("Hello Fediverse!")
+        self.assertEqual(m_payload["status"], "Hello Fediverse!")
+        self.assertEqual(m_payload["visibility"], "public")
+
+        b_payload = syndication.format_bluesky_payload("Hello Bluesky!")
+        self.assertEqual(b_payload["text"], "Hello Bluesky!")
+        self.assertIn("createdAt", b_payload)
+        self.assertEqual(b_payload["$type"], "app.bsky.feed.post")
+
+    def test_dispatch_mastodon_dry_run(self):
+        import syndication
+        success, status = syndication.dispatch_mastodon("Dry run status", dry_run=True)
+        self.assertTrue(success)
+        self.assertEqual(status, "200 OK (Dry Run)")
+
+    def test_dispatch_bluesky_dry_run(self):
+        import syndication
+        success, status = syndication.dispatch_bluesky("Dry run status", dry_run=True)
+        self.assertTrue(success)
+        self.assertEqual(status, "200 OK (Dry Run)")
+
+    def test_dispatch_not_configured(self):
+        import syndication
+        syndication.MASTODON_ACCESS_TOKEN = ""
+        success, err = syndication.dispatch_mastodon("Live text", dry_run=False)
+        self.assertFalse(success)
+        self.assertIn("not configured", err)
+
+        syndication.BLUESKY_HANDLE = ""
+        success_b, err_b = syndication.dispatch_bluesky("Live text", dry_run=False)
+        self.assertFalse(success_b)
+        self.assertIn("not configured", err_b)
+
+    @patch('urllib.request.urlopen')
+    def test_dispatch_mastodon_live(self, mock_urlopen):
+        import syndication
+        syndication.MASTODON_INSTANCE_URL = "https://mastodon.social"
+        syndication.MASTODON_ACCESS_TOKEN = "secret_token_123"
+
+        mock_response = MagicMock()
+        mock_response.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        success, status = syndication.dispatch_mastodon(
+            "Live status test",
+            dry_run=False
+        )
+        self.assertTrue(success)
+        self.assertEqual(status, "200")
+
+    def test_dispatch_syndicated_post_multi(self):
+        import syndication
+        syndication.MASTODON_ENABLED = True
+        syndication.BLUESKY_ENABLED = True
+
+        results = syndication.dispatch_syndicated_post("Federated greeting", dry_run=True)
+        self.assertIn("mastodon", results)
+        self.assertIn("bluesky", results)
+        self.assertTrue(results["mastodon"]["success"])
+        self.assertEqual(results["mastodon"]["status"], "200 OK (Dry Run)")
+        self.assertTrue(results["bluesky"]["success"])
+        self.assertEqual(results["bluesky"]["status"], "200 OK (Dry Run)")
+
+    def test_dashboard_syndication_endpoints(self):
+        import dashboard
+        import syndication
+        client = dashboard.app.test_client()
+
+        # GET syndication settings
+        get_res = client.get('/api/syndication')
+        self.assertEqual(get_res.status_code, 200)
+        data = get_res.get_json()
+        self.assertIn("mastodon", data)
+        self.assertIn("bluesky", data)
+
+        # POST update syndication settings
+        update_res = client.post('/api/syndication', json={
+            "mastodon_enabled": True,
+            "mastodon_instance_url": "https://mastodon.social",
+            "mastodon_access_token": "test_token_12345",
+            "bluesky_enabled": True,
+            "bluesky_handle": "muskbot.bsky.social",
+            "bluesky_app_password": "test-password-abcd"
+        })
+        self.assertEqual(update_res.status_code, 200)
+        up_data = update_res.get_json()
+        self.assertTrue(up_data["success"])
+        self.assertTrue(syndication.MASTODON_ENABLED)
+        self.assertEqual(syndication.MASTODON_ACCESS_TOKEN, "test_token_12345")
+        self.assertTrue(syndication.BLUESKY_ENABLED)
+        self.assertEqual(syndication.BLUESKY_HANDLE, "muskbot.bsky.social")
+
+        # GET to verify masked credentials
+        check_res = client.get('/api/syndication')
+        check_data = check_res.get_json()
+        self.assertTrue(check_data["mastodon"]["token_configured"])
+        self.assertEqual(check_data["mastodon"]["masked_token"], "test...2345")
+        self.assertTrue(check_data["bluesky"]["password_configured"])
+
+        # POST dry-run broadcast
+        bcast_res = client.post('/api/syndication', json={
+            "broadcast_now": True,
+            "text": "Live syndication endpoint test"
+        })
+        self.assertEqual(bcast_res.status_code, 200)
+        b_data = bcast_res.get_json()
+        self.assertTrue(b_data["success"])
+        self.assertIn("results", b_data)
+        self.assertIn("mastodon", b_data["results"])
+        self.assertIn("bluesky", b_data["results"])
+
+    def test_federation_engagement_polling_and_metrics(self):
+        import db
+        import syndication
+        import digest
+        import dashboard
+
+        test_db = "test_fed_metrics.db"
+        try:
+            db.init_db(test_db)
+
+            # Record syndicated posts
+            m_id = db.record_syndicated_post(
+                "mastodon", "Test Mastodon post", remote_id="m_1001", status="sent", db_path=test_db
+            )
+            b_id = db.record_syndicated_post(
+                "bluesky", "Test Bluesky post", remote_id="b_1001", status="sent", db_path=test_db
+            )
+            self.assertIsNotNone(m_id)
+            self.assertIsNotNone(b_id)
+
+            # Update metrics manually
+            self.assertTrue(db.update_syndication_metrics(m_id, likes=12, shares=3, db_path=test_db))
+            self.assertTrue(db.update_syndication_metrics(b_id, likes=25, shares=7, db_path=test_db))
+
+            # Fetch polling list
+            to_poll = db.get_syndicated_posts_for_metrics_polling(limit=10, db_path=test_db)
+            self.assertEqual(len(to_poll), 2)
+
+            # Summary metrics
+            summary = db.get_syndication_summary_metrics(db_path=test_db)
+            self.assertEqual(summary["total_posts"], 2)
+            self.assertEqual(summary["platforms"]["mastodon"]["likes"], 12)
+            self.assertEqual(summary["platforms"]["bluesky"]["shares"], 7)
+
+            # Polling engine
+            poll_result = syndication.poll_all_syndicated_metrics(limit=10, dry_run=True, db_path=test_db)
+            self.assertEqual(poll_result["updated_posts"], 2)
+            self.assertGreater(poll_result["likes_polled"], 0)
+
+            # Digest incorporation
+            d = digest.generate_performance_digest(db_path=test_db)
+            self.assertIn("syndication", d)
+            self.assertEqual(d["syndication"]["total_posts"], 2)
+            md = digest.export_digest_markdown(d)
+            self.assertIn("Social Federation Multi-Platform Reach", md)
+
+            # Dashboard API routes
+            client = dashboard.app.test_client()
+            res_metrics = client.get('/api/syndication/metrics')
+            self.assertEqual(res_metrics.status_code, 200)
+            data_m = res_metrics.get_json()
+            self.assertTrue(data_m["success"])
+            self.assertIn("summary", data_m)
+
+            res_poll = client.post('/api/syndication/poll')
+            self.assertEqual(res_poll.status_code, 200)
+            data_p = res_poll.get_json()
+            self.assertTrue(data_p["success"])
+            self.assertIn("poll_results", data_p)
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
+    def test_cli_digest_generator_and_custom_options(self):
+        """Tests generate_digest CLI utility with prefix, quiet mode, and formats."""
+        import generate_digest
+        import json
+        import shutil
+        import tempfile
+
+        test_dir = tempfile.mkdtemp()
+        test_db = os.path.join(test_dir, "test_cli.db")
+
+        try:
+            db.init_db(test_db)
+            db.record_reply(55501, db_path=test_db)
+            db.update_engagement(55501, likes=10, retweets=2, db_path=test_db)
+
+            # Test main invocation with --prefix, --quiet, and all formats
+            exit_code = generate_digest.main([
+                "--days", "14",
+                "--db-path", test_db,
+                "--out-dir", test_dir,
+                "--prefix", "weekly_report",
+                "--format", "all",
+                "--quiet",
+                "--json-indent", "4"
+            ])
+            self.assertEqual(exit_code, 0)
+
+            # Verify files were created with prefix
+            files = os.listdir(test_dir)
+            md_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".md")]
+            html_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".html")]
+            json_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".json")]
+
+            self.assertEqual(len(md_files), 1)
+            self.assertEqual(len(html_files), 1)
+            self.assertEqual(len(json_files), 1)
+
+            # Verify contents
+            with open(os.path.join(test_dir, json_files[0]), "r", encoding="utf-8") as jf:
+                data = json.load(jf)
+                self.assertEqual(data["window_days"], 14)
+                self.assertEqual(data["replies"]["total_replies"], 1)
+
+            # Test stdout format
+            stdout_code = generate_digest.main([
+                "--db-path", test_db,
+                "--format", "stdout",
+                "--quiet"
+            ])
+            self.assertEqual(stdout_code, 0)
+
+            # Test dashboard download with custom prefix and days bound check
+            client = dashboard.app.test_client()
+            res_dl = client.get('/api/digest/download?days=30&prefix=custom_audit&format=html')
+            self.assertEqual(res_dl.status_code, 200)
+            self.assertIn("custom_audit_", res_dl.headers.get("Content-Disposition", ""))
+
+        finally:
+            shutil.rmtree(test_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

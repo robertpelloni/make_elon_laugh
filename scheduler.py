@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timezone
 import db
 import joke_generator
+from syndication import dispatch_syndicated_post
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,13 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
         logger.info(f"[{mode_label}] Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}")
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)
+
+        # Trigger syndication to federated platforms if enabled
+        try:
+            dispatch_syndicated_post(tweet["content"], dry_run=dry_run)
+        except Exception as e:
+            logger.warning(f"Federated syndication failed for scheduled tweet {tweet['id']}: {e}")
+
         processed_count += 1
 
     return processed_count

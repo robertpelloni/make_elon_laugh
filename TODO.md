@@ -17,8 +17,23 @@
 - [x] Extract and document historical Tweepy script draft and foundational concepts from commit history into `docs/HISTORICAL_EXTRACTS.md`.
 - [x] Implement automated recurring background digest webhook worker (`check_and_dispatch_recurring_digest`) in polling loop and dashboard controls.
 - [x] Implement dedicated CLI report generator (`generate_digest.py`) and direct attachment download endpoint (`/api/digest/download`).
+- [x] Implement multi-window delta trend comparisons and operational health scorecard in `digest.py` and Command Center UI.
+- [x] Implement multi-platform federation syndication engine (`syndication.py`, Mastodon ActivityPub & Bluesky ATProto).
+- [x] Add social federation management UI, live status badges, and test broadcast trigger in Command Center UI.
+- [x] Implement cross-platform federation engagement polling for Mastodon & Bluesky (`syndication.py`, `db.py`, `/api/syndication/poll`, `/api/syndication/metrics`, and UI reach stats).
+- [x] Implement automated performance digest standalone HTML export with styled cards and badges (`digest.py`, `/api/digest/download?format=html`, Command Center button).
+- [x] Implement automated performance threshold alerts evaluating system anomalies across database, queue backlog, and humor ratings (`digest.py`, `webhook.py`, UI badge).
+- [x] Refine CLI digest generator (`generate_digest.py`) to support `--format html` and `--format all` outputs.
+- [x] Implement defensive error resilience and validation in dashboard digest attachment delivery (`/api/digest/download`).
+- [x] Implement top-performing reply extraction and highlighting across HTML/MD digests and webhooks (`digest.py`, `webhook.py`).
+- [x] Embed anomaly alert callouts and healthy status indicators directly into digest reports (`digest.py`).
+- [x] Wire top reply stats and persona badges into the Command Center Performance Digest card (`templates/index.html`).
+- [x] Implement CLI flags `--prefix`, `--quiet`, `--json-indent`, and process exit codes in `generate_digest.py`.
+- [x] Add per-platform engagement rates (average likes/shares per post) in digest reports (`digest.py`).
+- [x] Bound and sanitize `days` parameter (1-365) and filename prefixes in `/api/digest/download` (`dashboard.py`).
+- [x] Add unit test coverage for CLI pipeline flags, formats, and bounded downloads (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Multi-platform syndication connectors (Bluesky, Mastodon).
+- [ ] Automated thread splitting for long-form cross-platform posts exceeding 280/300 characters.

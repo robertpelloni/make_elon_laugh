@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-11-07
+
+### Added
+- **Configurable CLI Digest Pipeline (`generate_digest.py`)**: Added `--prefix` custom filename prefixing, `--quiet` mode for silent automation, `--json-indent` spacing control, and structured `main(cli_args)` entry point with integer process exit codes (0 for success, 1 on failure).
+- **Per-Platform Federation Engagement Rates**: Enhanced `export_digest_markdown()` and `export_digest_html()` in `digest.py` to calculate and render average engagement per post across Mastodon ActivityPub and Bluesky ATProto.
+- **Bounded Dashboard Report Download Endpoint**: Enhanced `/api/digest/download` in `dashboard.py` with sanitization and bounding for `days` (1-365) and custom filename prefix parameters.
+- **Automated Tests**: Added `test_cli_digest_generator_and_custom_options` in `test_bot.py` covering multi-format file exports, custom prefixes, stdout streaming, and download parameters. Total passing unit tests increased to 97.
+
+## [0.23.0] - 2026-11-07
+
+### Added
+- **Top-Performing Reply Extraction & Highlighting (`digest.py`, `webhook.py`, `templates/index.html`)**:
+  - Automatically queries and isolates the highest-engagement reply `(likes + retweets)` within the rolling digest window.
+  - Formats top reply details (Tweet ID, likes, retweets, timestamp) into Markdown, styled HTML callout cards, and webhook payloads (Slack & Discord).
+  - Wires top-performing reply snippet into the Command Center Performance Digest card.
+- **Embedded Anomaly Alert & Status Callout Banners (`digest.py`)**:
+  - Integrates visual alert banners directly into `export_digest_html` and `export_digest_markdown`, displaying detailed alert messages for active system anomalies or green nominal badges when all thresholds pass.
+  - Adds scheduled tweet queue persona distribution tags and badges directly into HTML performance reports.
+- **Automated Test Coverage Expansion (`test_bot.py`)**:
+  - Added unit tests asserting top reply query extraction, HTML/Markdown report formatting, and Slack/Discord webhook serialization (96 tests passing, clean flake8).
+
+## [0.22.0] - 2026-11-07
+
+### Added
+- **Refined CLI Digest Generator (`generate_digest.py`)**: Added support for `--format html` and `--format all` options, generating comprehensive report sets (.html, .md, .json) in a single invocation.
+- **Robust Download Stream Handling (`dashboard.py`)**: Strengthened `/api/digest/download` with input sanitization, non-zero day window defaults, and dual-layer exception handlers to guarantee resilient file delivery under database latency or corrupt data.
+- **Automated CLI Export Testing (`test_bot.py`)**: Added test coverage verifying that `export_format='all'` accurately writes valid HTML5 doctype reports alongside Markdown and JSON files.
+
+## [0.21.0] - 2026-11-07
+
+### Added
+- **Automated Performance Digest HTML Export (`digest.py`)**: Dedicated `export_digest_html()` function generating a responsive, standalone HTML performance report styled with modern CSS cards, status pills, and delta metrics for browser downloading or email dispatch.
+- **Operational Performance Threshold Alerts (`digest.py`)**: Added `evaluate_performance_alerts()` detecting anomalies across SQLite connectivity, scheduled tweet backlogs (>50 pending posts), and low community humor approval ratings (<40% approval across >=5 ratings).
+- **Threshold Alerts Integration in Webhook Payloads (`webhook.py`)**: Slack and Discord adapters now parse and highlight active system anomaly alerts directly in outgoing webhook dispatches.
+- **HTML Digest Attachment REST Endpoint (`/api/digest/download`)**: Added `format=html` support to `/api/digest/download` in `dashboard.py` returning timestamped `.html` reports with `text/html` headers.
+- **Command Center HTML Download Button & Active Alert Indicators (`templates/index.html`)**: Added one-click "Download .HTML" button and dynamic alert pill badge into the Weekly Performance Digest card.
+- **Comprehensive Unit Testing Suite**: Added unit tests in `test_bot.py` covering HTML export syntax, threshold alert trigger conditions, and `/api/digest/download?format=html` response headers (95 unit tests passing, 88% coverage, 0 flake8 errors).
+
+## [0.20.0] - 2026-11-07
+
+### Added
+- **Cross-Platform Federation Engagement Polling (`syndication.py`, `db.py`)**: Autonomous metrics polling engine tracking favorites/reblogs across Mastodon instances and likes/reposts across Bluesky ATProto repositories.
+- **Syndicated Posts Persistence (`db.py`)**: Added `syndicated_posts` table to SQLite tracking platform post IDs, content, likes, shares, timestamps, and aggregated statistics (`get_syndication_summary_metrics`).
+- **Federated Engagement Aggregations (`digest.py`)**: Integrated Mastodon reach and Bluesky reach directly into weekly digests and Markdown report exports.
+- **Federation Metrics REST API (`/api/syndication/metrics`, `/api/syndication/poll`)**: Endpoints in `dashboard.py` to retrieve platform reach breakdown and trigger on-demand metrics polling cycles.
+- **Command Center Federated Reach Strip (`templates/index.html`)**: Added live analytics strip inside the Social Federation Syndication card displaying Mastodon Reach, Bluesky Reach, Federated Total posts, and an interactive "Poll Metrics" action button with toast feedback.
+- **Comprehensive Unit Testing**: Added unit tests in `test_bot.py` covering syndicated post tracking, engagement polling mock cycles, and dashboard API routes (93 unit tests passing, 88% coverage, 0 flake8 errors).
+
+## [0.19.0] - 2026-11-07
+
+### Added
+- **Multi-Platform Social Federation Syndication (`syndication.py`)**: Dedicated syndication engine supporting Mastodon (ActivityPub REST v1 API) and Bluesky (ATProto repo record creation). Features retry backoff, dry-run simulation mode, and token masking.
+- **Federated Content Distribution Triggers (`bot.py`, `scheduler.py`)**: Asynchronous, non-blocking hooks automatically federating content whenever a live reply is dispatched or a scheduled calendar post is executed.
+- **Syndication Management API Endpoints (`dashboard.py`)**: Added `/api/syndication` GET and POST routes to view status, configure instance URLs/credentials, and trigger on-demand test broadcasts with dry-run support.
+- **Command Center Federation Controls UI (`templates/index.html`)**: Added dedicated Social Federation Syndication section featuring Mastodon ActivityPub & Bluesky ATProto toggle cards, configuration inputs, security token masks, status indicators, and one-click test broadcast trigger.
+- **Comprehensive Unit Testing Suite**: Added 7 comprehensive tests in `test_bot.py` (`TestSyndication`) covering payload formatting, live/mock HTTP requests, configuration updates, and dry-run broadcasts (92 tests passing, 89% overall test coverage, 0 flake8 errors).
+
+## [0.18.0] - 2026-11-06
+
+### Added
+- **Multi-Window Delta Trend Comparison Engine (`digest.py`)**: Enhanced `generate_performance_digest()` to compute previous-period delta trends (comparing replies, accumulated likes, retweets, and queued dispatches against the preceding window of identical duration).
+- **Operational Health Scorecard (`digest.py`, `templates/index.html`)**: Added automated health scoring tracking database connectivity, pending queue backlog, and community humor sentiment status.
+- **Enriched Markdown Report Generator**: Updated `export_digest_markdown()` and CLI `generate_digest.py` with the System Operational Health Scorecard and multi-window delta trend lines.
+- **Command Center Scorecard UI (`templates/index.html`)**: Added dynamic health banner (Overall Health, DB Connection, Backlog count, Sentiment) and inline delta trend tags (+diff, % change vs prior window) across digest metrics.
+- **Comprehensive Unit Tests**: Added `TestEnrichedPerformanceDigest` in `test_bot.py` with 3 tests covering delta math, multi-period database aggregation, and sentiment status thresholds (85 unit tests passing, 0 flake8 errors).
+
 ## [0.17.0] - 2026-11-06
 
 ### Added

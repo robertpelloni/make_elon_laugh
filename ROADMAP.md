@@ -27,5 +27,11 @@
 *   [x] Automated digest external webhook dispatch engine (`webhook.py`, `/api/webhook`, Discord/Slack/Generic adapters).
 *   [x] Automated recurring background worker for periodic digest webhook broadcast (`check_and_dispatch_recurring_digest`).
 *   [x] Dedicated CLI digest generator (`generate_digest.py`) and direct attachment download endpoints (`/api/digest/download`).
+*   [x] Multi-window performance delta trends and operational health scorecard (`digest.py`, dashboard banner).
+*   [x] Bluesky & Mastodon social federation syndication engine (`syndication.py`, `/api/syndication`, dashboard federation card).
+*   [x] Cross-platform federation engagement polling (Mastodon favorites/reblogs & Bluesky likes/reposts metrics, `/api/syndication/poll`).
+*   [x] Automated Performance Digest HTML Export & Anomaly Threshold Alerts (`digest.py`, `/api/digest/download?format=html`, webhook alert banners).
+*   [x] Refined Multi-Format Digest CLI Generator & Resilient Download Stream Delivery (`generate_digest.py`, `dashboard.py`).
+*   [x] Enriched Performance Digest Extraction, Top-Reply Isolation, and Embedded Anomaly Banners (`digest.py`, `webhook.py`, `templates/index.html`).
+*   [x] Configurable CLI Digest Pipeline & Per-Platform Federation Metrics Breakdown (`generate_digest.py`, `digest.py`, `dashboard.py`).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
-*   [ ] Bluesky & Mastodon social federation syndication engine.

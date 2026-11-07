@@ -219,9 +219,24 @@
                 </span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=html" download style="text-decoration: none;" title="Download styled HTML report">Download .HTML</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
+                </div>
+            </div>
+
+            <!-- Health Scorecard & Active Alerts Banner -->
+            <div id="digest-health-banner" style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-weight: 700; font-size: 0.85rem;">🩺 System Health:</span>
+                    <span id="digest-health-overall" class="status-badge ok" style="font-size: 0.8rem;">Healthy</span>
+                    <span id="digest-alerts-badge" class="status-badge alert" style="display: none; font-size: 0.75rem;">⚠️ <span id="digest-alerts-count">0</span> Alert(s)</span>
+                </div>
+                <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <div>DB: <span id="digest-health-db" style="font-weight: 600; color: var(--text-main);">Connected</span></div>
+                    <div>Backlog: <span id="digest-health-backlog" style="font-weight: 600; color: var(--text-main);">0</span></div>
+                    <div>Sentiment: <span id="digest-health-sentiment" style="font-weight: 600; color: var(--text-main);">Positive</span></div>
                 </div>
             </div>
 
@@ -229,16 +244,20 @@
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">7-Day Replies</div>
                     <div id="digest-replies" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">0</div>
+                    <div id="digest-replies-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-engagement-rate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 avg likes/reply</div>
+                    <div id="digest-top-reply-box" style="margin-top: 0.4rem; font-size: 0.7rem; color: var(--primary); font-weight: 600; display: none;">Top: #<span id="digest-top-reply-id">-</span> (<span id="digest-top-reply-eng">0</span> eng)</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Engagement Total</div>
                     <div id="digest-likes-rts" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-heart);">0 ❤️ / 0 🔁</div>
+                    <div id="digest-likes-delta" style="font-size: 0.75rem; color: var(--accent-heart); margin-top: 0.1rem;">Likes: +0 (0%)</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Public metric polling</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Queue Dispatches</div>
                     <div id="digest-queue-sent" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">0 Dispatched</div>
+                    <div id="digest-queue-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
@@ -285,6 +304,71 @@
                     <div id="webhook-last-dispatch" style="font-size: 0.75rem; color: var(--text-muted);">Last Broadcast: None</div>
                 </div>
                 <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
+            </div>
+
+            <!-- Social Federation Syndication Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        🌐 Multi-Platform Federation Syndication (Mastodon & Bluesky)
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cross-post jokes and scheduled announcements to decentralized social networks including ActivityPub (Mastodon) and AT Protocol (Bluesky).</span>
+                        </div>
+                    </span>
+                    <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; font-size: 0.8rem;">
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-weight: 600; cursor: pointer; color: var(--text-color); margin: 0;">
+                                <input type="checkbox" id="mastodon-enable-toggle" onchange="saveSyndicationSettings()">
+                                <span>🐘 Mastodon ActivityPub</span>
+                            </label>
+                            <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                        </div>
+                        <input type="text" id="mastodon-url-input" placeholder="https://mastodon.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
+                        <input type="password" id="mastodon-token-input" placeholder="Bearer Access Token" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
+                    </div>
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-weight: 600; cursor: pointer; color: var(--text-color); margin: 0;">
+                                <input type="checkbox" id="bluesky-enable-toggle" onchange="saveSyndicationSettings()">
+                                <span>🦋 Bluesky ATProto</span>
+                            </label>
+                            <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                        </div>
+                        <input type="text" id="bluesky-handle-input" placeholder="handle.bsky.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
+                        <input type="password" id="bluesky-pwd-input" placeholder="App Password (xxxx-xxxx-xxxx-xxxx)" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
+                    </div>
+                </div>
+                <!-- Federated Engagement & Multi-Platform Analytics Strip -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-color);">
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">🐘 Mastodon Reach</div>
+                        <div id="mastodon-metrics-display" style="font-size: 1rem; font-weight: 700; color: var(--text-color); margin-top: 0.1rem;">0 posts (0 ⭐ / 0 🔁)</div>
+                    </div>
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">🦋 Bluesky Reach</div>
+                        <div id="bluesky-metrics-display" style="font-size: 1rem; font-weight: 700; color: var(--text-color); margin-top: 0.1rem;">0 posts (0 ❤️ / 0 🔁)</div>
+                    </div>
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Federated Total</div>
+                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary-color);">0 Posts</div>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="triggerSyndicationPoll()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Poll engagement for all syndicated posts">
+                            🔄 Poll Metrics
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
+                        <button class="btn btn-primary btn-sm" onclick="triggerSyndicationTest()">Test Broadcast (Dry Run)</button>
+                    </div>
+                    <div id="syndication-feedback" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+                </div>
             </div>
 
             <!-- Markdown preview modal / expander -->
@@ -681,11 +765,62 @@
                     document.getElementById('digest-likes-rts').textContent = `${d.replies.total_likes || 0} ❤️ / ${d.replies.total_retweets || 0} 🔁`;
                     document.getElementById('digest-queue-sent').textContent = `${d.queue.sent || 0} Dispatched`;
 
+                    // Update deltas
+                    if (d.deltas) {
+                        const repDiff = d.deltas.replies.diff;
+                        const repSign = repDiff > 0 ? "+" : "";
+                        document.getElementById('digest-replies-delta').textContent = `${repSign}${repDiff} (${repSign}${d.deltas.replies.pct}%) vs prior`;
+
+                        const likeDiff = d.deltas.likes.diff;
+                        const likeSign = likeDiff > 0 ? "+" : "";
+                        document.getElementById('digest-likes-delta').textContent = `Likes: ${likeSign}${likeDiff} (${likeSign}${d.deltas.likes.pct}%)`;
+
+                        const qDiff = d.deltas.queue_sent.diff;
+                        const qSign = qDiff > 0 ? "+" : "";
+                        document.getElementById('digest-queue-delta').textContent = `${qSign}${qDiff} (${qSign}${d.deltas.queue_sent.pct}%) vs prior`;
+                    }
+
+                    // Update health scorecard & threshold alerts
+                    if (d.health_scorecard) {
+                        const sc = d.health_scorecard;
+                        const overallEl = document.getElementById('digest-health-overall');
+                        overallEl.textContent = sc.overall_health;
+                        overallEl.className = sc.overall_health.toLowerCase().includes('healthy') ? 'status-badge ok' : 'status-badge alert';
+
+                        document.getElementById('digest-health-db').textContent = sc.db_connected ? 'Connected' : 'Disconnected';
+                        document.getElementById('digest-health-backlog').textContent = sc.queue_backlog;
+                        document.getElementById('digest-health-sentiment').textContent = sc.sentiment_status;
+                    }
+
+                    const alerts = d.alerts || [];
+                    const alertsBadge = document.getElementById('digest-alerts-badge');
+                    const alertsCount = document.getElementById('digest-alerts-count');
+                    if (alertsBadge && alertsCount) {
+                        if (alerts.length > 0) {
+                            alertsBadge.style.display = 'inline-flex';
+                            alertsCount.textContent = alerts.length;
+                        } else {
+                            alertsBadge.style.display = 'none';
+                        }
+                    }
+
                     const personaKeys = Object.keys(d.queue.persona_distribution || {});
                     const personaStr = personaKeys.length > 0
                         ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
                         : 'None';
                     document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    const topRep = d.replies.top_reply;
+                    const topBox = document.getElementById('digest-top-reply-box');
+                    if (topBox) {
+                        if (topRep && topRep.tweet_id) {
+                            topBox.style.display = 'block';
+                            document.getElementById('digest-top-reply-id').textContent = topRep.tweet_id;
+                            document.getElementById('digest-top-reply-eng').textContent = `${topRep.likes}❤️/${topRep.retweets}🔁`;
+                        } else {
+                            topBox.style.display = 'none';
+                        }
+                    }
 
                     document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
                     document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;
@@ -809,6 +944,159 @@
             }
         }
 
+        async function fetchSyndicationSettings() {
+            try {
+                const res = await fetch('/api/syndication');
+                const data = await res.json();
+                if (data.mastodon) {
+                    document.getElementById('mastodon-enable-toggle').checked = !!data.mastodon.enabled;
+                    if (data.mastodon.instance_url) {
+                        document.getElementById('mastodon-url-input').value = data.mastodon.instance_url;
+                    }
+                    if (data.mastodon.masked_token) {
+                        document.getElementById('mastodon-token-input').placeholder = "Token: " + data.mastodon.masked_token;
+                    }
+                    const mastTag = document.getElementById('mastodon-status-tag');
+                    mastTag.textContent = data.mastodon.enabled ? "Active" : "Disabled";
+                    mastTag.style.color = data.mastodon.enabled ? "var(--accent-success)" : "var(--text-muted)";
+                }
+                if (data.bluesky) {
+                    document.getElementById('bluesky-enable-toggle').checked = !!data.bluesky.enabled;
+                    if (data.bluesky.handle) {
+                        document.getElementById('bluesky-handle-input').value = data.bluesky.handle;
+                    }
+                    if (data.bluesky.masked_password) {
+                        document.getElementById('bluesky-pwd-input').placeholder = "Password: " + data.bluesky.masked_password;
+                    }
+                    const bskyTag = document.getElementById('bluesky-status-tag');
+                    bskyTag.textContent = data.bluesky.enabled ? "Active" : "Disabled";
+                    bskyTag.style.color = data.bluesky.enabled ? "var(--accent-success)" : "var(--text-muted)";
+                }
+            } catch (err) {
+                console.error("Error loading syndication settings:", err);
+            }
+        }
+
+        async function saveSyndicationSettings() {
+            const mastEnabled = document.getElementById('mastodon-enable-toggle').checked;
+            const mastUrl = document.getElementById('mastodon-url-input').value.trim();
+            const mastToken = document.getElementById('mastodon-token-input').value.trim();
+            const bskyEnabled = document.getElementById('bluesky-enable-toggle').checked;
+            const bskyHandle = document.getElementById('bluesky-handle-input').value.trim();
+            const bskyPwd = document.getElementById('bluesky-pwd-input').value.trim();
+            const feedback = document.getElementById('syndication-feedback');
+
+            const payload = {
+                mastodon_enabled: mastEnabled,
+                bluesky_enabled: bskyEnabled
+            };
+            if (mastUrl) payload.mastodon_instance_url = mastUrl;
+            if (mastToken) payload.mastodon_access_token = mastToken;
+            if (bskyHandle) payload.bluesky_handle = bskyHandle;
+            if (bskyPwd) payload.bluesky_app_password = bskyPwd;
+
+            try {
+                const res = await fetch('/api/syndication', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                    await fetchSyndicationSettings();
+                    setTimeout(() => { feedback.textContent = ""; }, 3000);
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Save failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error saving: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
+        async function triggerSyndicationTest() {
+            const feedback = document.getElementById('syndication-feedback');
+            feedback.textContent = "⏳ Executing dry-run federation broadcast...";
+            feedback.style.color = "var(--text-muted)";
+
+            try {
+                const res = await fetch('/api/syndication', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({broadcast_now: true})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const resultsSummary = Object.entries(data.results || {})
+                        .map(([k, v]) => `${k}: ${v.status}`)
+                        .join(", ");
+                    feedback.textContent = `🚀 Dispatched (${resultsSummary || "no platforms enabled"})`;
+                    feedback.style.color = "var(--accent-success)";
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Broadcast failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error broadcasting: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
+        async function fetchSyndicationMetrics() {
+            try {
+                const res = await fetch('/api/syndication/metrics');
+                const data = await res.json();
+                if (data.success && data.summary) {
+                    const sm = data.summary;
+                    const mast = (sm.platforms && sm.platforms.mastodon) || {posts: 0, likes: 0, shares: 0};
+                    const bsky = (sm.platforms && sm.platforms.bluesky) || {posts: 0, likes: 0, shares: 0};
+
+                    const mastEl = document.getElementById('mastodon-metrics-display');
+                    if (mastEl) {
+                        mastEl.textContent = `${mast.posts} posts (${mast.likes} ⭐ / ${mast.shares} 🔁)`;
+                    }
+
+                    const bskyEl = document.getElementById('bluesky-metrics-display');
+                    if (bskyEl) {
+                        bskyEl.textContent = `${bsky.posts} posts (${bsky.likes} ❤️ / ${bsky.shares} 🔁)`;
+                    }
+
+                    const totEl = document.getElementById('syndication-total-display');
+                    if (totEl) {
+                        totEl.textContent = `${sm.total_posts || 0} Posts`;
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching syndication metrics:", err);
+            }
+        }
+
+        async function triggerSyndicationPoll() {
+            const feedback = document.getElementById('syndication-feedback');
+            feedback.textContent = "⏳ Polling engagement metrics across federated networks...";
+            feedback.style.color = "var(--text-muted)";
+            try {
+                const res = await fetch('/api/syndication/poll', {method: 'POST'});
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                    fetchSyndicationMetrics();
+                    fetchPerformanceDigest();
+                    setTimeout(() => { feedback.textContent = ""; }, 4000);
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Failed to poll syndication metrics.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error polling: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -826,6 +1114,7 @@
             fetchLogs();
             fetchScheduledTweets();
             fetchPerformanceDigest();
+            fetchSyndicationMetrics();
         }
 
         // Initialize on load
@@ -835,6 +1124,8 @@
         fetchScheduledTweets();
         fetchPerformanceDigest();
         fetchWebhookConfig();
+        fetchSyndicationSettings();
+        fetchSyndicationMetrics();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

@@ -11,6 +11,7 @@ import webhook
 from auth import get_twitter_client
 from analytics import AnalyticsTracker
 from joke_generator import generate_content
+import syndication
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -208,6 +209,12 @@ async def main():
                                 logging.info(f"[DRY-RUN] Would reply to Tweet ID {tweet_id} with: {cleaned_content}")
 
                             tracker.record_reply()
+
+                            # Federate content across Mastodon & Bluesky if configured
+                            try:
+                                syndication.dispatch_syndicated_post(cleaned_content, dry_run=args.dry_run)
+                            except Exception as synd_err:
+                                logging.warning(f"Syndication dispatch failed: {synd_err}")
                         except (ValueError, TypeError) as e:
                             logging.error(f"Failed to post reply due to validation error: {e}")
                             tracker.record_validation_error()

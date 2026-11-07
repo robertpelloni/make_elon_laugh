@@ -12,12 +12,8 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
-COPY bot.py /app/
-COPY auth.py /app/
-COPY rate_limiter.py /app/
-COPY db.py /app/
-COPY analytics.py /app/
-COPY dashboard.py /app/
+COPY *.py /app/
+COPY VERSION.md /app/
 COPY templates/ /app/templates/
 COPY start.sh /app/
 
