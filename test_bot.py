@@ -1526,6 +1526,61 @@ class TestSyndication(unittest.TestCase):
         finally:
             shutil.rmtree(test_dir, ignore_errors=True)
 
+    def test_content_splitter_and_syndication_chunking(self):
+        """Tests text splitting into threads for Twitter, Bluesky, Mastodon, and /api/split-preview."""
+        import splitter
+        import syndication
+
+        # 1. Short text (no splitting needed)
+        short_text = "Standard short humor tweet."
+        chunks_tw = splitter.split_for_platform(short_text, "twitter")
+        self.assertEqual(len(chunks_tw), 1)
+        self.assertEqual(chunks_tw[0], short_text)
+
+        # 2. Long text exceeding Twitter (280) and Bluesky (300) limits
+        long_text = "Falcon Heavy launch test: " + ("orbital telemetry data validation check " * 12)
+        self.assertGreater(len(long_text), 300)
+
+        chunks_tw = splitter.split_for_platform(long_text, "twitter")
+        self.assertGreaterEqual(len(chunks_tw), 2)
+        for chunk in chunks_tw:
+            self.assertLessEqual(len(chunk), 280)
+            self.assertTrue("[" in chunk and "]" in chunk)
+
+        chunks_bsky = splitter.split_for_platform(long_text, "bluesky")
+        for chunk in chunks_bsky:
+            self.assertLessEqual(len(chunk), 300)
+
+        # 3. Test syndication dispatch with auto_split enabled
+        res = syndication.dispatch_syndicated_post(
+            long_text,
+            platforms=["mastodon", "bluesky"],
+            dry_run=True,
+            auto_split=True
+        )
+        self.assertIn("mastodon", res)
+        self.assertIn("bluesky", res)
+        self.assertTrue(res["mastodon"]["success"])
+        self.assertTrue(res["bluesky"]["success"])
+        self.assertGreaterEqual(res["bluesky"]["parts"], 2)
+
+        # 4. Test /api/split-preview endpoint
+        client = dashboard.app.test_client()
+        res_prev = client.post('/api/split-preview', json={"text": long_text})
+        self.assertEqual(res_prev.status_code, 200)
+        pdata = res_prev.get_json()
+        self.assertIn("twitter", pdata)
+        self.assertIn("bluesky", pdata)
+        self.assertIn("mastodon", pdata)
+        self.assertEqual(pdata["twitter"]["limit"], 280)
+        self.assertEqual(pdata["bluesky"]["limit"], 300)
+        self.assertEqual(pdata["mastodon"]["limit"], 500)
+        self.assertGreaterEqual(len(pdata["twitter"]["chunks"]), 2)
+
+        # Error handling on invalid payload
+        res_bad = client.post('/api/split-preview', json={"text": 12345})
+        self.assertEqual(res_bad.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

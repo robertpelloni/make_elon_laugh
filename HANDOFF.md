@@ -1,6 +1,24 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.24.0
+## Current Version: 0.25.0
+
+### Key Deliverables in v0.25.0
+1. **Cross-Platform Thread Splitting & Chunking Engine (`splitter.py`)**:
+   - Implemented intelligent word-boundary chunking algorithms respecting platform constraints: Twitter/X (280 chars), Bluesky (300 chars), and Mastodon (500 chars).
+   - Dynamically accounts for sequential index tags (`[1/N]`, `[2/N]`) within platform character budgets.
+   - Gracefully handles oversized words, symbols, and formatting edge cases.
+2. **Automated Long-Form Syndication Integration (`syndication.py`)**:
+   - Enhanced `dispatch_syndicated_post()` with `auto_split=True` support.
+   - Automatically splits oversized text into sequenced thread parts across Mastodon and Bluesky, publishing each part and persisting engagement records in SQLite (`syndicated_posts`).
+3. **Thread Split Preview API (`/api/split-preview` in `dashboard.py`)**:
+   - Endpoint accepting arbitrary text and returning chunk breakdown and character metrics across Twitter, Bluesky, and Mastodon.
+4. **Command Center Interactive Thread Split UI (`templates/index.html`)**:
+   - Added `🧵 Thread Split Preview` action button with tooltip in the Content Generation Sandbox.
+   - Displays rendered chunk columns with badges and sequenced indices for each platform.
+5. **Automated Testing & Visual Verification**:
+   - 98 passing unit tests in `test_bot.py` (`test_content_splitter_and_syndication_chunking`).
+   - Verified visually with Playwright screenshot (`/home/jules/verification/v0_25_verification.png`).
+   - Clean `flake8 .` linting with 0 errors.
 
 ### Key Deliverables in v0.24.0
 1. **Configurable CLI Digest Pipeline (`generate_digest.py`)**:

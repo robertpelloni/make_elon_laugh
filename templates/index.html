@@ -562,6 +562,12 @@
                               <span class="tooltiptext">Generates a visual 600x340 graphic card formatted for Twitter/X image attachment.</span>
                             </div>
                         </button>
+                        <button type="button" class="btn btn-outline" id="btn-split-preview" onclick="testSplitPreview()">
+                            🧵 Thread Split Preview
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Simulates multi-part thread chunking for Twitter (280c), Bluesky (300c), and Mastodon (500c).</span>
+                            </div>
+                        </button>
                     </div>
                 </form>
 
@@ -576,6 +582,10 @@
                     </div>
                     <div id="gen-preview" class="preview-box">Click a button above to generate a preview...</div>
                     <img id="meme-preview-img" class="meme-preview-img" alt="Meme Card Preview">
+                    <div id="thread-split-container" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 10px;">
+                        <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Multi-Platform Thread Segments:</div>
+                        <div id="thread-split-output" style="font-size: 0.8rem;"></div>
+                    </div>
                 </div>
             </section>
 
@@ -1068,6 +1078,38 @@
                 }
             } catch (err) {
                 preview.textContent = "Meme card generation error: " + err.message;
+            }
+        }
+
+        async function testSplitPreview() {
+            const preview = document.getElementById('gen-preview');
+            const container = document.getElementById('thread-split-container');
+            const out = document.getElementById('thread-split-output');
+            let textToSplit = document.getElementById('sample-tweet').value.trim();
+            if (!textToSplit) {
+                textToSplit = preview.textContent.trim();
+            }
+            if (!textToSplit || textToSplit.startsWith("Click a button") || textToSplit.startsWith("Generating")) {
+                preview.textContent = "Please generate or type some text in the sample input to preview thread splitting.";
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/split-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: textToSplit })
+                });
+                const data = await res.json();
+                container.style.display = "block";
+                out.innerHTML = `
+                    <div style="margin-bottom: 4px;"><strong>Twitter/X (${data.twitter.limit} chars limit):</strong> ${data.twitter.chunks.length} post(s)</div>
+                    <div style="margin-bottom: 4px;"><strong>Bluesky (${data.bluesky.limit} chars limit):</strong> ${data.bluesky.chunks.length} post(s)</div>
+                    <div><strong>Mastodon (${data.mastodon.limit} chars limit):</strong> ${data.mastodon.chunks.length} post(s)</div>
+                `;
+            } catch (err) {
+                container.style.display = "block";
+                out.innerHTML = `<span style="color:var(--danger)">Error splitting text: ${err.message}</span>`;
             }
         }
 

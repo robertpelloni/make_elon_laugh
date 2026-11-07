@@ -36,4 +36,5 @@
 *   [x] Refined Multi-Format Digest CLI Generator & Resilient Download Stream Delivery (`generate_digest.py`, `dashboard.py`).
 *   [x] Enriched Performance Digest Extraction, Top-Reply Isolation, and Embedded Anomaly Banners (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [x] Configurable CLI Digest Pipeline & Per-Platform Federation Metrics Breakdown (`generate_digest.py`, `digest.py`, `dashboard.py`).
+*   [x] Automated Long-Form Content Splitting & Multi-Platform Syndication Chunking (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.

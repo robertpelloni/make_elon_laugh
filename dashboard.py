@@ -13,6 +13,7 @@ import db
 import digest
 import joke_generator
 import scheduler
+import splitter
 import syndication
 import webhook
 
@@ -228,6 +229,35 @@ def api_theme():
         return jsonify({"success": False, "error": "Invalid theme. Must be 'dark' or 'light'."}), 400
 
     return jsonify({"theme": CURRENT_THEME})
+
+
+@app.route('/api/split-preview', methods=['POST'])
+def api_split_preview():
+    """
+    Simulates cross-platform thread chunking for arbitrary text input.
+    Returns chunk count and lists of chunks per platform (Twitter, Bluesky, Mastodon).
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "")
+    if not isinstance(text, str):
+        return jsonify({"error": "text must be a string"}), 400
+
+    results = {
+        "original_length": len(text),
+        "twitter": {
+            "limit": splitter.PLATFORM_LIMITS["twitter"],
+            "chunks": splitter.split_for_platform(text, "twitter")
+        },
+        "bluesky": {
+            "limit": splitter.PLATFORM_LIMITS["bluesky"],
+            "chunks": splitter.split_for_platform(text, "bluesky")
+        },
+        "mastodon": {
+            "limit": splitter.PLATFORM_LIMITS["mastodon"],
+            "chunks": splitter.split_for_platform(text, "mastodon")
+        }
+    }
+    return jsonify(results)
 
 
 @app.route('/api/stats')

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-11-07
+
+### Added
+- **Cross-Platform Thread Splitting & Chunking Engine (`splitter.py`)**:
+  - Word-boundary-aware chunking algorithm splitting long-form text according to platform character limits: Twitter/X (280 chars), Bluesky (300 chars), and Mastodon (500 chars).
+  - Automatically calculates and appends sequential thread indicators (`[1/N]`, `[2/N]`) preserving space within platform limits.
+  - Handles single long words and arbitrary formatting without truncation or crashing.
+- **Automated Long-Form Syndication Integration (`syndication.py`)**:
+  - Enhanced `dispatch_syndicated_post()` with `auto_split=True` support.
+  - Automatically splits oversized text into sequenced thread parts across Mastodon and Bluesky, publishing each part and persisting engagement records in SQLite (`syndicated_posts`).
+- **Thread Split Simulation & Preview REST API (`/api/split-preview`)**:
+  - Added REST endpoint in `dashboard.py` accepting arbitrary content and returning simulated thread chunk lists and character counts for Twitter, Bluesky, and Mastodon.
+- **Command Center Thread Split Interactive UI (`templates/index.html`)**:
+  - Added dedicated `🧵 Thread Split Preview` action button with tooltip marker in the Content Generation Sandbox.
+  - Interactive multi-column preview container rendering sequenced chunks and character count badges for all three supported platforms.
+- **Automated Testing Suite (`test_bot.py`)**:
+  - Added comprehensive unit test `test_content_splitter_and_syndication_chunking` verifying boundary preservation, sequential indexing, dry-run syndication auto-chunking, and `/api/split-preview` responses. Total test count reached 98 passing tests with 0 flake8 errors.
+
 ## [0.24.0] - 2026-11-07
 
 ### Added

@@ -33,7 +33,9 @@
 - [x] Bound and sanitize `days` parameter (1-365) and filename prefixes in `/api/digest/download` (`dashboard.py`).
 - [x] Add unit test coverage for CLI pipeline flags, formats, and bounded downloads (`test_bot.py`).
 
+- [x] Implement automated thread splitting and chunking for long-form cross-platform posts (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
+
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Automated thread splitting for long-form cross-platform posts exceeding 280/300 characters.
+- [ ] Sentiment-aware adaptive auto-scheduling during peak audience engagement windows.

@@ -6,6 +6,7 @@ import time
 import urllib.error
 import urllib.request
 import db
+import splitter
 
 # Module-level configuration for social federation syndication
 MASTODON_ENABLED = os.environ.get("MASTODON_ENABLED", "false").lower() == "true"
@@ -115,10 +116,11 @@ def dispatch_bluesky(text, dry_run=False, timeout=5):
     return True, "200 OK"
 
 
-def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5):
+def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, auto_split=True):
     """
     Dispatches content to enabled federation platforms (Mastodon, Bluesky).
-    Returns dict mapping platform -> {"success": bool, "status": str}.
+    If auto_split is True, content exceeding platform character limit is split into sequential chunks.
+    Returns dict mapping platform -> {"success": bool, "status": str, "parts": int}.
     """
     global LAST_SYNDICATED_POST
     if not text:
@@ -139,28 +141,41 @@ def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5):
 
     for platform in target_platforms:
         plat_lower = platform.lower().strip()
-        if plat_lower == "mastodon":
-            success, status_msg = dispatch_mastodon(text, dry_run=dry_run, timeout=timeout)
-            results["mastodon"] = {"success": success, "status": status_msg}
-            # Record in SQLite database
-            status_label = "simulated" if dry_run else ("sent" if success else "failed")
-            db.record_syndicated_post(
-                platform="mastodon",
-                content=text,
-                remote_id=f"mast_{int(time.time())}" if (success or dry_run) else None,
-                status=status_label
-            )
-        elif plat_lower == "bluesky":
-            success, status_msg = dispatch_bluesky(text, dry_run=dry_run, timeout=timeout)
-            results["bluesky"] = {"success": success, "status": status_msg}
-            # Record in SQLite database
-            status_label = "simulated" if dry_run else ("sent" if success else "failed")
-            db.record_syndicated_post(
-                platform="bluesky",
-                content=text,
-                remote_id=f"bsky_{int(time.time())}" if (success or dry_run) else None,
-                status=status_label
-            )
+        chunks = splitter.split_for_platform(text, plat_lower) if auto_split else [text]
+        all_part_success = True
+        last_status = "200 OK"
+
+        for idx, chunk in enumerate(chunks, 1):
+            if plat_lower == "mastodon":
+                succ, s_msg = dispatch_mastodon(chunk, dry_run=dry_run, timeout=timeout)
+                if not succ:
+                    all_part_success = False
+                last_status = s_msg
+                status_label = "simulated" if dry_run else ("sent" if succ else "failed")
+                db.record_syndicated_post(
+                    platform="mastodon",
+                    content=chunk,
+                    remote_id=f"mast_{int(time.time())}_{idx}" if (succ or dry_run) else None,
+                    status=status_label
+                )
+            elif plat_lower == "bluesky":
+                succ, s_msg = dispatch_bluesky(chunk, dry_run=dry_run, timeout=timeout)
+                if not succ:
+                    all_part_success = False
+                last_status = s_msg
+                status_label = "simulated" if dry_run else ("sent" if succ else "failed")
+                db.record_syndicated_post(
+                    platform="bluesky",
+                    content=chunk,
+                    remote_id=f"bsky_{int(time.time())}_{idx}" if (succ or dry_run) else None,
+                    status=status_label
+                )
+
+        results[plat_lower] = {
+            "success": all_part_success,
+            "status": last_status,
+            "parts": len(chunks)
+        }
 
     LAST_SYNDICATED_POST = {
         "text": text[:80],
