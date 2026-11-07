@@ -683,13 +683,17 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
                 <input type="text" id="sched-content" placeholder="Enter tweet content to schedule..." style="flex: 2; min-width: 260px;" />
                 <input type="datetime-local" id="sched-time" style="flex: 1; min-width: 200px;" />
+                <button type="button" class="btn btn-secondary" onclick="suggestOptimalSlot()" title="Suggest high-engagement peak audience window" style="white-space: nowrap; font-size: 0.85rem; padding: 0.6rem 0.9rem;">
+                    ⚡ Suggest Peak Slot <span class="tooltip-marker" data-tooltip="Calculates optimal UTC window (09:00, 13:00, 17:00, 21:00) based on global space and tech audience engagement patterns.">?</span>
+                </button>
                 <button type="button" class="btn btn-primary" onclick="scheduleTweet()" style="white-space: nowrap;">
                     ➕ Queue Tweet
                 </button>
             </div>
+            <div id="optimal-slot-banner" style="display: none; font-size: 0.8rem; color: var(--accent); margin-bottom: 1rem; background: rgba(56, 189, 248, 0.08); padding: 6px 12px; border-radius: 6px; border-left: 3px solid var(--accent);"></div>
 
             <div style="overflow-x: auto;">
                 <table id="sched-table">
@@ -1212,6 +1216,21 @@
                 `).join('');
             } catch (err) {
                 console.error("Error fetching scheduled tweets:", err);
+            }
+        }
+
+        async function suggestOptimalSlot() {
+            try {
+                const res = await fetch('/api/schedule/optimal-slot');
+                const data = await res.json();
+                if (data.success && data.slot) {
+                    document.getElementById('sched-time').value = data.slot.slot_iso;
+                    const banner = document.getElementById('optimal-slot-banner');
+                    banner.innerHTML = `<strong>Recommended Window:</strong> ${data.slot.slot_formatted} &mdash; <em>${data.slot.reasoning}</em>`;
+                    banner.style.display = 'block';
+                }
+            } catch (e) {
+                console.error("Failed to fetch optimal slot", e);
             }
         }
 

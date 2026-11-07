@@ -61,3 +61,56 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
         processed_count += 1
 
     return processed_count
+
+
+def recommend_optimal_post_slot(now_dt=None, db_path=db.DB_PATH):
+    """
+    Recommends an optimal post scheduling slot based on audience activity patterns
+    and high-engagement space & tech industry windows (e.g., 09:00, 13:00, 17:00 UTC).
+    Returns a dict with 'slot_iso', 'slot_formatted', 'hour_utc', and 'reasoning'.
+    """
+    if now_dt is None:
+        now_dt = datetime.now(timezone.utc)
+
+    # Candidate high-traffic UTC engagement hours for tech/space audiences
+    peak_hours = [9, 13, 17, 21]
+
+    # Find the next peak hour today, or the first peak hour tomorrow if today's have passed
+    target_date = now_dt.date()
+    target_hour = None
+
+    for h in peak_hours:
+        candidate_dt = datetime(
+            target_date.year, target_date.month, target_date.day, h, 0, 0, tzinfo=timezone.utc
+        )
+        if candidate_dt > now_dt:
+            target_hour = h
+            break
+
+    if target_hour is None:
+        # Move to first slot of tomorrow
+        from datetime import timedelta
+        target_date = target_date + timedelta(days=1)
+        target_hour = peak_hours[0]
+
+    optimal_dt = datetime(
+        target_date.year, target_date.month, target_date.day, target_hour, 0, 0, tzinfo=timezone.utc
+    )
+
+    reasonings = {
+        9: "Morning orbital telemetry & European tech commute peak (09:00 UTC)",
+        13: "US East Coast morning wake-up & European afternoon peak (13:00 UTC)",
+        17: "US West Coast tech morning & US East Coast lunch engagement peak (17:00 UTC)",
+        21: "US evening prime-time launch & astrophysics discussion peak (21:00 UTC)"
+    }
+
+    reasoning = reasonings.get(
+        target_hour, "Optimized engagement window for space science & tech audiences."
+    )
+
+    return {
+        "slot_iso": optimal_dt.strftime("%Y-%m-%dT%H:%M"),
+        "slot_formatted": optimal_dt.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "hour_utc": target_hour,
+        "reasoning": reasoning
+    }

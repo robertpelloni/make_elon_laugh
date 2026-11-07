@@ -694,6 +694,32 @@ class TestSchedulerModule(unittest.TestCase):
         if os.path.exists(self.test_db):
             os.remove(self.test_db)
 
+    def test_recommend_optimal_post_slot(self):
+        """Test optimal post slot recommendation calculations."""
+        import json
+        from datetime import datetime, timezone
+        # Test at 08:00 UTC -> should recommend 09:00 UTC today
+        fixed_dt = datetime(2026, 11, 7, 8, 0, 0, tzinfo=timezone.utc)
+        slot = scheduler.recommend_optimal_post_slot(now_dt=fixed_dt)
+        self.assertEqual(slot["hour_utc"], 9)
+        self.assertIn("2026-11-07T09:00", slot["slot_iso"])
+        self.assertIn("Morning orbital telemetry", slot["reasoning"])
+
+        # Test at 22:00 UTC -> should recommend 09:00 UTC tomorrow
+        fixed_dt_late = datetime(2026, 11, 7, 22, 0, 0, tzinfo=timezone.utc)
+        slot_late = scheduler.recommend_optimal_post_slot(now_dt=fixed_dt_late)
+        self.assertEqual(slot_late["hour_utc"], 9)
+        self.assertIn("2026-11-08T09:00", slot_late["slot_iso"])
+
+        # Test dashboard endpoint via test client
+        with dashboard.app.test_client() as client:
+            res = client.get("/api/schedule/optimal-slot")
+            self.assertEqual(res.status_code, 200)
+            data = json.loads(res.data)
+            self.assertTrue(data["success"])
+            self.assertIn("slot_iso", data["slot"])
+            self.assertIn("reasoning", data["slot"])
+
     def test_enqueue_and_process_due_tweets(self):
         # Empty content should raise ValueError
         with self.assertRaises(ValueError):

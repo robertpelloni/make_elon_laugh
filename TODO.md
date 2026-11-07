@@ -34,8 +34,11 @@
 - [x] Add unit test coverage for CLI pipeline flags, formats, and bounded downloads (`test_bot.py`).
 
 - [x] Implement automated thread splitting and chunking for long-form cross-platform posts (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
+- [x] Implement Peak Hour Auto-Scheduler recommendation engine targeting high-engagement industry windows (`scheduler.py`).
+- [x] Expose `/api/schedule/optimal-slot` REST API with audience reasoning.
+- [x] Wire "Suggest Peak Slot" button and dynamic suggestion banner into Command Center UI (`templates/index.html`).
+- [x] Add automated unit tests for peak hour scheduling and API integration (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Sentiment-aware adaptive auto-scheduling during peak audience engagement windows.

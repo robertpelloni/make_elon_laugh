@@ -388,6 +388,17 @@ def api_run_check():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/schedule/optimal-slot", methods=["GET"])
+def api_schedule_optimal_slot():
+    """
+    Returns the recommended optimal post scheduling slot based on audience activity
+    and space/tech engagement windows.
+    """
+    from scheduler import recommend_optimal_post_slot
+    slot_info = recommend_optimal_post_slot()
+    return jsonify({"success": True, "slot": slot_info})
+
+
 @app.route('/api/schedule', methods=['GET', 'POST', 'DELETE'])
 def api_schedule():
     """

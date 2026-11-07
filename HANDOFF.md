@@ -71,7 +71,17 @@
    - Zero `flake8` lint errors across the entire codebase.
    - Documentation synchronized across `VERSION.md` (0.21.0), `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, `MEMORY.md`, and `HANDOFF.md`.
 
+### Key Deliverables in v0.27.0
+1. **Peak Hour Auto-Scheduler (`scheduler.py`, `dashboard.py`, `templates/index.html`)**:
+   - Implemented `recommend_optimal_post_slot(now_dt, db_path)` targeting candidate peak engagement windows (09:00, 13:00, 17:00, 21:00 UTC) with audience rationale.
+   - Added REST endpoint `/api/schedule/optimal-slot` returning the ISO slot timestamp, formatted local string, UTC hour, and audience rationale.
+   - Added interactive `⚡ Suggest Peak Slot` button with detailed tooltip explanation and dynamic `#optimal-slot-banner` alert banner inside the Scheduled Tweet Queue card.
+2. **Comprehensive Unit Testing & Visual Verification**:
+   - Added `test_recommend_optimal_post_slot` in `test_bot.py`.
+   - Verified 100 passing unit tests and 0 `flake8` warnings.
+   - Verified visually via Playwright with screenshot recorded at `/home/jules/verification/v0_27_optimal_slot.png`.
+
 ### Next Steps for Successor Models / Engineers
 1. Multi-account Twitter / X tracking and targeted scheduling queue assignment per monitored account.
-2. Automated thread splitting for long-form cross-platform posts exceeding 280/300 characters.
-3. Webhook signature HMAC authentication for enhanced generic webhook security.
+2. Webhook signature HMAC authentication for enhanced generic webhook security.
+3. Multi-image meme card attachments support in scheduled tweets.

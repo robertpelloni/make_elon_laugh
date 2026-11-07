@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.25.0] - 2026-11-07
+## [0.27.0] - 2026-11-07
+
+### Added
+- **Peak Hour Auto-Scheduler (`scheduler.py`)**:
+  - Added `recommend_optimal_post_slot(now_dt, db_path)` calculating candidate peak engagement windows (09:00, 13:00, 17:00, 21:00 UTC) with audience rationale.
+  - Automatically targets high-traffic space and tech industry windows and handles next-day rollovers.
+- **Optimal Slot Recommendation REST API (`/api/schedule/optimal-slot`)**:
+  - Added REST endpoint in `dashboard.py` returning optimal slot ISO timestamp, formatted local string, UTC hour, and industry reasoning.
+- **Command Center Peak Slot Planner UI (`templates/index.html`)**:
+  - Added `⚡ Suggest Peak Slot` button with detailed tooltip explanation.
+  - Added dynamic `#optimal-slot-banner` alert banner populating the schedule datetime picker with the recommended timestamp and audience rationale.
+- **Automated Tests**: Added `test_recommend_optimal_post_slot` in `test_bot.py` validating UTC calculations, next-day boundary conditions, and API endpoint output. Total test count reached 100 passing tests with 0 flake8 errors.
+
+## [0.26.0] - 2026-11-07
 
 ### Added
 - **Cross-Platform Thread Splitting & Chunking Engine (`splitter.py`)**:
