@@ -1171,6 +1171,38 @@ class TestEnrichedPerformanceDigest(unittest.TestCase):
         d_neg = digest.generate_performance_digest(db_path=self.test_db, days=7)
         self.assertEqual(d_neg["health_scorecard"]["sentiment_status"], "Needs Review")
 
+    def test_html_export_and_threshold_alerts(self):
+        """Verifies HTML report formatting and threshold-based performance alerts."""
+        # Test alert trigger when backlog is high and ratings are low
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        d["queue"]["pending"] = 60  # > 50 threshold
+        d["ratings"]["total_ratings"] = 10
+        d["ratings"]["approval_rate"] = 30.0  # < 40% threshold
+
+        alerts = digest.evaluate_performance_alerts(d)
+        self.assertEqual(len(alerts), 2)
+        alert_types = [a["type"] for a in alerts]
+        self.assertIn("queue_backlog_high", alert_types)
+        self.assertIn("low_humor_approval", alert_types)
+
+        # Verify export_digest_html output
+        html = digest.export_digest_html(d)
+        self.assertTrue(html.startswith("<!DOCTYPE html>"))
+        self.assertIn("Tactful Humor Bot — Performance Digest", html)
+        self.assertIn("<h2>🩺 System Operational Health</h2>", html)
+        self.assertIn("<h2>📈 Public Replies &amp; Engagement Deltas</h2>", html)
+        self.assertIn("<h2>🌐 Social Federation Reach</h2>", html)
+
+    def test_download_html_digest_endpoint(self):
+        """Verifies /api/digest/download returns styled HTML attachment when format=html."""
+        import dashboard
+        client = dashboard.app.test_client()
+        res = client.get('/api/digest/download?format=html')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'text/html')
+        self.assertIn('.html', res.headers.get('Content-Disposition', ''))
+        self.assertIn(b'<!DOCTYPE html>', res.data)
+
 
 class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
     @patch('bot.db.init_db')

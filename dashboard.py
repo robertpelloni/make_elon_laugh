@@ -492,6 +492,10 @@ def api_digest_download():
         content = json.dumps(summary, indent=2)
         filename = f"digest_{timestamp_slug}.json"
         mimetype = "application/json"
+    elif fmt == 'html':
+        content = digest.export_digest_html(summary)
+        filename = f"digest_{timestamp_slug}.html"
+        mimetype = "text/html"
     else:
         content = digest.export_digest_markdown(summary)
         filename = f"digest_{timestamp_slug}.md"

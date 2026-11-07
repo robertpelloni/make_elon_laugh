@@ -21,6 +21,8 @@
 - [x] Implement multi-platform federation syndication engine (`syndication.py`, Mastodon ActivityPub & Bluesky ATProto).
 - [x] Add social federation management UI, live status badges, and test broadcast trigger in Command Center UI.
 - [x] Implement cross-platform federation engagement polling for Mastodon & Bluesky (`syndication.py`, `db.py`, `/api/syndication/poll`, `/api/syndication/metrics`, and UI reach stats).
+- [x] Implement automated performance digest standalone HTML export with styled cards and badges (`digest.py`, `/api/digest/download?format=html`, Command Center button).
+- [x] Implement automated performance threshold alerts evaluating system anomalies across database, queue backlog, and humor ratings (`digest.py`, `webhook.py`, UI badge).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

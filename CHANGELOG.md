@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-11-07
+
+### Added
+- **Automated Performance Digest HTML Export (`digest.py`)**: Dedicated `export_digest_html()` function generating a responsive, standalone HTML performance report styled with modern CSS cards, status pills, and delta metrics for browser downloading or email dispatch.
+- **Operational Performance Threshold Alerts (`digest.py`)**: Added `evaluate_performance_alerts()` detecting anomalies across SQLite connectivity, scheduled tweet backlogs (>50 pending posts), and low community humor approval ratings (<40% approval across >=5 ratings).
+- **Threshold Alerts Integration in Webhook Payloads (`webhook.py`)**: Slack and Discord adapters now parse and highlight active system anomaly alerts directly in outgoing webhook dispatches.
+- **HTML Digest Attachment REST Endpoint (`/api/digest/download`)**: Added `format=html` support to `/api/digest/download` in `dashboard.py` returning timestamped `.html` reports with `text/html` headers.
+- **Command Center HTML Download Button & Active Alert Indicators (`templates/index.html`)**: Added one-click "Download .HTML" button and dynamic alert pill badge into the Weekly Performance Digest card.
+- **Comprehensive Unit Testing Suite**: Added unit tests in `test_bot.py` covering HTML export syntax, threshold alert trigger conditions, and `/api/digest/download?format=html` response headers (95 unit tests passing, 88% coverage, 0 flake8 errors).
+
 ## [0.20.0] - 2026-11-07
 
 ### Added

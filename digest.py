@@ -14,6 +14,46 @@ import db
 logger = logging.getLogger(__name__)
 
 
+def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_threshold=50):
+    """
+    Evaluates automated threshold alerts based on digest metrics.
+    Returns a list of alert dicts: [{"level": "warning"|"critical", "type": "...", "message": "..."}].
+    """
+    alerts = []
+    scorecard = digest_data.get("health_scorecard", {})
+    rat = digest_data.get("ratings", {})
+    queue = digest_data.get("queue", {})
+
+    if not scorecard.get("db_connected", True):
+        alerts.append({
+            "level": "critical",
+            "type": "database_disconnected",
+            "message": "Database connection is inactive or unreachable."
+        })
+
+    backlog = queue.get("pending", 0)
+    if backlog > backlog_threshold:
+        alerts.append({
+            "level": "warning",
+            "type": "queue_backlog_high",
+            "message": f"Scheduled tweet backlog has reached {backlog} items (threshold: >{backlog_threshold})."
+        })
+
+    tot_ratings = rat.get("total_ratings", 0)
+    approval_rate = rat.get("approval_rate", 100.0)
+    if tot_ratings >= 5 and approval_rate < approval_threshold:
+        alerts.append({
+            "level": "warning",
+            "type": "low_humor_approval",
+            "message": (
+                f"Humor approval rating has dropped to {approval_rate}% "
+                f"(threshold: <{approval_threshold}% across {tot_ratings} reviews)."
+            )
+        })
+
+    return alerts
+
+
 def _compute_delta(current, previous):
     """Computes difference and percentage change between two numeric values."""
     diff = current - previous
@@ -78,9 +118,10 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
         "health_scorecard": {
             "db_connected": False,
             "queue_backlog": 0,
-            "sentiment_status": "Neutral",
+            "sentiment_status": "Neutral (No Data)",
             "overall_health": "Healthy",
         },
+        "alerts": [],
     }
 
     try:
@@ -228,6 +269,9 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
+            # Evaluate performance threshold alerts
+            digest["alerts"] = evaluate_performance_alerts(digest)
+
             # 5. Syndication Multi-Platform Metrics
             digest["syndication"] = db.get_syndication_summary_metrics(db_path=db_path)
 
@@ -307,3 +351,166 @@ def export_digest_markdown(digest):
 *Autonomous Tactful Humor Operations Console*
 """
     return md
+
+
+def export_digest_html(digest):
+    """
+    Formats digest statistics into a standalone, styled HTML report
+    suitable for email delivery, static archiving, or browser review.
+    """
+    rep = digest.get("replies", {})
+    queue = digest.get("queue", {})
+    rat = digest.get("ratings", {})
+    deltas = digest.get("deltas", {})
+    scorecard = digest.get("health_scorecard", {})
+    top_items = rat.get("top_humor", [])
+    syn = digest.get("syndication", {})
+    syn_plats = syn.get("platforms", {})
+    mast_stats = syn_plats.get("mastodon", {})
+    bsky_stats = syn_plats.get("bluesky", {})
+
+    top_humor_html = "".join([f"<li><em>&ldquo;{item.get('content', '')}&rdquo;</em></li>" for item in top_items])
+    if not top_humor_html:
+        top_humor_html = "<li><em>None recorded yet.</em></li>"
+
+    def fmt_delta(key):
+        d = deltas.get(key, {})
+        diff = d.get("diff", 0)
+        pct = d.get("pct", 0.0)
+        sign = "+" if diff > 0 else ""
+        color = "#10b981" if diff >= 0 else "#ef4444"
+        return f'<span style="color: {color}; font-weight: bold;">{sign}{diff} ({sign}{pct}%)</span>'
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tactful Humor Bot — Performance Digest</title>
+  <style>
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 30px;
+    }}
+    .container {{
+      max-width: 760px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }}
+    h1 {{ color: #0284c7; margin-top: 0; border-bottom: 2px solid #e0f2fe; padding-bottom: 12px; }}
+    h2 {{
+      color: #334155;
+      margin-top: 24px;
+      font-size: 1.25rem;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 6px;
+    }}
+    .badge {{
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: #e0f2fe;
+      color: #0369a1;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }}
+    .card {{
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+    }}
+    .card-title {{ font-size: 0.85rem; color: #64748b; margin-bottom: 4px; }}
+    .card-val {{ font-size: 1.5rem; font-weight: bold; color: #0f172a; }}
+    ul {{ padding-left: 20px; }}
+    li {{ margin-bottom: 6px; }}
+    footer {{ margin-top: 32px; font-size: 0.8rem; color: #94a3b8; text-align: center; }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Tactful Humor Bot — Performance Digest</h1>
+    <p>
+      <strong>Window:</strong> Past {digest.get('window_days', 7)} days &bull;
+      <strong>Generated:</strong> {digest.get('generated_at', 'N/A')}
+    </p>
+
+    <h2>🩺 System Operational Health</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">Overall Status</div>
+        <div class="card-val">{scorecard.get('overall_health', 'Unknown')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Database Status</div>
+        <div class="card-val">{"Connected" if scorecard.get('db_connected') else "Disconnected"}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Queue Backlog</div>
+        <div class="card-val">{scorecard.get('queue_backlog', 0)}</div>
+      </div>
+    </div>
+
+    <h2>📈 Public Replies &amp; Engagement Deltas</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">Total Replies</div>
+        <div class="card-val">{rep.get('total_replies', 0)}</div>
+        <div>{fmt_delta('replies')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Likes</div>
+        <div class="card-val">{rep.get('total_likes', 0)}</div>
+        <div>{fmt_delta('likes')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Retweets</div>
+        <div class="card-val">{rep.get('total_retweets', 0)}</div>
+        <div>{fmt_delta('retweets')}</div>
+      </div>
+    </div>
+
+    <h2>📅 Scheduled Queue Operations</h2>
+    <ul>
+      <li><strong>Total Scheduled:</strong> {queue.get('total_scheduled', 0)}</li>
+      <li><strong>Dispatched (Sent):</strong> {queue.get('sent', 0)} ({fmt_delta('queue_sent')})</li>
+      <li><strong>Pending Backlog:</strong> {queue.get('pending', 0)}</li>
+      <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
+    </ul>
+
+    <h2>🌟 Community Humor Approval</h2>
+    <p><strong>Approval Rating:</strong> {rat.get('approval_rate', 0)}%
+       (+{rat.get('upvotes', 0)} / -{rat.get('downvotes', 0)} across {rat.get('total_ratings', 0)} votes)</p>
+    <ul>
+      {top_humor_html}
+    </ul>
+
+    <h2>🌐 Social Federation Reach</h2>
+    <ul>
+      <li><strong>Total Syndicated Posts:</strong> {syn.get('total_posts', 0)}</li>
+      <li><strong>Mastodon:</strong> {mast_stats.get('posts', 0)} posts &bull;
+          {mast_stats.get('likes', 0)} favs &bull; {mast_stats.get('shares', 0)} reblogs</li>
+      <li><strong>Bluesky:</strong> {bsky_stats.get('posts', 0)} posts &bull;
+          {bsky_stats.get('likes', 0)} likes &bull; {bsky_stats.get('shares', 0)} reposts</li>
+    </ul>
+
+    <footer>
+      Autonomous Tactful Humor Operations Console &bull; Confidential Digest Report
+    </footer>
+  </div>
+</body>
+</html>"""
+    return html

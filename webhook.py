@@ -69,12 +69,14 @@ def format_slack_payload(digest_data):
     rat = digest_data.get("ratings", {})
     queue = digest_data.get("queue", {})
 
+    alerts = digest_data.get("alerts", [])
+
     blocks = [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": "🚀 Tactful Humor Bot — Weekly Performance Digest",
+                "text": "🚀 Tactful Humor Bot — Weekly Performance Digest" + (" ⚠️ Alerts Active" if alerts else ""),
                 "emoji": True
             }
         },
@@ -96,6 +98,16 @@ def format_slack_payload(digest_data):
         }
     ]
 
+    if alerts:
+        alert_text = "\n".join([f"• {a.get('message')}" for a in alerts])
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*⚠️ Active Alerts:*\n{alert_text}"
+            }
+        })
+
     top_humor = rat.get("top_humor", [])
     if top_humor:
         blocks.append({
@@ -116,6 +128,9 @@ def format_discord_payload(digest_data):
     queue = digest_data.get("queue", {})
 
     likes_rts = f"{rep.get('total_likes', 0)} / {rep.get('total_retweets', 0)}"
+    alerts = digest_data.get("alerts", [])
+    color = 0xef4444 if any(a.get("level") == "critical" for a in alerts) else (0xf59e0b if alerts else 0x1DA1F2)
+
     fields = [
         {"name": "Replies Sent", "value": str(rep.get("total_replies", 0)), "inline": True},
         {"name": "Likes / RTs", "value": likes_rts, "inline": True},
@@ -124,6 +139,10 @@ def format_discord_payload(digest_data):
         {"name": "Pending in Queue", "value": str(queue.get("pending", 0)), "inline": True},
     ]
 
+    if alerts:
+        alert_msgs = "\n".join([f"• {a.get('message')}" for a in alerts])
+        fields.append({"name": "⚠️ Active Alerts", "value": alert_msgs, "inline": False})
+
     top_humor = rat.get("top_humor", [])
     if top_humor:
         fields.append({"name": "Top Rated Humor", "value": f"\"{top_humor[0].get('content', '')}\"", "inline": False})
@@ -131,7 +150,7 @@ def format_discord_payload(digest_data):
     embed = {
         "title": "🚀 Tactful Humor Bot — Weekly Performance Digest",
         "description": f"Performance summary over past {digest_data.get('window_days', 7)} days.",
-        "color": 0x1DA1F2,
+        "color": color,
         "fields": fields,
         "timestamp": digest_data.get("generated_at", ""),
     }

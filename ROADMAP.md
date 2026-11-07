@@ -32,4 +32,5 @@
 *   [x] Multi-window performance delta trends and operational health scorecard (`digest.py`, dashboard banner).
 *   [x] Bluesky & Mastodon social federation syndication engine (`syndication.py`, `/api/syndication`, dashboard federation card).
 *   [x] Cross-platform federation engagement polling (Mastodon favorites/reblogs & Bluesky likes/reposts metrics, `/api/syndication/poll`).
+*   [x] Automated Performance Digest HTML Export & Anomaly Threshold Alerts (`digest.py`, `/api/digest/download?format=html`, webhook alert banners).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.

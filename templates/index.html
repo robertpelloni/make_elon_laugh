@@ -750,17 +750,19 @@
                 </span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
+                    <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=html" download style="text-decoration: none;" title="Download styled HTML report">Download .HTML</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
                 </div>
             </div>
 
-            <!-- Health Scorecard Banner -->
+            <!-- Health Scorecard & Active Alerts Banner -->
             <div id="digest-health-banner" style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <span style="font-weight: 700; font-size: 0.85rem;">🩺 System Health:</span>
                     <span id="digest-health-overall" class="status-badge ok" style="font-size: 0.8rem;">Healthy</span>
+                    <span id="digest-alerts-badge" class="status-badge alert" style="display: none; font-size: 0.75rem;">⚠️ <span id="digest-alerts-count">0</span> Alert(s)</span>
                 </div>
                 <div style="display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted);">
                     <div>DB: <span id="digest-health-db" style="font-weight: 600; color: var(--text-main);">Connected</span></div>
@@ -1249,7 +1251,7 @@
                         document.getElementById('digest-queue-delta').textContent = `${qSign}${qDiff} (${qSign}${d.deltas.queue_sent.pct}%) vs prior`;
                     }
 
-                    // Update health scorecard
+                    // Update health scorecard & threshold alerts
                     if (d.health_scorecard) {
                         const sc = d.health_scorecard;
                         const overallEl = document.getElementById('digest-health-overall');
@@ -1259,6 +1261,18 @@
                         document.getElementById('digest-health-db').textContent = sc.db_connected ? 'Connected' : 'Disconnected';
                         document.getElementById('digest-health-backlog').textContent = sc.queue_backlog;
                         document.getElementById('digest-health-sentiment').textContent = sc.sentiment_status;
+                    }
+
+                    const alerts = d.alerts || [];
+                    const alertsBadge = document.getElementById('digest-alerts-badge');
+                    const alertsCount = document.getElementById('digest-alerts-count');
+                    if (alertsBadge && alertsCount) {
+                        if (alerts.length > 0) {
+                            alertsBadge.style.display = 'inline-flex';
+                            alertsCount.textContent = alerts.length;
+                        } else {
+                            alertsBadge.style.display = 'none';
+                        }
                     }
 
                     const personaKeys = Object.keys(d.queue.persona_distribution || {});
