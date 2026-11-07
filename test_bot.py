@@ -1181,5 +1181,141 @@ class TestAsyncMainLoop(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(mock_init_db.called)
 
 
+class TestSyndication(unittest.TestCase):
+    """Unit tests for multi-platform federation syndication (Mastodon and Bluesky)."""
+
+    def setUp(self):
+        import syndication
+        # Save module state
+        self.orig_mastodon_enabled = syndication.MASTODON_ENABLED
+        self.orig_mastodon_instance = syndication.MASTODON_INSTANCE_URL
+        self.orig_mastodon_token = syndication.MASTODON_ACCESS_TOKEN
+        self.orig_bluesky_enabled = syndication.BLUESKY_ENABLED
+        self.orig_bluesky_handle = syndication.BLUESKY_HANDLE
+        self.orig_bluesky_password = syndication.BLUESKY_APP_PASSWORD
+
+    def tearDown(self):
+        import syndication
+        syndication.MASTODON_ENABLED = self.orig_mastodon_enabled
+        syndication.MASTODON_INSTANCE_URL = self.orig_mastodon_instance
+        syndication.MASTODON_ACCESS_TOKEN = self.orig_mastodon_token
+        syndication.BLUESKY_ENABLED = self.orig_bluesky_enabled
+        syndication.BLUESKY_HANDLE = self.orig_bluesky_handle
+        syndication.BLUESKY_APP_PASSWORD = self.orig_bluesky_password
+
+    def test_format_payloads(self):
+        import syndication
+        m_payload = syndication.format_mastodon_payload("Hello Fediverse!")
+        self.assertEqual(m_payload["status"], "Hello Fediverse!")
+        self.assertEqual(m_payload["visibility"], "public")
+
+        b_payload = syndication.format_bluesky_payload("Hello Bluesky!")
+        self.assertEqual(b_payload["text"], "Hello Bluesky!")
+        self.assertIn("createdAt", b_payload)
+        self.assertEqual(b_payload["$type"], "app.bsky.feed.post")
+
+    def test_dispatch_mastodon_dry_run(self):
+        import syndication
+        success, status = syndication.dispatch_mastodon("Dry run status", dry_run=True)
+        self.assertTrue(success)
+        self.assertEqual(status, "200 OK (Dry Run)")
+
+    def test_dispatch_bluesky_dry_run(self):
+        import syndication
+        success, status = syndication.dispatch_bluesky("Dry run status", dry_run=True)
+        self.assertTrue(success)
+        self.assertEqual(status, "200 OK (Dry Run)")
+
+    def test_dispatch_not_configured(self):
+        import syndication
+        syndication.MASTODON_ACCESS_TOKEN = ""
+        success, err = syndication.dispatch_mastodon("Live text", dry_run=False)
+        self.assertFalse(success)
+        self.assertIn("not configured", err)
+
+        syndication.BLUESKY_HANDLE = ""
+        success_b, err_b = syndication.dispatch_bluesky("Live text", dry_run=False)
+        self.assertFalse(success_b)
+        self.assertIn("not configured", err_b)
+
+    @patch('urllib.request.urlopen')
+    def test_dispatch_mastodon_live(self, mock_urlopen):
+        import syndication
+        syndication.MASTODON_INSTANCE_URL = "https://mastodon.social"
+        syndication.MASTODON_ACCESS_TOKEN = "secret_token_123"
+
+        mock_response = MagicMock()
+        mock_response.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_response
+
+        success, status = syndication.dispatch_mastodon(
+            "Live status test",
+            dry_run=False
+        )
+        self.assertTrue(success)
+        self.assertEqual(status, "200")
+
+    def test_dispatch_syndicated_post_multi(self):
+        import syndication
+        syndication.MASTODON_ENABLED = True
+        syndication.BLUESKY_ENABLED = True
+
+        results = syndication.dispatch_syndicated_post("Federated greeting", dry_run=True)
+        self.assertIn("mastodon", results)
+        self.assertIn("bluesky", results)
+        self.assertTrue(results["mastodon"]["success"])
+        self.assertEqual(results["mastodon"]["status"], "200 OK (Dry Run)")
+        self.assertTrue(results["bluesky"]["success"])
+        self.assertEqual(results["bluesky"]["status"], "200 OK (Dry Run)")
+
+    def test_dashboard_syndication_endpoints(self):
+        import dashboard
+        import syndication
+        client = dashboard.app.test_client()
+
+        # GET syndication settings
+        get_res = client.get('/api/syndication')
+        self.assertEqual(get_res.status_code, 200)
+        data = get_res.get_json()
+        self.assertIn("mastodon", data)
+        self.assertIn("bluesky", data)
+
+        # POST update syndication settings
+        update_res = client.post('/api/syndication', json={
+            "mastodon_enabled": True,
+            "mastodon_instance_url": "https://mastodon.social",
+            "mastodon_access_token": "test_token_12345",
+            "bluesky_enabled": True,
+            "bluesky_handle": "muskbot.bsky.social",
+            "bluesky_app_password": "test-password-abcd"
+        })
+        self.assertEqual(update_res.status_code, 200)
+        up_data = update_res.get_json()
+        self.assertTrue(up_data["success"])
+        self.assertTrue(syndication.MASTODON_ENABLED)
+        self.assertEqual(syndication.MASTODON_ACCESS_TOKEN, "test_token_12345")
+        self.assertTrue(syndication.BLUESKY_ENABLED)
+        self.assertEqual(syndication.BLUESKY_HANDLE, "muskbot.bsky.social")
+
+        # GET to verify masked credentials
+        check_res = client.get('/api/syndication')
+        check_data = check_res.get_json()
+        self.assertTrue(check_data["mastodon"]["token_configured"])
+        self.assertEqual(check_data["mastodon"]["masked_token"], "test...2345")
+        self.assertTrue(check_data["bluesky"]["password_configured"])
+
+        # POST dry-run broadcast
+        bcast_res = client.post('/api/syndication', json={
+            "broadcast_now": True,
+            "text": "Live syndication endpoint test"
+        })
+        self.assertEqual(bcast_res.status_code, 200)
+        b_data = bcast_res.get_json()
+        self.assertTrue(b_data["success"])
+        self.assertIn("results", b_data)
+        self.assertIn("mastodon", b_data["results"])
+        self.assertIn("bluesky", b_data["results"])
+
+
 if __name__ == "__main__":
     unittest.main()

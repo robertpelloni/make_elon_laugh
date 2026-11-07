@@ -13,6 +13,7 @@ import db
 import digest
 import joke_generator
 import scheduler
+import syndication
 import webhook
 
 
@@ -503,6 +504,80 @@ def api_digest_download():
     )
     response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+@app.route('/api/syndication', methods=['GET', 'POST'])
+def api_syndication():
+    """
+    Manages social federation syndication settings and on-demand broadcast.
+    GET: Returns current syndication configuration and status for Mastodon & Bluesky.
+    POST: Updates configuration or triggers immediate test broadcast.
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        mastodon_enabled = data.get("mastodon_enabled")
+        mastodon_url = data.get("mastodon_instance_url")
+        mastodon_token = data.get("mastodon_access_token")
+        bluesky_enabled = data.get("bluesky_enabled")
+        bluesky_handle = data.get("bluesky_handle")
+        bluesky_password = data.get("bluesky_app_password")
+        broadcast_now = data.get("broadcast_now", False)
+        sample_text = data.get("text", "").strip()
+
+        if mastodon_enabled is not None:
+            syndication.MASTODON_ENABLED = bool(mastodon_enabled)
+        if mastodon_url is not None:
+            syndication.MASTODON_INSTANCE_URL = mastodon_url.strip()
+        if mastodon_token is not None:
+            syndication.MASTODON_ACCESS_TOKEN = mastodon_token.strip()
+        if bluesky_enabled is not None:
+            syndication.BLUESKY_ENABLED = bool(bluesky_enabled)
+        if bluesky_handle is not None:
+            syndication.BLUESKY_HANDLE = bluesky_handle.strip()
+        if bluesky_password is not None:
+            syndication.BLUESKY_APP_PASSWORD = bluesky_password.strip()
+
+        if broadcast_now:
+            text_to_send = sample_text or joke_generator.generate_content()
+            results = syndication.dispatch_syndicated_post(text_to_send, dry_run=True)
+            return jsonify({
+                "success": True,
+                "message": "Broadcast test executed (dry-run).",
+                "text": text_to_send,
+                "results": results
+            })
+
+        return jsonify({
+            "success": True,
+            "message": "Syndication settings updated.",
+            "mastodon_enabled": syndication.MASTODON_ENABLED,
+            "bluesky_enabled": syndication.BLUESKY_ENABLED
+        })
+
+    # GET request: return status and masked credentials
+    mast_token = syndication.MASTODON_ACCESS_TOKEN
+    masked_mast_token = ""
+    if mast_token:
+        masked_mast_token = (mast_token[:4] + "..." + mast_token[-4:]) if len(mast_token) > 8 else "***"
+
+    bsky_pwd = syndication.BLUESKY_APP_PASSWORD
+    masked_bsky_pwd = ("***" if bsky_pwd else "")
+
+    return jsonify({
+        "mastodon": {
+            "enabled": syndication.MASTODON_ENABLED,
+            "instance_url": syndication.MASTODON_INSTANCE_URL,
+            "token_configured": bool(mast_token),
+            "masked_token": masked_mast_token
+        },
+        "bluesky": {
+            "enabled": syndication.BLUESKY_ENABLED,
+            "handle": syndication.BLUESKY_HANDLE,
+            "password_configured": bool(bsky_pwd),
+            "masked_password": masked_bsky_pwd
+        },
+        "last_post": syndication.LAST_SYNDICATED_POST
+    })
 
 
 @app.route('/api/webhook', methods=['GET', 'POST'])

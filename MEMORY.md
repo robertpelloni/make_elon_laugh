@@ -6,7 +6,7 @@
 - All controls have explicit interactive forms, distinct labels, and tooltip guidance for complete operational clarity.
 - Visual meme card generation is provided via `meme_generator.py` and `joke_generator.py` using Pillow, outputting base64-encoded PNG cards accessible at `/api/test-generate-meme`.
 - The desktop system tray companion is located in `tray.py`, allowing operators on desktop environments to launch the dashboard, run checks, and quit servers, while cleanly detecting headless environments and remaining non-blocking.
-- The global version string is governed centrally by `VERSION.md` (currently `0.18.0`) and dynamically read by the dashboard and documentation.
+- The global version string is governed centrally by `VERSION.md` (currently `0.19.0`) and dynamically read by the dashboard and documentation.
 - Dual Dark and Light mode theme architecture is managed with CSS custom properties, client-side `localStorage`, and runtime persistence via `/api/theme`.
 - Multi-persona humor engine is supported across `tactful_engineer`, `witty_ai`, and `deadpan_astronomer` with tailored system prompts, static fallbacks, and runtime control via `/api/persona`.
 - Community Joke Rating System allows operators to vote thumbs up (+1) or thumbs down (-1) on generated content via `/api/ratings`, with an approval rate metric card and persistent SQLite storage.
@@ -17,5 +17,7 @@
 - Operational Health Scorecard evaluates database connectivity, queue backlog, and community sentiment thresholds in real time.
 - Direct report export and file downloads are supported via CLI (`generate_digest.py` into `reports/`) and REST endpoint `/api/digest/download` in `dashboard.py` (serving Markdown `.md` and JSON `.json` attachment downloads).
 - Automated Webhook Dispatch Engine (`webhook.py`) delivers structured digests to external webhooks (Discord, Slack, Generic JSON) with jittered exponential backoff, recurring broadcast worker logic (`check_and_dispatch_recurring_digest`), and test dispatch support via `/api/webhook`.
+- Multi-Platform Social Federation Syndication (`syndication.py`) enables cross-posting to Mastodon (ActivityPub REST v1 API) and Bluesky (ATProto repo records) with token masking and dry-run simulation mode.
+- Non-blocking syndication hooks are integrated into both live bot replies (`bot.py`) and scheduled post dispatches (`scheduler.py`).
 - The bot polling loop in `bot.py` continuously evaluates scheduled tweet dispatches and recurring digest broadcasts automatically.
-- The project maintains comprehensive test coverage with 85 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.
+- The project maintains comprehensive test coverage with 92 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.

@@ -834,6 +834,50 @@
                 <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
             </div>
 
+            <!-- Social Federation Syndication Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        🌐 Multi-Platform Federation Syndication (Mastodon & Bluesky)
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cross-post jokes and scheduled announcements to decentralized social networks including ActivityPub (Mastodon) and AT Protocol (Bluesky).</span>
+                        </div>
+                    </span>
+                    <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; font-size: 0.8rem;">
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-weight: 600; cursor: pointer; color: var(--text-color); margin: 0;">
+                                <input type="checkbox" id="mastodon-enable-toggle" onchange="saveSyndicationSettings()">
+                                <span>🐘 Mastodon ActivityPub</span>
+                            </label>
+                            <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                        </div>
+                        <input type="text" id="mastodon-url-input" placeholder="https://mastodon.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
+                        <input type="password" id="mastodon-token-input" placeholder="Bearer Access Token" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
+                    </div>
+                    <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-weight: 600; cursor: pointer; color: var(--text-color); margin: 0;">
+                                <input type="checkbox" id="bluesky-enable-toggle" onchange="saveSyndicationSettings()">
+                                <span>🦋 Bluesky ATProto</span>
+                            </label>
+                            <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                        </div>
+                        <input type="text" id="bluesky-handle-input" placeholder="handle.bsky.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
+                        <input type="password" id="bluesky-pwd-input" placeholder="App Password (xxxx-xxxx-xxxx-xxxx)" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
+                        <button class="btn btn-primary btn-sm" onclick="triggerSyndicationTest()">Test Broadcast (Dry Run)</button>
+                    </div>
+                    <div id="syndication-feedback" style="font-size: 0.75rem; color: var(--text-muted);"></div>
+                </div>
+            </div>
+
             <!-- Markdown preview modal / expander -->
             <div id="digest-md-container" style="display: none; margin-top: 1rem; background: var(--bg-card); border: 1px dashed var(--border-color); border-radius: 8px; padding: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -1324,6 +1368,107 @@
             }
         }
 
+        async function fetchSyndicationSettings() {
+            try {
+                const res = await fetch('/api/syndication');
+                const data = await res.json();
+                if (data.mastodon) {
+                    document.getElementById('mastodon-enable-toggle').checked = !!data.mastodon.enabled;
+                    if (data.mastodon.instance_url) {
+                        document.getElementById('mastodon-url-input').value = data.mastodon.instance_url;
+                    }
+                    if (data.mastodon.masked_token) {
+                        document.getElementById('mastodon-token-input').placeholder = "Token: " + data.mastodon.masked_token;
+                    }
+                    const mastTag = document.getElementById('mastodon-status-tag');
+                    mastTag.textContent = data.mastodon.enabled ? "Active" : "Disabled";
+                    mastTag.style.color = data.mastodon.enabled ? "var(--accent-success)" : "var(--text-muted)";
+                }
+                if (data.bluesky) {
+                    document.getElementById('bluesky-enable-toggle').checked = !!data.bluesky.enabled;
+                    if (data.bluesky.handle) {
+                        document.getElementById('bluesky-handle-input').value = data.bluesky.handle;
+                    }
+                    if (data.bluesky.masked_password) {
+                        document.getElementById('bluesky-pwd-input').placeholder = "Password: " + data.bluesky.masked_password;
+                    }
+                    const bskyTag = document.getElementById('bluesky-status-tag');
+                    bskyTag.textContent = data.bluesky.enabled ? "Active" : "Disabled";
+                    bskyTag.style.color = data.bluesky.enabled ? "var(--accent-success)" : "var(--text-muted)";
+                }
+            } catch (err) {
+                console.error("Error loading syndication settings:", err);
+            }
+        }
+
+        async function saveSyndicationSettings() {
+            const mastEnabled = document.getElementById('mastodon-enable-toggle').checked;
+            const mastUrl = document.getElementById('mastodon-url-input').value.trim();
+            const mastToken = document.getElementById('mastodon-token-input').value.trim();
+            const bskyEnabled = document.getElementById('bluesky-enable-toggle').checked;
+            const bskyHandle = document.getElementById('bluesky-handle-input').value.trim();
+            const bskyPwd = document.getElementById('bluesky-pwd-input').value.trim();
+            const feedback = document.getElementById('syndication-feedback');
+
+            const payload = {
+                mastodon_enabled: mastEnabled,
+                bluesky_enabled: bskyEnabled
+            };
+            if (mastUrl) payload.mastodon_instance_url = mastUrl;
+            if (mastToken) payload.mastodon_access_token = mastToken;
+            if (bskyHandle) payload.bluesky_handle = bskyHandle;
+            if (bskyPwd) payload.bluesky_app_password = bskyPwd;
+
+            try {
+                const res = await fetch('/api/syndication', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                    await fetchSyndicationSettings();
+                    setTimeout(() => { feedback.textContent = ""; }, 3000);
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Save failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error saving: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
+        async function triggerSyndicationTest() {
+            const feedback = document.getElementById('syndication-feedback');
+            feedback.textContent = "⏳ Executing dry-run federation broadcast...";
+            feedback.style.color = "var(--text-muted)";
+
+            try {
+                const res = await fetch('/api/syndication', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({broadcast_now: true})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const resultsSummary = Object.entries(data.results || {})
+                        .map(([k, v]) => `${k}: ${v.status}`)
+                        .join(", ");
+                    feedback.textContent = `🚀 Dispatched (${resultsSummary || "no platforms enabled"})`;
+                    feedback.style.color = "var(--accent-success)";
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Broadcast failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error broadcasting: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -1350,6 +1495,7 @@
         fetchScheduledTweets();
         fetchPerformanceDigest();
         fetchWebhookConfig();
+        fetchSyndicationSettings();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

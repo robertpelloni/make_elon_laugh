@@ -18,8 +18,10 @@
 - [x] Implement automated recurring background digest webhook worker (`check_and_dispatch_recurring_digest`) in polling loop and dashboard controls.
 - [x] Implement dedicated CLI report generator (`generate_digest.py`) and direct attachment download endpoint (`/api/digest/download`).
 - [x] Implement multi-window delta trend comparisons and operational health scorecard in `digest.py` and Command Center UI.
+- [x] Implement multi-platform federation syndication engine (`syndication.py`, Mastodon ActivityPub & Bluesky ATProto).
+- [x] Add social federation management UI, live status badges, and test broadcast trigger in Command Center UI.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Multi-platform syndication connectors (Bluesky, Mastodon).
+- [ ] Cross-platform engagement polling for Mastodon and Bluesky.

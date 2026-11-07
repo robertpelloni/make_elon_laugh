@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-11-07
+
+### Added
+- **Multi-Platform Social Federation Syndication (`syndication.py`)**: Dedicated syndication engine supporting Mastodon (ActivityPub REST v1 API) and Bluesky (ATProto repo record creation). Features retry backoff, dry-run simulation mode, and token masking.
+- **Federated Content Distribution Triggers (`bot.py`, `scheduler.py`)**: Asynchronous, non-blocking hooks automatically federating content whenever a live reply is dispatched or a scheduled calendar post is executed.
+- **Syndication Management API Endpoints (`dashboard.py`)**: Added `/api/syndication` GET and POST routes to view status, configure instance URLs/credentials, and trigger on-demand test broadcasts with dry-run support.
+- **Command Center Federation Controls UI (`templates/index.html`)**: Added dedicated Social Federation Syndication section featuring Mastodon ActivityPub & Bluesky ATProto toggle cards, configuration inputs, security token masks, status indicators, and one-click test broadcast trigger.
+- **Comprehensive Unit Testing Suite**: Added 7 comprehensive tests in `test_bot.py` (`TestSyndication`) covering payload formatting, live/mock HTTP requests, configuration updates, and dry-run broadcasts (92 tests passing, 89% overall test coverage, 0 flake8 errors).
+
 ## [0.18.0] - 2026-11-06
 
 ### Added
