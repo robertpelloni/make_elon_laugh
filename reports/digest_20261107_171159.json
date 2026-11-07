@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-11-07 17:11:59 UTC",
+  "window_days": 7,
+  "replies": {
+    "total_replies": 0,
+    "total_likes": 0,
+    "total_retweets": 0,
+    "avg_likes_per_reply": 0.0,
+    "avg_retweets_per_reply": 0.0,
+    "top_reply": null
+  },
+  "queue": {
+    "total_scheduled": 56,
+    "pending": 0,
+    "sent": 1,
+    "cancelled": 55,
+    "persona_distribution": {
+      "tactful_engineer": 1,
+      "witty_ai": 55
+    }
+  },
+  "ratings": {
+    "total_ratings": 58,
+    "upvotes": 58,
+    "downvotes": 0,
+    "approval_rate": 100.0,
+    "top_humor": [
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      }
+    ]
+  },
+  "syndication": {
+    "total_posts": 108,
+    "platforms": {
+      "mastodon": {
+        "posts": 54,
+        "likes": 461,
+        "shares": 136
+      },
+      "bluesky": {
+        "posts": 54,
+        "likes": 607,
+        "shares": 215
+      }
+    }
+  },
+  "deltas": {
+    "replies": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "likes": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "retweets": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "queue_sent": {
+      "current": 1,
+      "previous": 0,
+      "diff": 1,
+      "pct": 100.0
+    }
+  },
+  "health_scorecard": {
+    "db_connected": true,
+    "queue_backlog": 0,
+    "sentiment_status": "Positive",
+    "federation_health": "Active",
+    "overall_health": "Healthy"
+  },
+  "alerts": []
+}
