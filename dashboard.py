@@ -698,10 +698,11 @@ def api_syndication_poll():
 def api_webhook():
     """
     Manages digest webhook delivery configuration and manual test dispatch.
-    GET: Returns current webhook configuration (masked URL, auto dispatch status, interval).
-    POST: Updates webhook URL, adapter, auto-dispatch switch, interval, or triggers test dispatch.
+    GET: Returns current webhook configuration (masked URL, secret status, auto dispatch status, interval).
+    POST: Updates webhook URL, secret, adapter, auto-dispatch switch, interval, or triggers test dispatch.
           Body: {
             "webhook_url": "...",
+            "webhook_secret": "...",
             "adapter": "slack|discord|generic",
             "auto_dispatch": true|false,
             "interval_hours": 24|72|168,
@@ -711,6 +712,7 @@ def api_webhook():
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
         new_url = data.get("webhook_url")
+        new_secret = data.get("webhook_secret")
         new_adapter = data.get("adapter")
         auto_dispatch = data.get("auto_dispatch")
         interval_hours = data.get("interval_hours")
@@ -718,6 +720,8 @@ def api_webhook():
 
         if new_url is not None:
             webhook.DEFAULT_WEBHOOK_URL = new_url.strip()
+        if new_secret is not None:
+            webhook.DEFAULT_WEBHOOK_SECRET = new_secret.strip()
         if new_adapter is not None:
             webhook.DEFAULT_ADAPTER = new_adapter.strip().lower()
         if auto_dispatch is not None:
@@ -739,13 +743,18 @@ def api_webhook():
             summary = digest.generate_performance_digest(days=7)
             payload = webhook.format_webhook_payload(summary, adapter=webhook.DEFAULT_ADAPTER)
 
-            success, status_or_err = webhook.dispatch_webhook(target_url, payload)
+            success, status_or_err = webhook.dispatch_webhook(
+                target_url,
+                payload,
+                secret=webhook.DEFAULT_WEBHOOK_SECRET
+            )
             if success:
                 webhook.LAST_DISPATCH_TIMESTAMP = time.time()
                 return jsonify({
                     "success": True,
                     "message": f"Webhook dispatched successfully (HTTP {status_or_err}).",
-                    "adapter": webhook.DEFAULT_ADAPTER
+                    "adapter": webhook.DEFAULT_ADAPTER,
+                    "signed": bool(webhook.DEFAULT_WEBHOOK_SECRET)
                 })
             else:
                 return jsonify({
@@ -758,10 +767,11 @@ def api_webhook():
             "message": "Webhook settings updated.",
             "adapter": webhook.DEFAULT_ADAPTER,
             "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
-            "interval_hours": webhook.DISPATCH_INTERVAL_HOURS
+            "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,
+            "has_secret": bool(webhook.DEFAULT_WEBHOOK_SECRET)
         })
 
-    # GET: return masked URL and status for operator review
+    # GET: return masked URL, secret status, and dispatch configuration for operator review
     url = webhook.DEFAULT_WEBHOOK_URL
     masked_url = ""
     if url:
@@ -770,9 +780,19 @@ def api_webhook():
         else:
             masked_url = "***"
 
+    secret = webhook.DEFAULT_WEBHOOK_SECRET
+    masked_secret = ""
+    if secret:
+        if len(secret) > 8:
+            masked_secret = secret[:3] + "..." + secret[-3:]
+        else:
+            masked_secret = "***"
+
     return jsonify({
         "configured": bool(url),
         "masked_url": masked_url,
+        "has_secret": bool(secret),
+        "masked_secret": masked_secret,
         "adapter": webhook.DEFAULT_ADAPTER,
         "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
         "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,

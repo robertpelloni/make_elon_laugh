@@ -38,6 +38,10 @@
 - [x] Expose `/api/schedule/optimal-slot` REST API with audience reasoning.
 - [x] Wire "Suggest Peak Slot" button and dynamic suggestion banner into Command Center UI (`templates/index.html`).
 - [x] Add automated unit tests for peak hour scheduling and API integration (`test_bot.py`).
+- [x] Implement HMAC-SHA256 signature generation (`compute_webhook_signature`) attaching `X-Hub-Signature-256` and `X-Signature-Timestamp` headers (`webhook.py`).
+- [x] Expose webhook secret configuration with secure masking in `/api/webhook` (`dashboard.py`).
+- [x] Add HMAC secret key input and signature status badge in Command Center UI (`templates/index.html`).
+- [x] Add unit test suite for webhook signature computation and secret masking in `test_bot.py`.
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

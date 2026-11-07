@@ -1,8 +1,29 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.25.0
+## Current Version: 0.28.0
 
-### Key Deliverables in v0.25.0
+### Key Deliverables in v0.28.0
+1. **HMAC-SHA256 Webhook Payload Signing & Verification (`webhook.py`)**:
+   - Added `compute_webhook_signature(payload_bytes, secret)` computing standard HMAC-SHA256 hex digests prefixed with `sha256=`.
+   - Updated `dispatch_webhook` and `check_and_dispatch_recurring_digest` to attach standard cryptographic headers `X-Hub-Signature-256` and `X-Signature-Timestamp` whenever a secret is configured.
+2. **Webhook Secret Management API (`dashboard.py`)**:
+   - Enhanced `/api/webhook` to handle optional secret configuration and return masked values (`abc...xyz` or `***`) to avoid leaking credentials.
+3. **Command Center Secret Key Controls & Visual Status Indicators (`templates/index.html`)**:
+   - Password-masked HMAC secret input field with tooltip guidance.
+   - Dynamic signature status badge indicator (`🔒 Signed`).
+4. **Verification & Testing**:
+   - Expanded unit tests in `test_bot.py` to 102 passing tests with 0 `flake8` warnings.
+   - Captured visual UI screenshot verification via Playwright (`/home/jules/verification/v0_28_webhook_hmac.png`).
+
+### Key Deliverables in v0.27.0
+1. **Peak Hour Auto-Scheduler Engine (`scheduler.py`)**:
+   - Added `recommend_optimal_post_slot(now_dt, db_path)` calculating candidate peak engagement windows (09:00, 13:00, 17:00, 21:00 UTC) with audience rationale.
+2. **Optimal Slot Recommendation API (`dashboard.py`)**:
+   - Exposes `/api/schedule/optimal-slot` returning recommended UTC/local time slots and industry reasoning.
+3. **Command Center Peak Slot Planner UI (`templates/index.html`)**:
+   - `⚡ Suggest Peak Slot` button and `#optimal-slot-banner` alert banner populating the scheduler datetime picker.
+
+### Key Deliverables in v0.26.0
 1. **Cross-Platform Thread Splitting & Chunking Engine (`splitter.py`)**:
    - Implemented intelligent word-boundary chunking algorithms respecting platform constraints: Twitter/X (280 chars), Bluesky (300 chars), and Mastodon (500 chars).
    - Dynamically accounts for sequential index tags (`[1/N]`, `[2/N]`) within platform character budgets.

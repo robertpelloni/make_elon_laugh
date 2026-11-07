@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-11-07
+
+### Added
+- **Cryptographic HMAC-SHA256 Webhook Payload Signing (`webhook.py`)**:
+  - Implemented `compute_webhook_signature(payload_bytes, secret)` computing standard HMAC-SHA256 digests (`sha256=<hex_digest>`).
+  - Updated `dispatch_webhook` and `check_and_dispatch_recurring_digest` to attach `X-Hub-Signature-256` and `X-Signature-Timestamp` headers when a secret is configured.
+- **Webhook Secret Key Configuration REST API (`dashboard.py`)**:
+  - Enhanced `/api/webhook` (GET & POST) to handle optional `webhook_secret` configuration.
+  - Symmetrically returns masked secret status (`abc...xyz` or `***`) to protect credentials from shoulder-surfing.
+- **Command Center Secret Key Controls & Visual Badges (`templates/index.html`)**:
+  - Added password-masked HMAC Secret input field with detailed tooltip explanation of signature verification headers.
+  - Added active signature status indicator (`🔒 Signed`) on the webhook configuration status badge.
+- **Comprehensive Unit Testing**:
+  - Added tests in `test_bot.py` covering signature computation, header attachment verification, secret masking, and API dispatch validation. Total test count expanded to 102 passing tests with 0 `flake8` warnings.
+
 ## [0.27.0] - 2026-11-07
 
 ### Added

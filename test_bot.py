@@ -858,7 +858,43 @@ class TestPerformanceDigest(unittest.TestCase):
 class TestWebhookDispatcher(unittest.TestCase):
     def setUp(self):
         webhook.DEFAULT_WEBHOOK_URL = ""
+        webhook.DEFAULT_WEBHOOK_SECRET = ""
         webhook.DEFAULT_ADAPTER = "generic"
+
+    def test_compute_webhook_signature(self):
+        secret = "super_secure_key"
+        payload = b'{"status": "ok", "count": 42}'
+        sig = webhook.compute_webhook_signature(payload, secret)
+        self.assertTrue(sig.startswith("sha256="))
+        self.assertEqual(len(sig), 7 + 64)
+
+        # Empty secret returns empty string
+        self.assertEqual(webhook.compute_webhook_signature(payload, ""), "")
+
+        # Deterministic check
+        sig2 = webhook.compute_webhook_signature(payload, secret)
+        self.assertEqual(sig, sig2)
+
+    @patch('urllib.request.urlopen')
+    def test_webhook_dispatch_with_hmac_headers(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        # Dispatch with explicit secret
+        ok, status = webhook.dispatch_webhook(
+            "https://example.com/webhook",
+            {"digest": "test"},
+            secret="mysecret123"
+        )
+        self.assertTrue(ok)
+        self.assertEqual(status, 200)
+
+        # Inspect urllib Request
+        req_sent = mock_urlopen.call_args[0][0]
+        self.assertIn("X-hub-signature-256", req_sent.headers)
+        self.assertTrue(req_sent.headers["X-hub-signature-256"].startswith("sha256="))
+        self.assertIn("X-signature-timestamp", req_sent.headers)
 
     def test_webhook_payload_formatting_slack(self):
         sample = {
@@ -911,18 +947,22 @@ class TestWebhookDispatcher(unittest.TestCase):
         data = res.get_json()
         self.assertFalse(data["configured"])
 
-        # POST update URL and adapter
+        # POST update URL and adapter and secret
         res_post = client.post('/api/webhook', json={
             "webhook_url": "https://hooks.slack.com/services/T00/B00/XXXX",
+            "webhook_secret": "my-ultra-secret",
             "adapter": "slack"
         })
         self.assertEqual(res_post.status_code, 200)
         self.assertTrue(res_post.get_json()["success"])
+        self.assertTrue(res_post.get_json()["has_secret"])
 
-        # GET should now report configured
+        # GET should now report configured with masked secret
         res_after = client.get('/api/webhook')
         data_after = res_after.get_json()
         self.assertTrue(data_after["configured"])
+        self.assertTrue(data_after["has_secret"])
+        self.assertIn("...", data_after["masked_secret"])
         self.assertEqual(data_after["adapter"], "slack")
 
         # POST test dispatch with mock urlopen

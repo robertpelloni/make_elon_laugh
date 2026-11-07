@@ -824,7 +824,13 @@
                     <span id="webhook-status-badge" class="status-badge warn" style="font-size: 0.75rem;">Not Configured</span>
                 </div>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 1; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 2; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <div style="flex: 1; min-width: 180px; position: relative; display: flex; align-items: center;">
+                        <input type="password" id="webhook-secret-input" placeholder="HMAC Secret Key (optional)" style="width: 100%; font-size: 0.85rem; padding: 0.4rem 0.6rem; padding-right: 1.8rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                        <div class="tooltip" style="position: absolute; right: 6px;"><span class="tooltip-icon" style="width: 14px; height: 14px; font-size: 10px; line-height: 14px;">?</span>
+                            <span class="tooltiptext">If provided, outgoing HTTP webhook payloads will include HMAC-SHA256 signature headers (X-Hub-Signature-256 and X-Signature-Timestamp) to verify payload authenticity.</span>
+                        </div>
+                    </div>
                     <select id="webhook-adapter-select" style="font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
                         <option value="generic">Generic JSON</option>
                         <option value="discord">Discord Embed</option>
@@ -1390,6 +1396,7 @@
                 const data = await res.json();
                 const badge = document.getElementById('webhook-status-badge');
                 const urlInput = document.getElementById('webhook-url-input');
+                const secretInput = document.getElementById('webhook-secret-input');
                 const adapterSelect = document.getElementById('webhook-adapter-select');
                 const autoToggle = document.getElementById('webhook-autodispatch-toggle');
                 const intervalSelect = document.getElementById('webhook-interval-select');
@@ -1399,6 +1406,12 @@
                 if (data.auto_dispatch !== undefined) autoToggle.checked = Boolean(data.auto_dispatch);
                 if (data.interval_hours !== undefined) intervalSelect.value = String(data.interval_hours);
 
+                if (data.has_secret) {
+                    secretInput.placeholder = `Secret Active (${data.masked_secret})`;
+                } else {
+                    secretInput.placeholder = "HMAC Secret Key (optional)";
+                }
+
                 if (data.last_dispatch && data.last_dispatch > 0) {
                     const dt = new Date(data.last_dispatch * 1000);
                     lastDispatch.textContent = `Last Broadcast: ${dt.toLocaleTimeString()} (${dt.toLocaleDateString()})`;
@@ -1407,7 +1420,8 @@
                 }
 
                 if (data.configured) {
-                    badge.textContent = `Configured (${data.masked_url})`;
+                    const signedNotice = data.has_secret ? ' 🔒 Signed' : '';
+                    badge.textContent = `Configured (${data.masked_url})${signedNotice}`;
                     badge.className = 'status-badge ok';
                 } else {
                     badge.textContent = 'Not Configured';
@@ -1420,6 +1434,7 @@
 
         async function saveWebhookSettings() {
             const url = document.getElementById('webhook-url-input').value.trim();
+            const secret = document.getElementById('webhook-secret-input').value.trim();
             const adapter = document.getElementById('webhook-adapter-select').value;
             const autoDispatch = document.getElementById('webhook-autodispatch-toggle').checked;
             const intervalHours = parseInt(document.getElementById('webhook-interval-select').value, 10);
@@ -1433,6 +1448,9 @@
                 };
                 if (url) {
                     payload.webhook_url = url;
+                }
+                if (secret) {
+                    payload.webhook_secret = secret;
                 }
 
                 const res = await fetch('/api/webhook', {
