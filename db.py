@@ -78,6 +78,19 @@ def init_db(db_path=DB_PATH):
                 )
             ''')
 
+            # Table for target audience profiles and persona routing overrides
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS target_profiles (
+                    target_id TEXT PRIMARY KEY,
+                    username TEXT,
+                    persona_override TEXT,
+                    auto_reply_enabled INTEGER DEFAULT 1,
+                    tags TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -366,3 +379,134 @@ def get_syndication_summary_metrics(db_path=DB_PATH):
         logger.error(f"Database error fetching syndication summary metrics: {e}")
 
     return summary
+
+
+def get_target_profiles(db_path=DB_PATH):
+    """Retrieves all target audience profiles with persona routing and settings."""
+    profiles = []
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT target_id, username, persona_override, auto_reply_enabled, tags, created_at, updated_at "
+                    "FROM target_profiles ORDER BY created_at ASC"
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return profiles
+
+            for row in cursor.fetchall():
+                profiles.append({
+                    "target_id": str(row[0]),
+                    "username": row[1] or "",
+                    "persona_override": row[2] or "",
+                    "auto_reply_enabled": bool(row[3]),
+                    "tags": row[4] or "",
+                    "created_at": str(row[5]),
+                    "updated_at": str(row[6])
+                })
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching target profiles: {e}")
+    return profiles
+
+
+def upsert_target_profile(target_id, username=None, persona_override=None,
+                          auto_reply_enabled=1, tags="", db_path=DB_PATH):
+    """
+    Inserts or updates a target audience profile and persona routing configuration.
+    """
+    if not target_id or not str(target_id).strip():
+        raise ValueError("Target ID cannot be empty.")
+
+    t_id = str(target_id).strip()
+    u_name = str(username).strip() if username else ""
+    p_override = str(persona_override).strip() if persona_override else ""
+    auto_reply = 1 if auto_reply_enabled else 0
+    t_tags = str(tags).strip() if tags else ""
+
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('''
+                    INSERT INTO target_profiles (
+                        target_id, username, persona_override, auto_reply_enabled, tags, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(target_id) DO UPDATE SET
+                        username=excluded.username,
+                        persona_override=excluded.persona_override,
+                        auto_reply_enabled=excluded.auto_reply_enabled,
+                        tags=excluded.tags,
+                        updated_at=CURRENT_TIMESTAMP
+                ''', (t_id, u_name, p_override, auto_reply, t_tags))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute('''
+                    INSERT INTO target_profiles (
+                        target_id, username, persona_override, auto_reply_enabled, tags, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(target_id) DO UPDATE SET
+                        username=excluded.username,
+                        persona_override=excluded.persona_override,
+                        auto_reply_enabled=excluded.auto_reply_enabled,
+                        tags=excluded.tags,
+                        updated_at=CURRENT_TIMESTAMP
+                ''', (t_id, u_name, p_override, auto_reply, t_tags))
+            conn.commit()
+            logger.info(f"Target profile upserted for target ID {t_id}.")
+            return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error upserting target profile {t_id}: {e}")
+        return False
+
+
+def delete_target_profile(target_id, db_path=DB_PATH):
+    """Deletes a target profile by target_id."""
+    if not target_id:
+        return False
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("DELETE FROM target_profiles WHERE target_id = ?", (str(target_id).strip(),))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return False
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting target profile {target_id}: {e}")
+        return False
+
+
+def get_target_persona_override(target_id, db_path=DB_PATH):
+    """
+    Returns the persona override for a target user ID if set and auto_reply is enabled.
+    Returns (persona_override, auto_reply_enabled).
+    """
+    if not target_id:
+        return None, True
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT persona_override, auto_reply_enabled FROM target_profiles WHERE target_id = ?",
+                    (str(target_id).strip(),)
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return None, True
+
+            row = cursor.fetchone()
+            if row:
+                persona = row[0].strip() if (row[0] and row[0].strip()) else None
+                auto_reply = bool(row[1])
+                return persona, auto_reply
+    except sqlite3.Error as e:
+        logger.error(f"Database error checking persona override for {target_id}: {e}")
+
+    return None, True

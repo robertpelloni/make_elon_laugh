@@ -1690,6 +1690,108 @@ class TestSyndication(unittest.TestCase):
         self.assertIn("federation_health", data)
         self.assertIsInstance(data["federation_alerts"], list)
 
+    def test_target_profiles_crud_and_routing(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
+            test_db = tmp.name
+
+        try:
+            db.init_db(test_db)
+
+            # 1. Initially empty
+            profiles = db.get_target_profiles(test_db)
+            self.assertEqual(len(profiles), 0)
+
+            # 2. Upsert profile with specific persona override
+            ok = db.upsert_target_profile(
+                target_id="44196397",
+                username="elonmusk",
+                persona_override="deadpan_astronomer",
+                auto_reply_enabled=1,
+                tags="space, tech",
+                db_path=test_db
+            )
+            self.assertTrue(ok)
+
+            profiles = db.get_target_profiles(test_db)
+            self.assertEqual(len(profiles), 1)
+            self.assertEqual(profiles[0]["username"], "elonmusk")
+            self.assertEqual(profiles[0]["persona_override"], "deadpan_astronomer")
+            self.assertTrue(profiles[0]["auto_reply_enabled"])
+
+            # 3. Test get_target_persona_override
+            persona, auto_reply = db.get_target_persona_override("44196397", test_db)
+            self.assertEqual(persona, "deadpan_astronomer")
+            self.assertTrue(auto_reply)
+
+            # 4. Upsert with muted auto-reply
+            db.upsert_target_profile(
+                target_id="44196397",
+                username="elonmusk",
+                persona_override="witty_ai",
+                auto_reply_enabled=0,
+                tags="space",
+                db_path=test_db
+            )
+            persona_muted, auto_muted = db.get_target_persona_override("44196397", test_db)
+            self.assertEqual(persona_muted, "witty_ai")
+            self.assertFalse(auto_muted)
+
+            # 5. Delete profile
+            deleted = db.delete_target_profile("44196397", test_db)
+            self.assertTrue(deleted)
+            self.assertEqual(len(db.get_target_profiles(test_db)), 0)
+
+            # 6. Fallback for non-existent target
+            none_p, default_reply = db.get_target_persona_override("999999", test_db)
+            self.assertIsNone(none_p)
+            self.assertTrue(default_reply)
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
+    def test_api_targets_endpoints(self):
+        client = dashboard.app.test_client()
+
+        # GET initially
+        res = client.get('/api/targets')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("profiles", data)
+        self.assertIn("allowed_personas", data)
+
+        # POST invalid persona
+        res_bad = client.post('/api/targets', json={
+            "target_id": "11111",
+            "persona_override": "non_existent_persona"
+        })
+        self.assertEqual(res_bad.status_code, 400)
+
+        # POST valid target profile
+        res_create = client.post('/api/targets', json={
+            "target_id": "7777777",
+            "username": "astronomy_hub",
+            "persona_override": "witty_ai",
+            "auto_reply_enabled": True,
+            "tags": "astrophysics"
+        })
+        self.assertEqual(res_create.status_code, 200)
+        self.assertTrue(res_create.get_json()["success"])
+
+        # Verify in GET
+        res_check = client.get('/api/targets')
+        found = [p for p in res_check.get_json()["profiles"] if p["target_id"] == "7777777"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["persona_override"], "witty_ai")
+
+        # DELETE target profile
+        res_del_err = client.post('/api/targets', json={})  # Test missing ID error
+        self.assertEqual(res_del_err.status_code, 400)
+        res_del_action = client.delete('/api/targets', json={"target_id": "7777777"})
+        self.assertEqual(res_del_action.status_code, 200)
+        self.assertTrue(res_del_action.get_json()["success"])
+
 
 if __name__ == "__main__":
     unittest.main()

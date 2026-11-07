@@ -1,6 +1,18 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.28.0
+## Current Version: 0.29.0
+
+### Key Deliverables in v0.29.0
+1. **Target Audience Segmentation & Dynamic Persona Routing (`db.py`, `bot.py`)**:
+   - Implemented `target_profiles` database table and CRUD operations (`get_target_profiles`, `upsert_target_profile`, `delete_target_profile`, `get_target_persona_override`).
+   - Integrated dynamic per-target persona resolution into `bot.py` tweet ingestion loop with auto-reply mute switches.
+2. **Target Profiles REST API (`dashboard.py`)**:
+   - Exposed `/api/targets` route supporting GET, POST, and DELETE actions with validation.
+3. **Command Center Target Routing UI (`templates/index.html`)**:
+   - Added interactive profile manager with User ID, handle, persona override select, auto-reply toggle, status badges, and tooltip guides.
+4. **Testing & Quality Assurance**:
+   - Expanded unit test coverage in `test_bot.py` to 104 passing tests with 0 `flake8` warnings.
+   - Visually verified frontend via Playwright (`/home/jules/verification/v0_29_target_routing.png`).
 
 ### Key Deliverables in v0.28.0
 1. **HMAC-SHA256 Webhook Payload Signing & Verification (`webhook.py`)**:

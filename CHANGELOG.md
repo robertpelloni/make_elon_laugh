@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-11-07
+
+### Added
+- **Target Audience Segmentation & Persona Routing Engine (`db.py`, `bot.py`)**:
+  - Implemented `target_profiles` database table schema and CRUD helpers (`get_target_profiles`, `upsert_target_profile`, `delete_target_profile`, `get_target_persona_override`).
+  - Updated `bot.py` continuous polling loop to resolve target-specific persona overrides dynamically during tweet detection and respect per-target auto-reply switches.
+- **Target Profiles REST API (`dashboard.py`)**:
+  - Added `/api/targets` endpoint (GET, POST, DELETE) for retrieving, configuring, and removing target profiles and persona routes.
+- **Command Center Target Routing UI (`templates/index.html`)**:
+  - Integrated interactive Target Audience Segmentation & Persona Routing manager in the Command Center.
+  - Added target creation form with User ID, handle, persona selector, auto-reply toggle, status badges, and tooltip guides.
+- **Test Suite Expansion**:
+  - Added unit test suite in `test_bot.py` covering database operations, persona resolution, and API endpoints (expanded to 104 passing tests with 0 `flake8` warnings).
+
 ## [0.28.0] - 2026-11-07
 
 ### Added

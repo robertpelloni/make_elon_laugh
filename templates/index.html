@@ -628,6 +628,43 @@
                         </button>
                     </div>
                 </form>
+
+                <!-- TARGET AUDIENCE SEGMENTATION & PERSONA ROUTING -->
+                <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                            🎯 Target Audience Segmentation & Persona Routing
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Route tailored humor personas to specific Twitter accounts and configure independent auto-reply switches per target.</span>
+                            </div>
+                        </span>
+                        <span id="target-count-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">0 Profiles</span>
+                    </div>
+
+                    <!-- Target Profile Creation Bar -->
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem;">
+                        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="target-profile-id" placeholder="User ID (e.g. 44196397)" style="flex: 1; min-width: 140px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <input type="text" id="target-profile-username" placeholder="@handle (optional)" style="flex: 1; min-width: 120px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <select id="target-profile-persona" style="flex: 1; min-width: 140px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                                <option value="">Default Persona (Global)</option>
+                                <option value="tactful_engineer">Tactful Engineer</option>
+                                <option value="witty_ai">Witty AI</option>
+                                <option value="deadpan_astronomer">Deadpan Astronomer</option>
+                            </select>
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--text-color); cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="target-profile-autoreply" checked>
+                                <span>Auto-Reply</span>
+                            </label>
+                            <button class="btn btn-secondary btn-sm" onclick="saveTargetProfile()">Save Target</button>
+                        </div>
+                    </div>
+
+                    <!-- Target Profiles Container Table -->
+                    <div id="target-profiles-list" style="font-size: 0.8rem;">
+                        <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Loading target profiles...</div>
+                    </div>
+                </div>
             </section>
         </div>
 
@@ -1123,6 +1160,95 @@
             } catch (err) {
                 container.style.display = "block";
                 out.innerHTML = `<span style="color:var(--danger)">Error splitting text: ${err.message}</span>`;
+            }
+        }
+
+        async function fetchTargetProfiles() {
+            try {
+                const res = await fetch('/api/targets');
+                const data = await res.json();
+                const container = document.getElementById('target-profiles-list');
+                const countBadge = document.getElementById('target-count-badge');
+                if (!data.success || !data.profiles || data.profiles.length === 0) {
+                    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">No targeted persona routes configured. Monitored accounts inherit global default persona.</div>';
+                    countBadge.textContent = "0 Profiles";
+                    return;
+                }
+                countBadge.textContent = `${data.profiles.length} Profile${data.profiles.length > 1 ? 's' : ''}`;
+                container.innerHTML = data.profiles.map(p => {
+                    const personaLabel = p.persona_override ? p.persona_override.replace('_', ' ') : 'Default (Global)';
+                    const autoStatus = p.auto_reply_enabled
+                        ? '<span class="status-badge ok" style="font-size:0.7rem;">Active</span>'
+                        : '<span class="status-badge warn" style="font-size:0.7rem;">Muted</span>';
+                    const handleDisplay = p.username ? `@${p.username}` : `ID: ${p.target_id}`;
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; margin-bottom: 0.3rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <strong>${handleDisplay}</strong>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">(${p.target_id})</span>
+                                <span class="status-badge" style="font-size: 0.7rem; background: var(--surface-badge); text-transform: capitalize;">🎭 ${personaLabel}</span>
+                                ${autoStatus}
+                            </div>
+                            <button class="btn btn-danger btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.72rem;" onclick="deleteTargetProfile('${p.target_id}')">Remove</button>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Error loading target profiles:", err);
+            }
+        }
+
+        async function saveTargetProfile() {
+            const targetId = document.getElementById('target-profile-id').value.trim();
+            const username = document.getElementById('target-profile-username').value.trim();
+            const persona = document.getElementById('target-profile-persona').value;
+            const autoReply = document.getElementById('target-profile-autoreply').checked;
+
+            if (!targetId) {
+                alert("Target User ID is required.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/targets', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        target_id: targetId,
+                        username: username,
+                        persona_override: persona,
+                        auto_reply_enabled: autoReply
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('target-profile-id').value = '';
+                    document.getElementById('target-profile-username').value = '';
+                    fetchTargetProfiles();
+                } else {
+                    alert("Error: " + (data.error || "Could not save target profile"));
+                }
+            } catch (err) {
+                alert("Failed to save target profile: " + err.message);
+            }
+        }
+
+        async function deleteTargetProfile(targetId) {
+            if (!confirm(`Remove targeted persona routing for User ID ${targetId}?`)) return;
+            try {
+                const res = await fetch('/api/targets', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({target_id: targetId})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchTargetProfiles();
+                } else {
+                    alert("Error deleting target: " + (data.error || "Unknown"));
+                }
+            } catch (err) {
+                alert("Failed to delete target: " + err.message);
             }
         }
 
@@ -1679,6 +1805,7 @@
             fetchScheduledTweets();
             fetchPerformanceDigest();
             fetchSyndicationMetrics();
+            fetchTargetProfiles();
         }
 
         // Initialize on load
@@ -1690,6 +1817,7 @@
         fetchWebhookConfig();
         fetchSyndicationSettings();
         fetchSyndicationMetrics();
+        fetchTargetProfiles();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

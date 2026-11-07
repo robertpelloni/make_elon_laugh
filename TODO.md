@@ -42,6 +42,11 @@
 - [x] Expose webhook secret configuration with secure masking in `/api/webhook` (`dashboard.py`).
 - [x] Add HMAC secret key input and signature status badge in Command Center UI (`templates/index.html`).
 - [x] Add unit test suite for webhook signature computation and secret masking in `test_bot.py`.
+- [x] Implement target audience profiles schema and persona overrides (`db.py`).
+- [x] Wire persona override resolution into Twitter bot polling cycle (`bot.py`).
+- [x] Implement `/api/targets` REST endpoint with CRUD capabilities (`dashboard.py`).
+- [x] Wire Target Routing table and profile manager into Command Center (`templates/index.html`).
+- [x] Expand unit test suite with target profile CRUD and routing tests (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

@@ -39,4 +39,5 @@
 *   [x] Automated Long-Form Content Splitting & Multi-Platform Syndication Chunking (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
 *   [x] Peak Hour Auto-Scheduler & Target Window Recommendation Engine (`scheduler.py`, `/api/schedule/optimal-slot`, Command Center Peak Slot Planner).
 *   [x] Cryptographic HMAC-SHA256 Webhook Payload Signing & Header Verification (`webhook.py`, `dashboard.py`, `templates/index.html`).
+*   [x] Target Audience Segmentation & Dynamic Persona Routing (`db.py`, `bot.py`, `dashboard.py`, `templates/index.html`).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.

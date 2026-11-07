@@ -360,6 +360,69 @@ def api_config():
     })
 
 
+@app.route('/api/targets', methods=['GET', 'POST', 'DELETE'])
+def api_targets():
+    """
+    Manages target audience profiles and per-target persona routing.
+    GET: Returns list of all configured target profiles.
+    POST: Inserts or updates a target profile.
+          Body: {
+            "target_id": "...",
+            "username": "...",
+            "persona_override": "tactful_engineer|witty_ai|deadpan_astronomer|",
+            "auto_reply_enabled": true|false,
+            "tags": "..."
+          }
+    DELETE: Deletes a target profile. Body: {"target_id": "..."}
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        target_id = str(data.get("target_id", "")).strip()
+        if not target_id:
+            return jsonify({"success": False, "error": "Target ID is required."}), 400
+
+        username = str(data.get("username", "")).strip()
+        persona = str(data.get("persona_override", "")).strip()
+        if persona and persona not in joke_generator.PERSONAS:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid persona '{persona}'. Allowed: {list(joke_generator.PERSONAS.keys())}"
+            }), 400
+
+        auto_reply = data.get("auto_reply_enabled", True)
+        tags = str(data.get("tags", "")).strip()
+
+        ok = db.upsert_target_profile(
+            target_id=target_id,
+            username=username,
+            persona_override=persona,
+            auto_reply_enabled=1 if auto_reply else 0,
+            tags=tags
+        )
+        if ok:
+            return jsonify({"success": True, "message": f"Target profile {target_id} saved."})
+        return jsonify({"success": False, "error": "Failed to save target profile."}), 500
+
+    elif request.method == 'DELETE':
+        data = request.get_json(silent=True) or {}
+        target_id = str(data.get("target_id", "")).strip()
+        if not target_id:
+            return jsonify({"success": False, "error": "Target ID is required."}), 400
+
+        deleted = db.delete_target_profile(target_id)
+        if deleted:
+            return jsonify({"success": True, "message": f"Target profile {target_id} deleted."})
+        return jsonify({"success": False, "error": f"Target profile {target_id} not found."}), 404
+
+    # GET
+    profiles = db.get_target_profiles()
+    return jsonify({
+        "success": True,
+        "profiles": profiles,
+        "allowed_personas": list(joke_generator.PERSONAS.keys())
+    })
+
+
 @app.route('/api/run-check', methods=['POST'])
 def api_run_check():
     """

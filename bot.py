@@ -162,8 +162,13 @@ async def main():
                 new_tweets = []
 
                 if not args.dry_run:
-                    # Fetch recent tweets from all target users
+                    # Fetch recent tweets from all target users, tagging author ID
                     for user_id in TARGET_USER_IDS:
+                        persona_override, auto_reply = db.get_target_persona_override(user_id)
+                        if not auto_reply:
+                            logging.info(f"Skipping target user {user_id}: auto-replies disabled.")
+                            continue
+
                         response = await async_call_api_with_backoff(
                             lambda u_id=user_id: client.get_users_tweets(
                                 id=u_id,
@@ -172,14 +177,23 @@ async def main():
                             )
                         )
                         if response and response.data:
-                            new_tweets.extend(validate_api_tweets(response.data, tracker))
+                            validated = validate_api_tweets(response.data, tracker)
+                            for vt in validated:
+                                setattr(vt, "_author_id", str(user_id))
+                            new_tweets.extend(validated)
                 else:
                     # Simulate finding a new tweet in dry-run mode
+                    simulated_author = TARGET_USER_IDS[0] if TARGET_USER_IDS else "44196397"
+
                     class DummyTweet:
-                        def __init__(self, id, text):
+                        def __init__(self, id, text, author_id):
                             self.id = id
                             self.text = text
-                    mock_data = [DummyTweet(random.randint(10000, 99999), f"Testing rocket {count}... 🚀")]
+                            self._author_id = str(author_id)
+
+                    mock_data = [
+                        DummyTweet(random.randint(10000, 99999), f"Testing rocket {count}... 🚀", simulated_author)
+                    ]
                     new_tweets = validate_api_tweets(mock_data, tracker)
 
                 replied_this_cycle = False
@@ -191,8 +205,18 @@ async def main():
                     if not db.has_replied(tweet_id):
                         logging.info(f"🎯 New tweet found: '{tweet.text[:50]}...'")
 
-                        # Generate a joke or fact (pass context if we eventually use LLM generation)
-                        content = generate_content(context_tweet_text=tweet.text)
+                        # Resolve persona override if target profile specifies one
+                        author_id = getattr(tweet, "_author_id", None)
+                        persona_override, auto_reply = db.get_target_persona_override(author_id)
+                        if not auto_reply:
+                            logging.info(f"Auto-reply disabled for target user {author_id}; skipping reply.")
+                            continue
+
+                        # Generate a joke or fact with target-routed persona or default
+                        content = generate_content(
+                            context_tweet_text=tweet.text,
+                            persona=persona_override
+                        )
 
                         try:
                             cleaned_content = validate_tweet_content(content)
