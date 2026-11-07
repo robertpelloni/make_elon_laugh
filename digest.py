@@ -62,6 +62,13 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "approval_rate": 0.0,
             "top_humor": [],
         },
+        "syndication": {
+            "total_posts": 0,
+            "platforms": {
+                "mastodon": {"posts": 0, "likes": 0, "shares": 0},
+                "bluesky": {"posts": 0, "likes": 0, "shares": 0}
+            }
+        },
         "deltas": {
             "replies": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "likes": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
@@ -221,6 +228,9 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
+            # 5. Syndication Multi-Platform Metrics
+            digest["syndication"] = db.get_syndication_summary_metrics(db_path=db_path)
+
     except Exception as e:
         logger.error(f"Error compiling performance digest: {e}")
         digest["health_scorecard"]["overall_health"] = f"Warning: {e}"
@@ -251,6 +261,11 @@ def export_digest_markdown(digest):
         sign = "+" if diff > 0 else ""
         return f"{sign}{diff} ({sign}{pct}%) vs prior {digest.get('window_days', 7)}d"
 
+    syn = digest.get('syndication', {})
+    syn_plats = syn.get('platforms', {})
+    mast_stats = syn_plats.get('mastodon', {})
+    bsky_stats = syn_plats.get('bluesky', {})
+
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
@@ -280,6 +295,13 @@ def export_digest_markdown(digest):
 
 ### Top Rated Humor Snippets
 {top_humor_md}
+
+## 🌐 Social Federation Multi-Platform Reach
+- **Total Syndicated Posts:** {syn.get('total_posts', 0)}
+- **Mastodon ActivityPub:** {mast_stats.get('posts', 0)} posts ({mast_stats.get('likes', 0)} favs, \
+{mast_stats.get('shares', 0)} shares)
+- **Bluesky ATProto:** {bsky_stats.get('posts', 0)} posts ({bsky_stats.get('likes', 0)} likes, \
+{bsky_stats.get('shares', 0)} reposts)
 
 ---
 *Autonomous Tactful Humor Operations Console*

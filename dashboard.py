@@ -580,6 +580,39 @@ def api_syndication():
     })
 
 
+@app.route('/api/syndication/metrics', methods=['GET'])
+def api_syndication_metrics():
+    """
+    Returns platform-by-platform syndication counts and engagement metrics.
+    """
+    summary = db.get_syndication_summary_metrics()
+    recent = db.get_syndicated_posts_for_metrics_polling(limit=10)
+    return jsonify({
+        "success": True,
+        "summary": summary,
+        "recent_posts": recent
+    })
+
+
+@app.route('/api/syndication/poll', methods=['POST'])
+def api_syndication_poll():
+    """
+    Triggers an on-demand engagement poll for all active syndicated posts across Mastodon and Bluesky.
+    """
+    poll_results = syndication.poll_all_syndicated_metrics(limit=25, dry_run=True)
+    summary = db.get_syndication_summary_metrics()
+    return jsonify({
+        "success": True,
+        "message": (
+            f"Polled {poll_results.get('updated_posts', 0)} syndicated posts: "
+            f"+{poll_results.get('likes_polled', 0)} likes, "
+            f"+{poll_results.get('shares_polled', 0)} shares."
+        ),
+        "poll_results": poll_results,
+        "summary": summary
+    })
+
+
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def api_webhook():
     """

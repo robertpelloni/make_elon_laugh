@@ -1316,6 +1316,70 @@ class TestSyndication(unittest.TestCase):
         self.assertIn("mastodon", b_data["results"])
         self.assertIn("bluesky", b_data["results"])
 
+    def test_federation_engagement_polling_and_metrics(self):
+        import db
+        import syndication
+        import digest
+        import dashboard
+
+        test_db = "test_fed_metrics.db"
+        try:
+            db.init_db(test_db)
+
+            # Record syndicated posts
+            m_id = db.record_syndicated_post(
+                "mastodon", "Test Mastodon post", remote_id="m_1001", status="sent", db_path=test_db
+            )
+            b_id = db.record_syndicated_post(
+                "bluesky", "Test Bluesky post", remote_id="b_1001", status="sent", db_path=test_db
+            )
+            self.assertIsNotNone(m_id)
+            self.assertIsNotNone(b_id)
+
+            # Update metrics manually
+            self.assertTrue(db.update_syndication_metrics(m_id, likes=12, shares=3, db_path=test_db))
+            self.assertTrue(db.update_syndication_metrics(b_id, likes=25, shares=7, db_path=test_db))
+
+            # Fetch polling list
+            to_poll = db.get_syndicated_posts_for_metrics_polling(limit=10, db_path=test_db)
+            self.assertEqual(len(to_poll), 2)
+
+            # Summary metrics
+            summary = db.get_syndication_summary_metrics(db_path=test_db)
+            self.assertEqual(summary["total_posts"], 2)
+            self.assertEqual(summary["platforms"]["mastodon"]["likes"], 12)
+            self.assertEqual(summary["platforms"]["bluesky"]["shares"], 7)
+
+            # Polling engine
+            poll_result = syndication.poll_all_syndicated_metrics(limit=10, dry_run=True, db_path=test_db)
+            self.assertEqual(poll_result["updated_posts"], 2)
+            self.assertGreater(poll_result["likes_polled"], 0)
+
+            # Digest incorporation
+            d = digest.generate_performance_digest(db_path=test_db)
+            self.assertIn("syndication", d)
+            self.assertEqual(d["syndication"]["total_posts"], 2)
+            md = digest.export_digest_markdown(d)
+            self.assertIn("Social Federation Multi-Platform Reach", md)
+
+            # Dashboard API routes
+            client = dashboard.app.test_client()
+            res_metrics = client.get('/api/syndication/metrics')
+            self.assertEqual(res_metrics.status_code, 200)
+            data_m = res_metrics.get_json()
+            self.assertTrue(data_m["success"])
+            self.assertIn("summary", data_m)
+
+            res_poll = client.post('/api/syndication/poll')
+            self.assertEqual(res_poll.status_code, 200)
+            data_p = res_poll.get_json()
+            self.assertTrue(data_p["success"])
+            self.assertIn("poll_results", data_p)
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

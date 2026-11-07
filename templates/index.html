@@ -869,6 +869,27 @@
                         <input type="password" id="bluesky-pwd-input" placeholder="App Password (xxxx-xxxx-xxxx-xxxx)" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
                     </div>
                 </div>
+                <!-- Federated Engagement & Multi-Platform Analytics Strip -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-color);">
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">🐘 Mastodon Reach</div>
+                        <div id="mastodon-metrics-display" style="font-size: 1rem; font-weight: 700; color: var(--text-color); margin-top: 0.1rem;">0 posts (0 ⭐ / 0 🔁)</div>
+                    </div>
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">🦋 Bluesky Reach</div>
+                        <div id="bluesky-metrics-display" style="font-size: 1rem; font-weight: 700; color: var(--text-color); margin-top: 0.1rem;">0 posts (0 ❤️ / 0 🔁)</div>
+                    </div>
+                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">Federated Total</div>
+                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary-color);">0 Posts</div>
+                        </div>
+                        <button class="btn btn-outline btn-sm" onclick="triggerSyndicationPoll()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Poll engagement for all syndicated posts">
+                            🔄 Poll Metrics
+                        </button>
+                    </div>
+                </div>
+
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
@@ -1469,6 +1490,58 @@
             }
         }
 
+        async function fetchSyndicationMetrics() {
+            try {
+                const res = await fetch('/api/syndication/metrics');
+                const data = await res.json();
+                if (data.success && data.summary) {
+                    const sm = data.summary;
+                    const mast = (sm.platforms && sm.platforms.mastodon) || {posts: 0, likes: 0, shares: 0};
+                    const bsky = (sm.platforms && sm.platforms.bluesky) || {posts: 0, likes: 0, shares: 0};
+
+                    const mastEl = document.getElementById('mastodon-metrics-display');
+                    if (mastEl) {
+                        mastEl.textContent = `${mast.posts} posts (${mast.likes} ⭐ / ${mast.shares} 🔁)`;
+                    }
+
+                    const bskyEl = document.getElementById('bluesky-metrics-display');
+                    if (bskyEl) {
+                        bskyEl.textContent = `${bsky.posts} posts (${bsky.likes} ❤️ / ${bsky.shares} 🔁)`;
+                    }
+
+                    const totEl = document.getElementById('syndication-total-display');
+                    if (totEl) {
+                        totEl.textContent = `${sm.total_posts || 0} Posts`;
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching syndication metrics:", err);
+            }
+        }
+
+        async function triggerSyndicationPoll() {
+            const feedback = document.getElementById('syndication-feedback');
+            feedback.textContent = "⏳ Polling engagement metrics across federated networks...";
+            feedback.style.color = "var(--text-muted)";
+            try {
+                const res = await fetch('/api/syndication/poll', {method: 'POST'});
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = "✅ " + data.message;
+                    feedback.style.color = "var(--accent-success)";
+                    fetchSyndicationMetrics();
+                    fetchPerformanceDigest();
+                    setTimeout(() => { feedback.textContent = ""; }, 4000);
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Failed to poll syndication metrics.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error polling: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function refreshAll() {
             try {
                 const res = await fetch('/api/stats');
@@ -1486,6 +1559,7 @@
             fetchLogs();
             fetchScheduledTweets();
             fetchPerformanceDigest();
+            fetchSyndicationMetrics();
         }
 
         // Initialize on load
@@ -1496,6 +1570,7 @@
         fetchPerformanceDigest();
         fetchWebhookConfig();
         fetchSyndicationSettings();
+        fetchSyndicationMetrics();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

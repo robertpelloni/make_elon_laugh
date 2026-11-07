@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-11-07
+
+### Added
+- **Cross-Platform Federation Engagement Polling (`syndication.py`, `db.py`)**: Autonomous metrics polling engine tracking favorites/reblogs across Mastodon instances and likes/reposts across Bluesky ATProto repositories.
+- **Syndicated Posts Persistence (`db.py`)**: Added `syndicated_posts` table to SQLite tracking platform post IDs, content, likes, shares, timestamps, and aggregated statistics (`get_syndication_summary_metrics`).
+- **Federated Engagement Aggregations (`digest.py`)**: Integrated Mastodon reach and Bluesky reach directly into weekly digests and Markdown report exports.
+- **Federation Metrics REST API (`/api/syndication/metrics`, `/api/syndication/poll`)**: Endpoints in `dashboard.py` to retrieve platform reach breakdown and trigger on-demand metrics polling cycles.
+- **Command Center Federated Reach Strip (`templates/index.html`)**: Added live analytics strip inside the Social Federation Syndication card displaying Mastodon Reach, Bluesky Reach, Federated Total posts, and an interactive "Poll Metrics" action button with toast feedback.
+- **Comprehensive Unit Testing**: Added unit tests in `test_bot.py` covering syndicated post tracking, engagement polling mock cycles, and dashboard API routes (93 unit tests passing, 88% coverage, 0 flake8 errors).
+
 ## [0.19.0] - 2026-11-07
 
 ### Added

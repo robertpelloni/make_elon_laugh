@@ -63,6 +63,21 @@ def init_db(db_path=DB_PATH):
                 )
             ''')
 
+            # Table for cross-platform syndicated posts (Mastodon, Bluesky)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS syndicated_posts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL, -- 'mastodon', 'bluesky'
+                    remote_id TEXT,
+                    content TEXT NOT NULL,
+                    likes INTEGER DEFAULT 0,
+                    shares INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'sent', -- 'sent', 'failed', 'simulated'
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -245,3 +260,109 @@ def update_scheduled_tweet_status(tweet_id, new_status, db_path=DB_PATH):
     except sqlite3.Error as e:
         logger.error(f"Database error updating scheduled tweet {tweet_id}: {e}")
         return False
+
+
+def record_syndicated_post(platform, content, remote_id=None, status="sent", likes=0, shares=0, db_path=DB_PATH):
+    """Records a syndicated broadcast to SQLite."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = (
+                "INSERT INTO syndicated_posts (platform, remote_id, content, likes, shares, status) "
+                "VALUES (?, ?, ?, ?, ?, ?)"
+            )
+            try:
+                cursor.execute(sql, (platform.lower().strip(), remote_id, content.strip(), likes, shares, status))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, (platform.lower().strip(), remote_id, content.strip(), likes, shares, status))
+            conn.commit()
+            return cursor.lastrowid
+    except sqlite3.Error as e:
+        logger.error(f"Database error while recording syndicated post: {e}")
+        return None
+
+
+def update_syndication_metrics(post_id, likes, shares, db_path=DB_PATH):
+    """Updates public engagement (likes/favorites and shares/reblogs) on a syndicated post."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE syndicated_posts SET likes = ?, shares = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (int(likes), int(shares), int(post_id))
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating syndication metrics for {post_id}: {e}")
+        return False
+
+
+def get_syndicated_posts_for_metrics_polling(limit=20, db_path=DB_PATH):
+    """Retrieves recent active syndicated posts for metrics polling."""
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT id, platform, remote_id, content, likes, shares, status, created_at "
+                    "FROM syndicated_posts WHERE status IN ('sent', 'simulated') "
+                    "ORDER BY id DESC LIMIT ?",
+                    (limit,)
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return []
+
+            return [
+                {
+                    "id": r[0],
+                    "platform": r[1],
+                    "remote_id": r[2],
+                    "content": r[3],
+                    "likes": r[4],
+                    "shares": r[5],
+                    "status": r[6],
+                    "created_at": r[7]
+                }
+                for r in cursor.fetchall()
+            ]
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching syndicated posts: {e}")
+        return []
+
+
+def get_syndication_summary_metrics(db_path=DB_PATH):
+    """Calculates cumulative syndication counts and engagement by platform."""
+    summary = {
+        "total_posts": 0,
+        "platforms": {
+            "mastodon": {"posts": 0, "likes": 0, "shares": 0},
+            "bluesky": {"posts": 0, "likes": 0, "shares": 0}
+        }
+    }
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT platform, COUNT(*), COALESCE(SUM(likes), 0), COALESCE(SUM(shares), 0) "
+                    "FROM syndicated_posts GROUP BY platform"
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return summary
+
+            for plat, count, likes, shares in cursor.fetchall():
+                p_norm = plat.lower().strip()
+                if p_norm not in summary["platforms"]:
+                    summary["platforms"][p_norm] = {"posts": 0, "likes": 0, "shares": 0}
+                summary["platforms"][p_norm]["posts"] = count
+                summary["platforms"][p_norm]["likes"] = likes
+                summary["platforms"][p_norm]["shares"] = shares
+                summary["total_posts"] += count
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching syndication summary metrics: {e}")
+
+    return summary

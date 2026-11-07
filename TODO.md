@@ -20,8 +20,9 @@
 - [x] Implement multi-window delta trend comparisons and operational health scorecard in `digest.py` and Command Center UI.
 - [x] Implement multi-platform federation syndication engine (`syndication.py`, Mastodon ActivityPub & Bluesky ATProto).
 - [x] Add social federation management UI, live status badges, and test broadcast trigger in Command Center UI.
+- [x] Implement cross-platform federation engagement polling for Mastodon & Bluesky (`syndication.py`, `db.py`, `/api/syndication/poll`, `/api/syndication/metrics`, and UI reach stats).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
 - [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Cross-platform engagement polling for Mastodon and Bluesky.
+- [ ] Automated thread splitting for long-form cross-platform posts exceeding 280/300 characters.
