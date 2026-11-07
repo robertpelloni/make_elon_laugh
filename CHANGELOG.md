@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-11-07
+
+### Added
+- **Configurable CLI Digest Pipeline (`generate_digest.py`)**: Added `--prefix` custom filename prefixing, `--quiet` mode for silent automation, `--json-indent` spacing control, and structured `main(cli_args)` entry point with integer process exit codes (0 for success, 1 on failure).
+- **Per-Platform Federation Engagement Rates**: Enhanced `export_digest_markdown()` and `export_digest_html()` in `digest.py` to calculate and render average engagement per post across Mastodon ActivityPub and Bluesky ATProto.
+- **Bounded Dashboard Report Download Endpoint**: Enhanced `/api/digest/download` in `dashboard.py` with sanitization and bounding for `days` (1-365) and custom filename prefix parameters.
+- **Automated Tests**: Added `test_cli_digest_generator_and_custom_options` in `test_bot.py` covering multi-format file exports, custom prefixes, stdout streaming, and download parameters. Total passing unit tests increased to 97.
+
 ## [0.23.0] - 2026-11-07
 
 ### Added

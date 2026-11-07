@@ -28,6 +28,10 @@
 - [x] Implement top-performing reply extraction and highlighting across HTML/MD digests and webhooks (`digest.py`, `webhook.py`).
 - [x] Embed anomaly alert callouts and healthy status indicators directly into digest reports (`digest.py`).
 - [x] Wire top reply stats and persona badges into the Command Center Performance Digest card (`templates/index.html`).
+- [x] Implement CLI flags `--prefix`, `--quiet`, `--json-indent`, and process exit codes in `generate_digest.py`.
+- [x] Add per-platform engagement rates (average likes/shares per post) in digest reports (`digest.py`).
+- [x] Bound and sanitize `days` parameter (1-365) and filename prefixes in `/api/digest/download` (`dashboard.py`).
+- [x] Add unit test coverage for CLI pipeline flags, formats, and bounded downloads (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

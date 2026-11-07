@@ -1466,6 +1466,66 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_cli_digest_generator_and_custom_options(self):
+        """Tests generate_digest CLI utility with prefix, quiet mode, and formats."""
+        import generate_digest
+        import json
+        import shutil
+        import tempfile
+
+        test_dir = tempfile.mkdtemp()
+        test_db = os.path.join(test_dir, "test_cli.db")
+
+        try:
+            db.init_db(test_db)
+            db.record_reply(55501, db_path=test_db)
+            db.update_engagement(55501, likes=10, retweets=2, db_path=test_db)
+
+            # Test main invocation with --prefix, --quiet, and all formats
+            exit_code = generate_digest.main([
+                "--days", "14",
+                "--db-path", test_db,
+                "--out-dir", test_dir,
+                "--prefix", "weekly_report",
+                "--format", "all",
+                "--quiet",
+                "--json-indent", "4"
+            ])
+            self.assertEqual(exit_code, 0)
+
+            # Verify files were created with prefix
+            files = os.listdir(test_dir)
+            md_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".md")]
+            html_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".html")]
+            json_files = [f for f in files if f.startswith("weekly_report_") and f.endswith(".json")]
+
+            self.assertEqual(len(md_files), 1)
+            self.assertEqual(len(html_files), 1)
+            self.assertEqual(len(json_files), 1)
+
+            # Verify contents
+            with open(os.path.join(test_dir, json_files[0]), "r", encoding="utf-8") as jf:
+                data = json.load(jf)
+                self.assertEqual(data["window_days"], 14)
+                self.assertEqual(data["replies"]["total_replies"], 1)
+
+            # Test stdout format
+            stdout_code = generate_digest.main([
+                "--db-path", test_db,
+                "--format", "stdout",
+                "--quiet"
+            ])
+            self.assertEqual(stdout_code, 0)
+
+            # Test dashboard download with custom prefix and days bound check
+            client = dashboard.app.test_client()
+            res_dl = client.get('/api/digest/download?days=30&prefix=custom_audit&format=html')
+            self.assertEqual(res_dl.status_code, 200)
+            self.assertIn("custom_audit_", res_dl.headers.get("Content-Disposition", ""))
+
+        finally:
+            shutil.rmtree(test_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

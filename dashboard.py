@@ -479,15 +479,21 @@ def api_digest_download():
     """
     Directly streams the performance digest as a downloadable attachment with robust error resilience.
     Query params:
-      days: integer window length (default 7)
+      days: integer window length (default 7, bounded 1-365)
       format: 'markdown' (default, .md), 'html' (.html), or 'json' (.json)
+      prefix: optional filename prefix (default 'digest')
     """
     try:
         days = request.args.get('days', default=7, type=int)
         if days < 1:
             days = 7
+        elif days > 365:
+            days = 365
     except (TypeError, ValueError):
         days = 7
+
+    prefix = request.args.get('prefix', default='digest', type=str).strip()
+    clean_prefix = "".join(c for c in prefix if c.isalnum() or c in ("-", "_")).strip() or "digest"
 
     fmt = request.args.get('format', default='markdown', type=str).lower().strip()
     timestamp_slug = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -504,15 +510,15 @@ def api_digest_download():
     try:
         if fmt == 'json':
             content = json.dumps(summary, indent=2)
-            filename = f"digest_{timestamp_slug}.json"
+            filename = f"{clean_prefix}_{timestamp_slug}.json"
             mimetype = "application/json"
         elif fmt == 'html':
             content = digest.export_digest_html(summary)
-            filename = f"digest_{timestamp_slug}.html"
+            filename = f"{clean_prefix}_{timestamp_slug}.html"
             mimetype = "text/html"
         else:
             content = digest.export_digest_markdown(summary)
-            filename = f"digest_{timestamp_slug}.md"
+            filename = f"{clean_prefix}_{timestamp_slug}.md"
             mimetype = "text/markdown"
 
         response = app.response_class(

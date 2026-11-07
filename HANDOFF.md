@@ -1,6 +1,20 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.23.0
+## Current Version: 0.24.0
+
+### Key Deliverables in v0.24.0
+1. **Configurable CLI Digest Pipeline (`generate_digest.py`)**:
+   - Added `--prefix` flag to customize file prefixes on exported reports.
+   - Added `--quiet` flag to silence stdout logging for unattended scripts and crons.
+   - Added `--json-indent` parameter (default 2) to configure JSON file formatting.
+   - Refactored `main(cli_args)` with structured integer return codes (`0` on success, `1` on error).
+2. **Per-Platform Federation Engagement Rates (`digest.py`)**:
+   - Updated `export_digest_markdown` and `export_digest_html` to calculate and render average engagement per post across Mastodon ActivityPub and Bluesky ATProto.
+3. **Hardened Bounded Dashboard Digest Downloads (`dashboard.py`)**:
+   - Updated `/api/digest/download` with bounding on `days` (clamped between 1 and 365) and filename prefix sanitization.
+4. **Automated Testing & Quality**:
+   - 97 passing unit tests in `test_bot.py` (`test_cli_digest_generator_and_custom_options`).
+   - 100% clean `flake8 .` linting with 0 warnings.
 
 ### Key Deliverables in v0.23.0
 1. **Top-Performing Reply Extraction & Highlighting (`digest.py`, `webhook.py`, `templates/index.html`)**:

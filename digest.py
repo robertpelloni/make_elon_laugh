@@ -346,6 +346,16 @@ def export_digest_markdown(digest):
     else:
         alerts_md = "## ✅ System Alerts\n- *All system parameters within nominal thresholds. No active anomalies.*\n\n"
 
+    mast_posts = mast_stats.get('posts', 0)
+    mast_likes = mast_stats.get('likes', 0)
+    mast_shares = mast_stats.get('shares', 0)
+    mast_avg = round((mast_likes + mast_shares) / mast_posts, 1) if mast_posts > 0 else 0.0
+
+    bsky_posts = bsky_stats.get('posts', 0)
+    bsky_likes = bsky_stats.get('likes', 0)
+    bsky_shares = bsky_stats.get('shares', 0)
+    bsky_avg = round((bsky_likes + bsky_shares) / bsky_posts, 1) if bsky_posts > 0 else 0.0
+
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
@@ -379,10 +389,8 @@ def export_digest_markdown(digest):
 
 ## 🌐 Social Federation Multi-Platform Reach
 - **Total Syndicated Posts:** {syn.get('total_posts', 0)}
-- **Mastodon ActivityPub:** {mast_stats.get('posts', 0)} posts ({mast_stats.get('likes', 0)} favs, \
-{mast_stats.get('shares', 0)} shares)
-- **Bluesky ATProto:** {bsky_stats.get('posts', 0)} posts ({bsky_stats.get('likes', 0)} likes, \
-{bsky_stats.get('shares', 0)} reposts)
+- **Mastodon ActivityPub:** {mast_posts} posts ({mast_likes} favs, {mast_shares} shares, avg {mast_avg}/post)
+- **Bluesky ATProto:** {bsky_posts} posts ({bsky_likes} likes, {bsky_shares} reposts, avg {bsky_avg}/post)
 
 ---
 *Autonomous Tactful Humor Operations Console*
@@ -466,6 +474,16 @@ def export_digest_html(digest):
         sign = "+" if diff > 0 else ""
         color = "#10b981" if diff >= 0 else "#ef4444"
         return f'<span style="color: {color}; font-weight: bold;">{sign}{diff} ({sign}{pct}%)</span>'
+
+    mast_posts = mast_stats.get('posts', 0)
+    mast_likes = mast_stats.get('likes', 0)
+    mast_shares = mast_stats.get('shares', 0)
+    mast_avg = round((mast_likes + mast_shares) / mast_posts, 1) if mast_posts > 0 else 0.0
+
+    bsky_posts = bsky_stats.get('posts', 0)
+    bsky_likes = bsky_stats.get('likes', 0)
+    bsky_shares = bsky_stats.get('shares', 0)
+    bsky_avg = round((bsky_likes + bsky_shares) / bsky_posts, 1) if bsky_posts > 0 else 0.0
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -591,10 +609,10 @@ def export_digest_html(digest):
     <h2>🌐 Social Federation Reach</h2>
     <ul>
       <li><strong>Total Syndicated Posts:</strong> {syn.get('total_posts', 0)}</li>
-      <li><strong>Mastodon:</strong> {mast_stats.get('posts', 0)} posts &bull;
-          {mast_stats.get('likes', 0)} favs &bull; {mast_stats.get('shares', 0)} reblogs</li>
-      <li><strong>Bluesky:</strong> {bsky_stats.get('posts', 0)} posts &bull;
-          {bsky_stats.get('likes', 0)} likes &bull; {bsky_stats.get('shares', 0)} reposts</li>
+      <li><strong>Mastodon:</strong> {mast_posts} posts &bull;
+          {mast_likes} favs &bull; {mast_shares} reblogs &bull; avg {mast_avg}/post</li>
+      <li><strong>Bluesky:</strong> {bsky_posts} posts &bull;
+          {bsky_likes} likes &bull; {bsky_shares} reposts &bull; avg {bsky_avg}/post</li>
     </ul>
 
     <footer>
