@@ -1195,13 +1195,57 @@ class TestEnrichedPerformanceDigest(unittest.TestCase):
         self.assertIn("queue_backlog_high", alert_types)
         self.assertIn("low_humor_approval", alert_types)
 
+        # Attach evaluated alerts to digest dictionary
+        d["alerts"] = alerts
+
         # Verify export_digest_html output
         html = digest.export_digest_html(d)
         self.assertTrue(html.startswith("<!DOCTYPE html>"))
         self.assertIn("Tactful Humor Bot — Performance Digest", html)
+        self.assertIn("Active System Anomaly Alerts (2)", html)
         self.assertIn("<h2>🩺 System Operational Health</h2>", html)
         self.assertIn("<h2>📈 Public Replies &amp; Engagement Deltas</h2>", html)
         self.assertIn("<h2>🌐 Social Federation Reach</h2>", html)
+
+    def test_top_reply_extraction_and_report_rendering(self):
+        """Verifies top-performing reply extraction and presentation in HTML/MD reports."""
+        with db.get_db_connection(self.test_db) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets)
+                VALUES (501, datetime('now', '-2 days'), 10, 2),
+                       (502, datetime('now', '-1 day'), 45, 12)
+                """
+            )
+            conn.commit()
+
+        d = digest.generate_performance_digest(db_path=self.test_db, days=7)
+        self.assertIsNotNone(d["replies"]["top_reply"])
+        self.assertEqual(d["replies"]["top_reply"]["tweet_id"], "502")
+        self.assertEqual(d["replies"]["top_reply"]["likes"], 45)
+        self.assertEqual(d["replies"]["top_reply"]["retweets"], 12)
+
+        # Verify Markdown rendering
+        md = digest.export_digest_markdown(d)
+        self.assertIn("Top Performing Reply", md)
+        self.assertIn("502", md)
+        self.assertIn("45 likes", md)
+
+        # Verify HTML rendering
+        html = digest.export_digest_html(d)
+        self.assertIn("Top Performing Reply", html)
+        self.assertIn("502", html)
+        self.assertIn("45 likes", html)
+
+        # Verify Webhook formatting
+        import webhook
+        slack_p = webhook.format_slack_payload(d)
+        self.assertTrue(any("Top Reply" in b.get("text", {}).get("text", "") for b in slack_p.get("blocks", [])))
+
+        discord_p = webhook.format_discord_payload(d)
+        fields = discord_p.get("embeds", [{}])[0].get("fields", [])
+        self.assertTrue(any(f.get("name") == "Top Performing Reply" for f in fields))
 
     def test_download_html_digest_endpoint(self):
         """Verifies /api/digest/download returns styled HTML attachment when format=html."""

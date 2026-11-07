@@ -777,6 +777,7 @@
                     <div id="digest-replies" style="font-size: 1.5rem; font-weight: 800; color: var(--primary);">0</div>
                     <div id="digest-replies-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-engagement-rate" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 avg likes/reply</div>
+                    <div id="digest-top-reply-box" style="margin-top: 0.4rem; font-size: 0.7rem; color: var(--primary); font-weight: 600; display: none;">Top: #<span id="digest-top-reply-id">-</span> (<span id="digest-top-reply-eng">0</span> eng)</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Engagement Total</div>
@@ -1280,6 +1281,18 @@
                         ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
                         : 'None';
                     document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    const topRep = d.replies.top_reply;
+                    const topBox = document.getElementById('digest-top-reply-box');
+                    if (topBox) {
+                        if (topRep && topRep.tweet_id) {
+                            topBox.style.display = 'block';
+                            document.getElementById('digest-top-reply-id').textContent = topRep.tweet_id;
+                            document.getElementById('digest-top-reply-eng').textContent = `${topRep.likes}❤️/${topRep.retweets}🔁`;
+                        } else {
+                            topBox.style.display = 'none';
+                        }
+                    }
 
                     document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
                     document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;

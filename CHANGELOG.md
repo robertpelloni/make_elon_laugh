@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-11-07
+
+### Added
+- **Top-Performing Reply Extraction & Highlighting (`digest.py`, `webhook.py`, `templates/index.html`)**:
+  - Automatically queries and isolates the highest-engagement reply `(likes + retweets)` within the rolling digest window.
+  - Formats top reply details (Tweet ID, likes, retweets, timestamp) into Markdown, styled HTML callout cards, and webhook payloads (Slack & Discord).
+  - Wires top-performing reply snippet into the Command Center Performance Digest card.
+- **Embedded Anomaly Alert & Status Callout Banners (`digest.py`)**:
+  - Integrates visual alert banners directly into `export_digest_html` and `export_digest_markdown`, displaying detailed alert messages for active system anomalies or green nominal badges when all thresholds pass.
+  - Adds scheduled tweet queue persona distribution tags and badges directly into HTML performance reports.
+- **Automated Test Coverage Expansion (`test_bot.py`)**:
+  - Added unit tests asserting top reply query extraction, HTML/Markdown report formatting, and Slack/Discord webhook serialization (96 tests passing, clean flake8).
+
 ## [0.22.0] - 2026-11-07
 
 ### Added

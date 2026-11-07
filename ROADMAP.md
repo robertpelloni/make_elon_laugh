@@ -34,4 +34,5 @@
 *   [x] Cross-platform federation engagement polling (Mastodon favorites/reblogs & Bluesky likes/reposts metrics, `/api/syndication/poll`).
 *   [x] Automated Performance Digest HTML Export & Anomaly Threshold Alerts (`digest.py`, `/api/digest/download?format=html`, webhook alert banners).
 *   [x] Refined Multi-Format Digest CLI Generator & Resilient Download Stream Delivery (`generate_digest.py`, `dashboard.py`).
+*   [x] Enriched Performance Digest Extraction, Top-Reply Isolation, and Embedded Anomaly Banners (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [ ] Multi-account Twitter / X scheduling and cross-account coordination.

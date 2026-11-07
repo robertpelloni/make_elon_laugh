@@ -25,6 +25,9 @@
 - [x] Implement automated performance threshold alerts evaluating system anomalies across database, queue backlog, and humor ratings (`digest.py`, `webhook.py`, UI badge).
 - [x] Refine CLI digest generator (`generate_digest.py`) to support `--format html` and `--format all` outputs.
 - [x] Implement defensive error resilience and validation in dashboard digest attachment delivery (`/api/digest/download`).
+- [x] Implement top-performing reply extraction and highlighting across HTML/MD digests and webhooks (`digest.py`, `webhook.py`).
+- [x] Embed anomaly alert callouts and healthy status indicators directly into digest reports (`digest.py`).
+- [x] Wire top reply stats and persona badges into the Command Center Performance Digest card (`templates/index.html`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

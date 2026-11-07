@@ -1,6 +1,17 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.22.0
+## Current Version: 0.23.0
+
+### Key Deliverables in v0.23.0
+1. **Top-Performing Reply Extraction & Highlighting (`digest.py`, `webhook.py`, `templates/index.html`)**:
+   - Automatically queries and isolates the reply with the highest combined engagement `(likes + retweets)` within the rolling window.
+   - Renders top-performing reply snippet (Tweet ID, likes, retweets, replied_at) in Markdown and styled HTML reports, webhook dispatches (Slack & Discord), and the Command Center UI digest card.
+2. **Embedded Anomaly Alerts & Health Callouts (`digest.py`)**:
+   - Integrated alert banners into `export_digest_html` and `export_digest_markdown` showcasing active system anomalies (or nominal status badges when healthy).
+   - Added scheduled tweet persona distribution badges directly to the HTML digest report.
+3. **Automated Verification & Unit Testing (`test_bot.py`)**:
+   - Added test coverage in `test_bot.py` asserting top reply isolation, HTML/Markdown formatting, and Slack/Discord webhook serialization.
+   - All 96 unit tests pass, and flake8 reports 0 errors.
 
 ### Key Deliverables in v0.22.0
 1. **Multi-Format CLI Digest Generator (`generate_digest.py`)**:

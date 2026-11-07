@@ -118,6 +118,19 @@ def format_slack_payload(digest_data):
             }
         })
 
+    top_rep = rep.get("top_reply")
+    if top_rep:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*Top Reply:* Tweet `{top_rep.get('tweet_id')}` "
+                    f"({top_rep.get('likes', 0)} likes, {top_rep.get('retweets', 0)} RTs)"
+                )
+            }
+        })
+
     return {"text": "Weekly Performance Digest", "blocks": blocks}
 
 
@@ -146,6 +159,17 @@ def format_discord_payload(digest_data):
     top_humor = rat.get("top_humor", [])
     if top_humor:
         fields.append({"name": "Top Rated Humor", "value": f"\"{top_humor[0].get('content', '')}\"", "inline": False})
+
+    top_rep = rep.get("top_reply")
+    if top_rep:
+        fields.append({
+            "name": "Top Performing Reply",
+            "value": (
+                f"Tweet `{top_rep.get('tweet_id')}` "
+                f"({top_rep.get('likes', 0)} likes, {top_rep.get('retweets', 0)} RTs)"
+            ),
+            "inline": False
+        })
 
     embed = {
         "title": "🚀 Tactful Humor Bot — Weekly Performance Digest",

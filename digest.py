@@ -87,6 +87,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "total_retweets": 0,
             "avg_likes_per_reply": 0.0,
             "avg_retweets_per_reply": 0.0,
+            "top_reply": None,
         },
         "queue": {
             "total_scheduled": 0,
@@ -148,6 +149,26 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
                 if tot_rep > 0:
                     digest["replies"]["avg_likes_per_reply"] = round(tot_likes / tot_rep, 1)
                     digest["replies"]["avg_retweets_per_reply"] = round(tot_rts / tot_rep, 1)
+
+                    # Extract top performing reply by combined engagement (likes + retweets)
+                    cursor.execute(
+                        """
+                        SELECT tweet_id, replied_at, likes, retweets
+                        FROM replied_tweets
+                        WHERE replied_at >= datetime('now', '-' || ? || ' days')
+                        ORDER BY (likes + retweets) DESC, replied_at DESC
+                        LIMIT 1
+                        """,
+                        (str(days),),
+                    )
+                    top_row = cursor.fetchone()
+                    if top_row:
+                        digest["replies"]["top_reply"] = {
+                            "tweet_id": top_row[0],
+                            "replied_at": top_row[1],
+                            "likes": top_row[2],
+                            "retweets": top_row[3],
+                        }
 
             # Previous period replies & engagement (from -2*days to -days)
             cursor.execute(
@@ -290,6 +311,7 @@ def export_digest_markdown(digest):
     deltas = digest.get("deltas", {})
     scorecard = digest.get("health_scorecard", {})
     top_items = rat.get("top_humor", [])
+    alerts = digest.get("alerts", [])
 
     if top_items:
         top_humor_md = "\n".join([f"- *\"{item['content']}\"*" for item in top_items])
@@ -310,10 +332,24 @@ def export_digest_markdown(digest):
     mast_stats = syn_plats.get('mastodon', {})
     bsky_stats = syn_plats.get('bluesky', {})
 
+    top_rep = rep.get("top_reply")
+    if top_rep:
+        top_rep_md = f"- **Top Performing Reply:** Tweet ID `{top_rep['tweet_id']}` " \
+                     f"({top_rep['likes']} likes, {top_rep['retweets']} retweets, posted {top_rep['replied_at']})"
+    else:
+        top_rep_md = "- **Top Performing Reply:** None recorded in this period."
+
+    if alerts:
+        alerts_md = "## ⚠️ Active System Anomaly Alerts\n" + "\n".join(
+            [f"- **[{a.get('level', 'warning').upper()}]** {a.get('message')}" for a in alerts]
+        ) + "\n\n"
+    else:
+        alerts_md = "## ✅ System Alerts\n- *All system parameters within nominal thresholds. No active anomalies.*\n\n"
+
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
-## 🩺 System Operational Health Scorecard
+{alerts_md}## 🩺 System Operational Health Scorecard
 - **Overall Status:** {scorecard.get('overall_health', 'Unknown')}
 - **Database Connection:** {"Operational" if scorecard.get('db_connected') else "Disconnected"}
 - **Pending Queue Backlog:** {scorecard.get('queue_backlog', 0)} items
@@ -325,6 +361,7 @@ def export_digest_markdown(digest):
   - Delta: [{fmt_delta('likes')}]
 - **Total Retweets:** {rep.get('total_retweets', 0)} (avg {rep.get('avg_retweets_per_reply', 0)} / reply)
   - Delta: [{fmt_delta('retweets')}]
+{top_rep_md}
 
 ## 📅 Scheduled Queue Operations
 - **Total Scheduled Tweets:** {queue.get('total_scheduled', 0)}
@@ -368,10 +405,59 @@ def export_digest_html(digest):
     syn_plats = syn.get("platforms", {})
     mast_stats = syn_plats.get("mastodon", {})
     bsky_stats = syn_plats.get("bluesky", {})
+    alerts = digest.get("alerts", [])
 
     top_humor_html = "".join([f"<li><em>&ldquo;{item.get('content', '')}&rdquo;</em></li>" for item in top_items])
     if not top_humor_html:
         top_humor_html = "<li><em>None recorded yet.</em></li>"
+
+    top_rep = rep.get("top_reply")
+    if top_rep:
+        top_rep_html = (
+            f'<div class="card" style="margin-top: 12px; border-left: 4px solid #0284c7;">'
+            f'<div class="card-title">Top Performing Reply</div>'
+            f'<div style="font-size: 0.95rem; font-weight: 600;">Tweet ID: <code>{top_rep["tweet_id"]}</code></div>'
+            f'<div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">'
+            f'{top_rep["likes"]} likes &bull; {top_rep["retweets"]} retweets &bull; Posted {top_rep["replied_at"]}'
+            f'</div></div>'
+        )
+    else:
+        top_rep_html = ""
+
+    personas_dict = queue.get("persona_distribution", {})
+    if personas_dict:
+        persona_badges = "".join([
+            f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px;">{p}: {cnt}</span>'
+            for p, cnt in personas_dict.items()
+        ])
+    else:
+        persona_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
+
+    if alerts:
+        alert_items = "".join([
+            f'<li style="margin-bottom: 4px;"><strong>[{a.get("level", "warning").upper()}]</strong> '
+            f'{a.get("message")}</li>'
+            for a in alerts
+        ])
+        alerts_banner = f"""
+    <div style="background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444;
+                border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+      <h3 style="color: #991b1b; margin: 0 0 8px 0; font-size: 1rem;">
+        ⚠️ Active System Anomaly Alerts ({len(alerts)})
+      </h3>
+      <ul style="margin: 0; padding-left: 20px; color: #7f1d1d;">
+        {alert_items}
+      </ul>
+    </div>
+"""
+    else:
+        alerts_banner = """
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #10b981;
+                border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+      <span style="color: #166534; font-weight: 600; font-size: 0.9rem;">✅ System Status Nominal:</span>
+      <span style="color: #15803d; font-size: 0.85rem;">All operational parameters within expected thresholds.</span>
+    </div>
+"""
 
     def fmt_delta(key):
         d = deltas.get(key, {})
@@ -443,10 +529,12 @@ def export_digest_html(digest):
 <body>
   <div class="container">
     <h1>🚀 Tactful Humor Bot — Performance Digest</h1>
-    <p>
+    <p style="margin-bottom: 20px;">
       <strong>Window:</strong> Past {digest.get('window_days', 7)} days &bull;
       <strong>Generated:</strong> {digest.get('generated_at', 'N/A')}
     </p>
+
+    {alerts_banner}
 
     <h2>🩺 System Operational Health</h2>
     <div class="grid">
@@ -482,6 +570,7 @@ def export_digest_html(digest):
         <div>{fmt_delta('retweets')}</div>
       </div>
     </div>
+    {top_rep_html}
 
     <h2>📅 Scheduled Queue Operations</h2>
     <ul>
@@ -489,6 +578,7 @@ def export_digest_html(digest):
       <li><strong>Dispatched (Sent):</strong> {queue.get('sent', 0)} ({fmt_delta('queue_sent')})</li>
       <li><strong>Pending Backlog:</strong> {queue.get('pending', 0)}</li>
       <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
+      <li><strong>Persona Distribution:</strong> {persona_badges}</li>
     </ul>
 
     <h2>🌟 Community Humor Approval</h2>
