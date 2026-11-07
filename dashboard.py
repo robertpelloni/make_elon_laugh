@@ -477,37 +477,57 @@ def api_digest():
 @app.route('/api/digest/download', methods=['GET'])
 def api_digest_download():
     """
-    Directly streams the performance digest as a downloadable attachment.
+    Directly streams the performance digest as a downloadable attachment with robust error resilience.
     Query params:
       days: integer window length (default 7)
-      format: 'markdown' (default, .md) or 'json' (.json)
+      format: 'markdown' (default, .md), 'html' (.html), or 'json' (.json)
     """
-    days = request.args.get('days', default=7, type=int)
-    fmt = request.args.get('format', default='markdown', type=str).lower()
+    try:
+        days = request.args.get('days', default=7, type=int)
+        if days < 1:
+            days = 7
+    except (TypeError, ValueError):
+        days = 7
 
-    summary = digest.generate_performance_digest(days=days)
+    fmt = request.args.get('format', default='markdown', type=str).lower().strip()
     timestamp_slug = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    if fmt == 'json':
-        content = json.dumps(summary, indent=2)
-        filename = f"digest_{timestamp_slug}.json"
-        mimetype = "application/json"
-    elif fmt == 'html':
-        content = digest.export_digest_html(summary)
-        filename = f"digest_{timestamp_slug}.html"
-        mimetype = "text/html"
-    else:
-        content = digest.export_digest_markdown(summary)
-        filename = f"digest_{timestamp_slug}.md"
-        mimetype = "text/markdown"
+    try:
+        summary = digest.generate_performance_digest(days=days)
+    except Exception as e:
+        app.logger.error(f"Error generating performance digest for download: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to generate digest: {str(e)}"
+        }), 500
 
-    response = app.response_class(
-        response=content,
-        status=200,
-        mimetype=mimetype
-    )
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
+    try:
+        if fmt == 'json':
+            content = json.dumps(summary, indent=2)
+            filename = f"digest_{timestamp_slug}.json"
+            mimetype = "application/json"
+        elif fmt == 'html':
+            content = digest.export_digest_html(summary)
+            filename = f"digest_{timestamp_slug}.html"
+            mimetype = "text/html"
+        else:
+            content = digest.export_digest_markdown(summary)
+            filename = f"digest_{timestamp_slug}.md"
+            mimetype = "text/markdown"
+
+        response = app.response_class(
+            response=content,
+            status=200,
+            mimetype=mimetype
+        )
+        response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+    except Exception as e:
+        app.logger.error(f"Error exporting digest payload format '{fmt}': {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to export digest formatted as '{fmt}': {str(e)}"
+        }), 500
 
 
 @app.route('/api/syndication', methods=['GET', 'POST'])

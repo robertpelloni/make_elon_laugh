@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-11-07
+
+### Added
+- **Refined CLI Digest Generator (`generate_digest.py`)**: Added support for `--format html` and `--format all` options, generating comprehensive report sets (.html, .md, .json) in a single invocation.
+- **Robust Download Stream Handling (`dashboard.py`)**: Strengthened `/api/digest/download` with input sanitization, non-zero day window defaults, and dual-layer exception handlers to guarantee resilient file delivery under database latency or corrupt data.
+- **Automated CLI Export Testing (`test_bot.py`)**: Added test coverage verifying that `export_format='all'` accurately writes valid HTML5 doctype reports alongside Markdown and JSON files.
+
 ## [0.21.0] - 2026-11-07
 
 ### Added

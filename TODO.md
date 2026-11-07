@@ -23,6 +23,8 @@
 - [x] Implement cross-platform federation engagement polling for Mastodon & Bluesky (`syndication.py`, `db.py`, `/api/syndication/poll`, `/api/syndication/metrics`, and UI reach stats).
 - [x] Implement automated performance digest standalone HTML export with styled cards and badges (`digest.py`, `/api/digest/download?format=html`, Command Center button).
 - [x] Implement automated performance threshold alerts evaluating system anomalies across database, queue backlog, and humor ratings (`digest.py`, `webhook.py`, UI badge).
+- [x] Refine CLI digest generator (`generate_digest.py`) to support `--format html` and `--format all` outputs.
+- [x] Implement defensive error resilience and validation in dashboard digest attachment delivery (`/api/digest/download`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

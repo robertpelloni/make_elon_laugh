@@ -1,6 +1,16 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.21.0
+## Current Version: 0.22.0
+
+### Key Deliverables in v0.22.0
+1. **Multi-Format CLI Digest Generator (`generate_digest.py`)**:
+   - Enhanced `save_digest_files` and `main` CLI options to support `--format html` and `--format all`.
+   - Operators and automated cron tasks can now generate complete multi-artifact archives (.md, .html, .json) in a single CLI run with `--out-dir`.
+2. **Defensive Download Delivery Architecture (`dashboard.py`)**:
+   - Fortified `/api/digest/download` with window days sanitization (fallback to 7 days for invalid/negative values) and dual-layer try-catch blocks to return structured JSON errors upon unanticipated generation or formatting faults.
+3. **Automated Verification & Unit Testing (`test_bot.py`)**:
+   - Expanded CLI digest test suite in `test_bot.py` to assert accurate file generation and HTML doctype compliance when `export_format='all'` is executed.
+   - All 95 unit tests pass, and flake8 reports 0 errors.
 
 ### Key Deliverables in v0.21.0
 1. **Automated Performance Digest HTML Export (`digest.py`, `dashboard.py`)**:

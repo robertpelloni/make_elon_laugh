@@ -1033,6 +1033,16 @@ class TestDigestCLIAndDownload(unittest.TestCase):
             with open(saved["json"], "r", encoding="utf-8") as f:
                 json_data = json_mod.load(f)
                 self.assertEqual(json_data["window_days"], 7)
+
+            # Test export_format="all" including HTML
+            saved_all = generate_digest.save_digest_files(mock_gen.return_value, out_dir=temp_dir, export_format="all")
+            self.assertIn("markdown", saved_all)
+            self.assertIn("html", saved_all)
+            self.assertIn("json", saved_all)
+            self.assertTrue(os.path.exists(saved_all["html"]))
+            with open(saved_all["html"], "r", encoding="utf-8") as f:
+                html_text = f.read()
+                self.assertIn("<!DOCTYPE html>", html_text)
         finally:
             shutil.rmtree(temp_dir)
 

@@ -14,7 +14,7 @@ import json
 import logging
 import os
 
-from digest import export_digest_markdown, generate_performance_digest
+from digest import export_digest_html, export_digest_markdown, generate_performance_digest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,9 +23,9 @@ logging.basicConfig(
 logger = logging.getLogger("digest_generator")
 
 
-def save_digest_files(digest_data: dict, out_dir: str, export_format: str = "both") -> dict:
+def save_digest_files(digest_data: dict, out_dir: str, export_format: str = "all") -> dict:
     """
-    Saves digest data to disk in markdown and/or JSON formats.
+    Saves digest data to disk in markdown, html, and/or JSON formats.
 
     Returns a dictionary mapping format names to their saved file paths.
     """
@@ -33,7 +33,7 @@ def save_digest_files(digest_data: dict, out_dir: str, export_format: str = "bot
     timestamp_slug = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
     saved_paths = {}
 
-    if export_format in ("markdown", "both"):
+    if export_format in ("markdown", "both", "all"):
         md_content = export_digest_markdown(digest_data)
         md_filename = f"digest_{timestamp_slug}.md"
         md_path = os.path.join(out_dir, md_filename)
@@ -42,7 +42,16 @@ def save_digest_files(digest_data: dict, out_dir: str, export_format: str = "bot
         saved_paths["markdown"] = md_path
         logger.info(f"Exported Markdown digest: {md_path}")
 
-    if export_format in ("json", "both"):
+    if export_format in ("html", "all"):
+        html_content = export_digest_html(digest_data)
+        html_filename = f"digest_{timestamp_slug}.html"
+        html_path = os.path.join(out_dir, html_filename)
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        saved_paths["html"] = html_path
+        logger.info(f"Exported HTML digest: {html_path}")
+
+    if export_format in ("json", "both", "all"):
         json_filename = f"digest_{timestamp_slug}.json"
         json_path = os.path.join(out_dir, json_filename)
         with open(json_path, "w", encoding="utf-8") as f:
@@ -77,9 +86,9 @@ def main():
     )
     parser.add_argument(
         "--format",
-        choices=["markdown", "json", "both", "stdout"],
-        default="both",
-        help="Export format (default: both)"
+        choices=["markdown", "html", "json", "both", "all", "stdout"],
+        default="all",
+        help="Export format (default: all)"
     )
 
     args = parser.parse_args()
