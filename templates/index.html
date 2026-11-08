@@ -522,6 +522,33 @@
                     </div>
                 </div>
             </div>
+
+                <!-- Tone Rephraser Box -->
+                <div style="margin-top: 1.25rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🎨 Dynamic Tone Stylist & Rephraser</span>
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Rephrase sandbox content or queued text using tailored tone variations (Witty, Concise, Enthusiastic, Academic).</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                        <select id="rephrase-tone" style="padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-accent); color: var(--text-main); font-size: 0.85rem;">
+                            <option value="witty">✨ Witty & Sharp (Clever timing)</option>
+                            <option value="concise">⚡ Concise & Direct (Under 120 chars)</option>
+                            <option value="enthusiastic">🔥 Enthusiastic & Hype (Rocketry energy)</option>
+                            <option value="academic">🔭 Academic & Scholarly (Rigorous prose)</option>
+                        </select>
+                        <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer;" onclick="rephraseCurrentContent()">🪄 Rephrase Content</button>
+                        <button type="button" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; cursor: pointer;" onclick="copyRephraseToSchedule()">📋 Copy to Schedule Queue</button>
+                    </div>
+                    <div id="rephrase-result-container" style="display: none; margin-top: 0.75rem; background: var(--surface-accent); border: 1px dashed var(--primary); border-radius: 6px; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+                            <span id="rephrase-tone-badge" style="font-weight: 600; color: var(--primary);">WITTY & SHARP</span>
+                            <span id="rephrase-char-count">0 / 280 chars</span>
+                        </div>
+                        <div id="rephrase-output-text" style="font-size: 0.9rem; color: var(--text-main); font-family: monospace;"></div>
+                    </div>
+                </div>
         </section>
 
         <!-- MAJOR OPERATIONAL PANELS: Split Layout -->
@@ -1058,6 +1085,60 @@
                 }
             } catch (e) {
                 console.error("Failed to update persona", e);
+            }
+        }
+
+        let currentRephrasedText = '';
+
+        async function rephraseCurrentContent() {
+            const previewEl = document.getElementById('gen-preview');
+            const sampleEl = document.getElementById('sample-tweet');
+            let text = '';
+            if (previewEl && previewEl.innerText && !previewEl.innerText.startsWith('Click a button')) {
+                text = previewEl.innerText.trim();
+            } else if (sampleEl && sampleEl.value) {
+                text = sampleEl.value.trim();
+            }
+
+            if (!text) {
+                alert('Please generate or enter content first to rephrase.');
+                return;
+            }
+            const tone = document.getElementById('rephrase-tone').value;
+            const personaSelect = document.getElementById('persona-select');
+            const persona = personaSelect ? personaSelect.value : 'tactful_engineer';
+
+            try {
+                const res = await fetch('/api/content/rephrase', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: text, tone_style: tone, persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentRephrasedText = data.rephrased;
+                    document.getElementById('rephrase-output-text').innerText = data.rephrased;
+                    document.getElementById('rephrase-tone-badge').innerText = `${tone.toUpperCase()} TONE`;
+                    document.getElementById('rephrase-char-count').innerText = `${data.character_count} / 280 chars`;
+                    document.getElementById('rephrase-result-container').style.display = 'block';
+                } else {
+                    alert(data.error || 'Failed to rephrase content.');
+                }
+            } catch (e) {
+                alert('Error rephrasing content: ' + e.message);
+            }
+        }
+
+        function copyRephraseToSchedule() {
+            const text = currentRephrasedText || document.getElementById('rephrase-output-text').innerText.trim();
+            if (!text) {
+                alert('No rephrased content to copy.');
+                return;
+            }
+            const schedInput = document.getElementById('sched-content');
+            if (schedInput) {
+                schedInput.value = text;
+                schedInput.scrollIntoView({behavior: 'smooth'});
             }
         }
 

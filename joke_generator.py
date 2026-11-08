@@ -83,6 +83,38 @@ PERSONAS = {
     }
 }
 
+# Dynamic tone variation styles with prompt guidelines and offline heuristics
+TONE_STYLES = {
+    "witty": {
+        "display_name": "Witty & Sharp",
+        "description": "Clever, punchy humor with high comedic timing.",
+        "instruction": "Rephrase to make it punchy, witty, and clever while preserving core space/physics meaning.",
+        "prefix": "Telemetry update: ",
+        "suffix": " 🚀✨"
+    },
+    "concise": {
+        "display_name": "Concise & Direct",
+        "description": "Ultra-short, crisp, direct phrasing stripped of filler words.",
+        "instruction": "Make the content extremely concise, punchy, and direct in under 120 characters.",
+        "prefix": "",
+        "suffix": " 🛰️"
+    },
+    "enthusiastic": {
+        "display_name": "Enthusiastic & Hype",
+        "description": "Upbeat rocketry excitement with vibrant energy and cosmic wonder.",
+        "instruction": "Rephrase with infectious enthusiasm, rocketry excitement, and energetic flair.",
+        "prefix": "Incredible milestone: ",
+        "suffix": " 🔥🚀"
+    },
+    "academic": {
+        "display_name": "Academic & Scholarly",
+        "description": "Formal, rigorous, scientifically nuanced astrophysical tone.",
+        "instruction": "Rephrase using formal, scholarly astrophysical prose and precise terminology.",
+        "prefix": "Empirical observation: ",
+        "suffix": " 🌌🔭"
+    }
+}
+
 # Compatibility lists
 STATIC_JOKES = PERSONAS["tactful_engineer"]["jokes"]
 STATIC_FACTS = PERSONAS["tactful_engineer"]["facts"]
@@ -168,6 +200,61 @@ def generate_content(context_tweet_text=None, persona="tactful_engineer"):
     # Fallback to persona-specific static list
     collection = pdata["jokes"] if content_type == "joke" else pdata["facts"]
     return random.choice(collection)
+
+
+def rephrase_content(content, persona="tactful_engineer", tone_style="witty"):
+    """
+    Rephrases a given joke, tweet, or fact according to a persona and tone style.
+    Leverages OpenAI GPT completions if available; otherwise falls back to deterministic
+    stylistic transformations.
+    """
+    clean_text = (content or "").strip()
+    if not clean_text:
+        return ""
+
+    tone_info = TONE_STYLES.get(tone_style, TONE_STYLES["witty"])
+    pdata = get_persona(persona)
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if api_key and OPENAI_AVAILABLE:
+        try:
+            client = openai.OpenAI(api_key=api_key)
+            system_msg = f"{pdata['joke_system']} You excel at tone-shifting and editing space/astrophysics content."
+            prompt = (
+                f"Original text: \"{clean_text}\"\n"
+                f"Target tone: {tone_info['display_name']} ({tone_info['instruction']})\n"
+                f"Persona: {pdata['display_name']}\n"
+                "Rephrase the original text while preserving its factual accuracy and humor/spirit. "
+                "Output ONLY the rephrased text. Keep it under 260 characters and retain an emoji."
+            )
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=80,
+                temperature=0.7
+            )
+            rephrased = response.choices[0].message.content.strip().strip('"')
+            if rephrased and len(rephrased) <= 280:
+                return rephrased
+        except Exception as e:
+            logger.warning(f"OpenAI rephrase failed, falling back to heuristics: {e}")
+
+    # Offline heuristic fallback
+    # Apply tone-specific stylistic prefix/suffix and minor transformation
+    base = clean_text.rstrip(".! ")
+    if tone_style == "concise":
+        # Remove common filler words and shorten
+        words = [w for w in base.split() if w.lower() not in {"because", "that", "really", "very", "actually"}]
+        shortened = " ".join(words[:18])
+        return f"{shortened}{tone_info['suffix']}"
+
+    rephrased_candidate = f"{tone_info['prefix']}{base}{tone_info['suffix']}"
+    if len(rephrased_candidate) > 280:
+        return rephrased_candidate[:277] + "..."
+    return rephrased_candidate
 
 
 def generate_meme_card_b64(text, title="Emperor Musk Bot", theme="dark"):

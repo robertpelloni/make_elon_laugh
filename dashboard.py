@@ -314,6 +314,49 @@ def api_test_generate():
         return jsonify({"content": content, "content_type": ctype, "persona": persona, "skipped": False})
 
 
+@app.route('/api/content/rephrase', methods=['POST'])
+def api_content_rephrase():
+    """
+    Rephrases a given joke, tweet, or fact using selectable personas and tone variation styles.
+    Accepts: {
+        "content": "...",
+        "persona": "tactful_engineer|witty_ai|deadpan_astronomer",
+        "tone_style": "witty|concise|enthusiastic|academic"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    content = str(data.get("content", "")).strip()
+    if not content:
+        return jsonify({"success": False, "error": "Content is required for rephrasing."}), 400
+
+    persona = str(data.get("persona", CURRENT_PERSONA)).strip().lower()
+    tone_style = str(data.get("tone_style", "witty")).strip().lower()
+
+    if tone_style not in joke_generator.TONE_STYLES:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid tone_style '{tone_style}'. Choose from: {list(joke_generator.TONE_STYLES.keys())}"
+        }), 400
+
+    try:
+        rephrased = joke_generator.rephrase_content(content, persona=persona, tone_style=tone_style)
+        return jsonify({
+            "success": True,
+            "original": content,
+            "rephrased": rephrased,
+            "persona": persona,
+            "tone_style": tone_style,
+            "character_count": len(rephrased),
+            "tones": {
+                k: {"display_name": v["display_name"], "description": v["description"]}
+                for k, v in joke_generator.TONE_STYLES.items()
+            }
+        })
+    except Exception as e:
+        app.logger.error(f"Error rephrasing content: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/test-generate-meme', methods=['POST'])
 def api_test_generate_meme():
     """

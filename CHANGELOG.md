@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2026-11-08
+
+### Added
+- **Automated Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`)**:
+  - Implemented `TONE_STYLES` dictionary (`witty`, `concise`, `enthusiastic`, `academic`) with prompt instructions and stylistic prefixes/suffixes.
+  - Implemented `rephrase_content(content, persona, tone_style)` with OpenAI prompt tuning and resilient offline heuristic fallbacks.
+- **Content Rephrasing REST API (`dashboard.py`)**:
+  - Added `/api/content/rephrase` POST endpoint returning rephrased content, character count, and tone metadata with input validation.
+- **Command Center Dynamic Tone Stylist & Rephraser (`templates/index.html`)**:
+  - Added Tone Stylist tool strip featuring style selector, rephrase trigger, and one-click copy to the Scheduled Tweet Queue.
+  - Added tooltip markers explaining tone effects and audience alignment.
+- **Automated Unit Tests & Visual Verification**:
+  - Added test suite in `test_bot.py` verifying rephrasing across all styles, boundaries, and `/api/content/rephrase` (106 tests passing, flake8 clean).
+  - Verified UI rendering via Playwright screenshot.
+
 ## [0.32.0] - 2026-11-08
 
 ### Added

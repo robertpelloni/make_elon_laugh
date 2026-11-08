@@ -6,7 +6,8 @@
 - All controls have explicit interactive forms, distinct labels, and tooltip guidance for complete operational clarity.
 - Visual meme card generation is provided via `meme_generator.py` and `joke_generator.py` using Pillow, outputting base64-encoded PNG cards accessible at `/api/test-generate-meme`.
 - The desktop system tray companion is located in `tray.py`, allowing operators on desktop environments to launch the dashboard, run checks, and quit servers, while cleanly detecting headless environments and remaining non-blocking.
-- The global version string is governed centrally by `VERSION.md` (currently `v0.32.0`) and dynamically read by the dashboard and documentation.
+- The global version string is governed centrally by `VERSION.md` (currently `v0.33.0`) and dynamically read by the dashboard and documentation.
+- Dynamic Tone Stylist & Rephraser Engine (`joke_generator.py`, `/api/content/rephrase`) provides 4 style variations (`witty`, `concise`, `enthusiastic`, `academic`) with prompt instructions and offline fallbacks, wired directly into Command Center queue planning.
 - Themed Visual Meme Card Engine (`meme_generator.py`) supports 4 distinct palettes (`dark`, `cyberpunk`, `solar`, `clean`) with direct binary downloads (`/api/meme/download`).
 - Multi-Account Tweet Scheduling (`db.py`, `scheduler.py`) routes tweets to accounts like `@make_elon_laugh` and `@space_astronomy` with profile badges.
 - Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`) aggregates and visualizes `account_distribution` across the queue in the Command Center UI and exported reports.

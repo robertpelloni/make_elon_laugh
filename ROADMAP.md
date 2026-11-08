@@ -43,4 +43,5 @@
 *   [x] Themed Visual Meme Card Styles & Binary Download Exports (`meme_generator.py`, `/api/meme/download`, Command Center theme controls).
 *   [x] Multi-account Twitter / X scheduling and cross-account coordination (`db.py`, `scheduler.py`, `/api/schedule`, Command Center UI).
 *   [x] Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`, Command Center UI).
+*   [x] Automated LLM-Driven Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`, `dashboard.py`, Command Center UI).
 *   [ ] Multi-image meme card attachments support in scheduled tweets.

@@ -1847,6 +1847,44 @@ class TestSyndication(unittest.TestCase):
         self.assertEqual(res_del_action.status_code, 200)
         self.assertTrue(res_del_action.get_json()["success"])
 
+    def test_rephrase_content_and_api(self):
+        """Validates joke_generator.rephrase_content and /api/content/rephrase."""
+        sample_text = "The Falcon Heavy rocket completed its orbital staging."
+        # Test offline heuristic fallbacks across each tone
+        for tone in joke_generator.TONE_STYLES:
+            rephrased = joke_generator.rephrase_content(sample_text, tone_style=tone)
+            self.assertTrue(len(rephrased) > 0)
+            self.assertLessEqual(len(rephrased), 280)
+
+        # Empty content should return empty
+        self.assertEqual(joke_generator.rephrase_content(""), "")
+
+        # Test REST API endpoint
+        with dashboard.app.test_client() as client:
+            # Missing content
+            res_bad = client.post("/api/content/rephrase", json={})
+            self.assertEqual(res_bad.status_code, 400)
+
+            # Invalid tone
+            res_inv = client.post("/api/content/rephrase", json={
+                "content": sample_text,
+                "tone_style": "nonexistent"
+            })
+            self.assertEqual(res_inv.status_code, 400)
+
+            # Valid rephrase
+            res_ok = client.post("/api/content/rephrase", json={
+                "content": sample_text,
+                "persona": "tactful_engineer",
+                "tone_style": "enthusiastic"
+            })
+            self.assertEqual(res_ok.status_code, 200)
+            data = res_ok.get_json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["tone_style"], "enthusiastic")
+            self.assertIn("rephrased", data)
+            self.assertIn("tones", data)
+
 
 if __name__ == "__main__":
     unittest.main()
