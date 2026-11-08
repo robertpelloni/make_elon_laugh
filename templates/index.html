@@ -1018,7 +1018,10 @@
                                 <input type="checkbox" id="mastodon-enable-toggle" onchange="saveSyndicationSettings()">
                                 <span>🐘 Mastodon ActivityPub</span>
                             </label>
-                            <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <span id="mastodon-latency-tag" style="font-size: 0.68rem; color: var(--accent); font-family: monospace;">⚡ --ms</span>
+                                <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                            </div>
                         </div>
                         <input type="text" id="mastodon-url-input" placeholder="https://mastodon.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
                         <input type="password" id="mastodon-token-input" placeholder="Bearer Access Token" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
@@ -1029,7 +1032,10 @@
                                 <input type="checkbox" id="bluesky-enable-toggle" onchange="saveSyndicationSettings()">
                                 <span>🦋 Bluesky ATProto</span>
                             </label>
-                            <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                            <div style="display: flex; gap: 4px; align-items: center;">
+                                <span id="bluesky-latency-tag" style="font-size: 0.68rem; color: var(--accent); font-family: monospace;">⚡ --ms</span>
+                                <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
+                            </div>
                         </div>
                         <input type="text" id="bluesky-handle-input" placeholder="handle.bsky.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
                         <input type="password" id="bluesky-pwd-input" placeholder="App Password (xxxx-xxxx-xxxx-xxxx)" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
@@ -1102,9 +1108,10 @@
                 </div>
 
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
                         <button class="btn btn-primary btn-sm" onclick="triggerSyndicationTest()">Test Broadcast (Dry Run)</button>
+                        <button class="btn btn-outline btn-sm" onclick="probeFederationLatency()" style="font-size: 0.75rem;" title="Probe round-trip HTTP response latency for Mastodon & Bluesky nodes">⚡ Ping Nodes</button>
                     </div>
                     <div id="syndication-feedback" style="font-size: 0.75rem; color: var(--text-muted);"></div>
                 </div>
@@ -2130,8 +2137,37 @@
                     bskyTag.style.color = data.bluesky.enabled ? "var(--accent-success)" : "var(--text-muted)";
                 }
                 await loadSyndicationRoutes();
+                await probeFederationLatency();
             } catch (err) {
                 console.error("Error loading syndication settings:", err);
+            }
+        }
+
+        async function probeFederationLatency() {
+            try {
+                const res = await fetch('/api/syndication/latency');
+                const data = await res.json();
+                if (data.success && data.latencies) {
+                    const mast = data.latencies.mastodon;
+                    const bsky = data.latencies.bluesky;
+
+                    if (mast) {
+                        const mTag = document.getElementById('mastodon-latency-tag');
+                        if (mTag) {
+                            mTag.textContent = `⚡ ${mast.latency_ms}ms`;
+                            mTag.style.color = mast.status === 'online' ? 'var(--accent-success)' : 'var(--text-muted)';
+                        }
+                    }
+                    if (bsky) {
+                        const bTag = document.getElementById('bluesky-latency-tag');
+                        if (bTag) {
+                            bTag.textContent = `⚡ ${bsky.latency_ms}ms`;
+                            bTag.style.color = bsky.status === 'online' ? 'var(--accent-success)' : 'var(--text-muted)';
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to probe federation latency:", e);
             }
         }
 

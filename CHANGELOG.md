@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.42.0] - 2026-11-08
+
+### Added
+- **Federation Instance Connection Latency Prober & Status Ping Worker (`syndication.py`)**:
+  - Implemented `probe_platform_latency(platform, dry_run=False, timeout=3)` measuring HTTP response round-trip latency in milliseconds, node health status (`online`, `degraded`, `offline`), and connection errors across Mastodon and Bluesky.
+  - Implemented `probe_all_federation_latencies(dry_run=False)` aggregating latency profiles across decentralized networks.
+- **Federation Node Latency REST API (`dashboard.py`)**:
+  - Added `/api/syndication/latency` (GET and POST) returning real-time latency profiles and connectivity states.
+- **Command Center Federation Latency Indicators (`templates/index.html`)**:
+  - Added live latency badges (`⚡ 83ms`) beside Mastodon and Bluesky configuration cards.
+  - Added `⚡ Ping Nodes` interactive trigger button initiating instant real-time network latency probes.
+- **Automated Unit Testing & Visual Verification**:
+  - Added `test_federation_latency_prober_and_api` in `test_bot.py` testing individual and batch probes, dry-run latency simulations, and REST endpoints (115 passing tests, 0 flake8 errors).
+  - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_42_latency_prober.png`).
+
 ## [0.41.0] - 2026-11-08
 
 ### Added

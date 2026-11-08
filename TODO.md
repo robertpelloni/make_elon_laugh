@@ -65,7 +65,8 @@
 - [x] Implement digest pipeline visual media distribution and multi-platform webhook analytics (`digest.py`, `webhook.py`, `generate_digest.py`, Command Center UI).
 - [x] Implement multi-panel panel-level custom persona & rephrasing pipeline for infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`, Command Center UI).
 - [x] Implement multi-account direct syndication platform routing matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+- [x] Implement federation instance connection latency prober and status ping worker (`syndication.py`, `dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Federation instance connection latency prober and status ping worker.
+- [ ] Multi-channel cross-posting preview simulation for composite graphics across Mastodon and Bluesky.

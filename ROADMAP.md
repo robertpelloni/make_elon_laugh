@@ -52,4 +52,5 @@
 *   [x] Digest Pipeline Visual Media Distribution & Multi-Platform Webhook Analytics (`digest.py`, `webhook.py`, `generate_digest.py`, Command Center UI).
 *   [x] Multi-Panel Panel-Level Custom Persona & Rephrasing Pipeline for Infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`, Command Center UI).
 *   [x] Multi-Account Direct Syndication Platform Routing Matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
-*   [ ] Federation Instance Connection Latency Prober & Status Ping Worker.
+*   [x] Federation Instance Connection Latency Prober & Status Ping Worker (`syndication.py`, `dashboard.py`, Command Center UI).
+*   [ ] Multi-Channel Cross-Posting Preview Simulation for Composite Graphics across Mastodon & Bluesky.

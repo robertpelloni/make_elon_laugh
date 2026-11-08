@@ -291,3 +291,99 @@ def poll_all_syndicated_metrics(limit=20, dry_run=False, db_path=db.DB_PATH):
         "likes_polled": total_likes_polled,
         "shares_polled": total_shares_polled
     }
+
+
+def probe_platform_latency(platform, dry_run=False, timeout=3):
+    """
+    Probes connectivity and round-trip HTTP response latency for a federated network node.
+    Returns dict: {'platform': str, 'status': 'online'|'degraded'|'offline', 'latency_ms': int, 'error': str|None}.
+    """
+    p_norm = platform.lower().strip()
+    start_t = time.time()
+
+    if dry_run:
+        # Simulate realistic round-trip latency in dry-run mode
+        latency_ms = random.randint(45, 120)
+        return {
+            "platform": p_norm,
+            "status": "online",
+            "latency_ms": latency_ms,
+            "error": None,
+            "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        }
+
+    if p_norm == "mastodon":
+        if not MASTODON_INSTANCE_URL:
+            return {
+                "platform": "mastodon",
+                "status": "unconfigured",
+                "latency_ms": 0,
+                "error": "No instance URL configured.",
+                "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+            }
+        url = f"{MASTODON_INSTANCE_URL.rstrip('/')}/api/v1/instance"
+        req = urllib.request.Request(url, headers={"User-Agent": "EmperorMuskBot/0.42.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                elapsed = int((time.time() - start_t) * 1000)
+                status_label = "online" if resp.getcode() == 200 else "degraded"
+                return {
+                    "platform": "mastodon",
+                    "status": status_label,
+                    "latency_ms": elapsed,
+                    "error": None,
+                    "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+                }
+        except Exception as e:
+            elapsed = int((time.time() - start_t) * 1000)
+            return {
+                "platform": "mastodon",
+                "status": "offline",
+                "latency_ms": elapsed,
+                "error": str(e),
+                "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+            }
+
+    elif p_norm == "bluesky":
+        # ATProto entry public health endpoint
+        url = "https://bsky.social/xrpc/_health"
+        req = urllib.request.Request(url, headers={"User-Agent": "EmperorMuskBot/0.42.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                elapsed = int((time.time() - start_t) * 1000)
+                status_label = "online" if resp.getcode() == 200 else "degraded"
+                return {
+                    "platform": "bluesky",
+                    "status": status_label,
+                    "latency_ms": elapsed,
+                    "error": None,
+                    "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+                }
+        except Exception as e:
+            elapsed = int((time.time() - start_t) * 1000)
+            return {
+                "platform": "bluesky",
+                "status": "offline",
+                "latency_ms": elapsed,
+                "error": str(e),
+                "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+            }
+
+    return {
+        "platform": p_norm,
+        "status": "unknown",
+        "latency_ms": 0,
+        "error": f"Unsupported platform '{platform}'.",
+        "probed_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+    }
+
+
+def probe_all_federation_latencies(dry_run=False, timeout=3):
+    """
+    Probes all supported federation platforms (Mastodon, Bluesky) and returns summary mapping.
+    """
+    platforms = ["mastodon", "bluesky"]
+    results = {}
+    for p in platforms:
+        results[p] = probe_platform_latency(p, dry_run=dry_run, timeout=timeout)
+    return results

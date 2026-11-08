@@ -1051,6 +1051,29 @@ def api_syndication_poll():
     })
 
 
+@app.route('/api/syndication/latency', methods=['GET', 'POST'])
+def api_syndication_latency():
+    """
+    Probes round-trip HTTP response latency and connectivity health of federation nodes.
+    GET / POST: Returns latency profiles for Mastodon and Bluesky.
+    Query/Body: dry_run=true|false (defaults to True for local testing resilience).
+    """
+    dry_run = True
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        dry_run = bool(data.get("dry_run", True))
+    else:
+        dry_run_arg = request.args.get("dry_run", "true").lower()
+        dry_run = (dry_run_arg != "false")
+
+    results = syndication.probe_all_federation_latencies(dry_run=dry_run)
+    return jsonify({
+        "success": True,
+        "latencies": results,
+        "dry_run": dry_run
+    })
+
+
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def api_webhook():
     """

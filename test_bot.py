@@ -2405,6 +2405,45 @@ class TestSyndication(unittest.TestCase):
                 except OSError:
                     pass
 
+    def test_federation_latency_prober_and_api(self):
+        """Tests probe_platform_latency, probe_all_federation_latencies, and /api/syndication/latency endpoint."""
+        import syndication
+
+        # 1. Dry run probes
+        m_probe = syndication.probe_platform_latency("mastodon", dry_run=True)
+        self.assertEqual(m_probe["platform"], "mastodon")
+        self.assertEqual(m_probe["status"], "online")
+        self.assertTrue(m_probe["latency_ms"] > 0)
+
+        b_probe = syndication.probe_platform_latency("bluesky", dry_run=True)
+        self.assertEqual(b_probe["platform"], "bluesky")
+        self.assertEqual(b_probe["status"], "online")
+
+        # 2. Unsupported platform probe
+        bad_probe = syndication.probe_platform_latency("unknown_net", dry_run=False)
+        self.assertEqual(bad_probe["status"], "unknown")
+
+        # 3. All federation latencies probe
+        all_probes = syndication.probe_all_federation_latencies(dry_run=True)
+        self.assertIn("mastodon", all_probes)
+        self.assertIn("bluesky", all_probes)
+        self.assertEqual(all_probes["mastodon"]["status"], "online")
+
+        # 4. REST API /api/syndication/latency GET & POST
+        with dashboard.app.test_client() as client:
+            get_res = client.get("/api/syndication/latency?dry_run=true")
+            self.assertEqual(get_res.status_code, 200)
+            data = get_res.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("latencies", data)
+            self.assertIn("mastodon", data["latencies"])
+
+            post_res = client.post("/api/syndication/latency", json={"dry_run": True})
+            self.assertEqual(post_res.status_code, 200)
+            pdata = post_res.get_json()
+            self.assertTrue(pdata["success"])
+            self.assertTrue(pdata["dry_run"])
+
 
 if __name__ == "__main__":
     unittest.main()
