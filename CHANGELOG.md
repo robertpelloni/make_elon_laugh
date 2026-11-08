@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 2026-11-08
+
+### Added
+- **Dynamic Multi-Platform Syndication Metrics & Windowed Federation Engagement Deltas (`db.py`, `digest.py`)**:
+  - Enhanced `db.get_syndication_summary_metrics(days, start_days_ago, db_path)` to dynamically discover arbitrary federation platforms (Mastodon, Bluesky, Nostr, etc.) from `syndicated_posts` records rather than relying on hardcoded platform keys.
+  - Added optional window filtering with relative offset boundaries (`start_days_ago` and `days`) enabling rolling window comparisons.
+  - Updated `digest.generate_performance_digest()` to compute multi-window deltas for `syndication_posts` and `syndication_engagement` (total likes + shares across all federated platforms) comparing the current window against the preceding window of identical duration.
+  - Refactored `digest.export_digest_markdown()` and `digest.export_digest_html()` to dynamically iterate and render engagement summaries and average engagement rates for any discovered platform with zero-division protection.
+  - Enhanced Command Center UI in `templates/index.html` to display live federated post deltas (`#syndication-delta-display`).
+  - Added unit test `test_syndication_window_metrics_and_deltas` in `test_bot.py` validating dynamic platform discovery, window filtering, and delta computations (108 passing unit tests, 0 `flake8` warnings).
+
 ## [0.34.0] - 2026-11-08
 
 ### Added

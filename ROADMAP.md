@@ -45,4 +45,5 @@
 *   [x] Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`, Command Center UI).
 *   [x] Automated LLM-Driven Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`, `dashboard.py`, Command Center UI).
 *   [x] Visual Meme Card Attachments in Scheduled Tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+*   [x] Dynamic Multi-Platform Syndication Metrics & Windowed Federation Engagement Deltas (`db.py`, `digest.py`, `templates/index.html`).
 *   [ ] Multi-image composite layouts for visual infographics.

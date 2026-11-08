@@ -1588,6 +1588,49 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_syndication_window_metrics_and_deltas(self):
+        """Tests windowed syndication metrics aggregation, dynamic discovery, and digest deltas."""
+        test_db = f"test_syn_window_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Record posts across diverse platforms, including an unexpected custom one
+            db.record_syndicated_post("mastodon", "Mastodon test status", remote_id="m1",
+                                      likes=10, shares=5, db_path=test_db)
+            db.record_syndicated_post("bluesky", "Bluesky test status", remote_id="b1",
+                                      likes=20, shares=8, db_path=test_db)
+            db.record_syndicated_post("nostr", "Nostr event note", remote_id="n1",
+                                      likes=15, shares=2, db_path=test_db)
+
+            # 2. Test db.get_syndication_summary_metrics with dynamic discovery
+            summary = db.get_syndication_summary_metrics(days=7, db_path=test_db)
+            self.assertEqual(summary["total_posts"], 3)
+            self.assertIn("nostr", summary["platforms"])
+            self.assertEqual(summary["platforms"]["nostr"]["likes"], 15)
+            self.assertEqual(summary["platforms"]["nostr"]["shares"], 2)
+
+            # 3. Test generate_performance_digest delta calculation
+            d = digest.generate_performance_digest(db_path=test_db, days=7)
+            self.assertEqual(d["syndication"]["total_posts"], 3)
+            self.assertIn("syndication_posts", d["deltas"])
+            self.assertIn("syndication_engagement", d["deltas"])
+            self.assertEqual(d["deltas"]["syndication_posts"]["current"], 3)
+            self.assertEqual(d["deltas"]["syndication_posts"]["diff"], 3)
+            self.assertEqual(d["deltas"]["syndication_posts"]["pct"], 100.0)
+
+            # 4. Test markdown & HTML exports render the custom platform dynamically
+            md = digest.export_digest_markdown(d)
+            self.assertIn("Nostr:", md)
+            self.assertIn("15 likes/favs", md)
+
+            html = digest.export_digest_html(d)
+            self.assertIn("Nostr:", html)
+            self.assertIn("Total Posts:", html)
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
     def test_cli_digest_generator_and_custom_options(self):
         """Tests generate_digest CLI utility with prefix, quiet mode, and formats."""
         import generate_digest

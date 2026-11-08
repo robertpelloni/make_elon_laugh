@@ -58,6 +58,7 @@
 - [x] Implement multi-account queue breakdown and federation health details in performance digests (`digest.py`, `generate_digest.py`, Command Center UI).
 - [x] Implement dynamic tone variation and content rephrasing engine (`joke_generator.py`, `/api/content/rephrase`, Command Center UI).
 - [x] Implement visual meme card media theme attachments in scheduled tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+- [x] Implement dynamic multi-platform syndication metrics discovery and windowed federation engagement deltas (`db.py`, `digest.py`, `templates/index.html`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

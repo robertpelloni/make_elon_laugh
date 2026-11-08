@@ -377,8 +377,14 @@ def get_syndicated_posts_for_metrics_polling(limit=20, db_path=DB_PATH):
         return []
 
 
-def get_syndication_summary_metrics(db_path=DB_PATH):
-    """Calculates cumulative syndication counts and engagement by platform."""
+def get_syndication_summary_metrics(days=None, start_days_ago=None, db_path=DB_PATH):
+    """
+    Calculates cumulative syndication counts and engagement by platform.
+    Supports optional time-window filtering:
+      - days: window length in days (created_at >= -days)
+      - start_days_ago: upper bound (created_at < -start_days_ago) for prior-period slicing
+    Discovers all platforms dynamically with default zero-initialized structures.
+    """
     summary = {
         "total_posts": 0,
         "platforms": {
@@ -389,17 +395,35 @@ def get_syndication_summary_metrics(db_path=DB_PATH):
     try:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
+            query = (
+                "SELECT platform, COUNT(*), COALESCE(SUM(likes), 0), COALESCE(SUM(shares), 0) "
+                "FROM syndicated_posts"
+            )
+            params = []
+            conditions = []
+
+            if start_days_ago is not None and days is not None:
+                # Interval between -start_days_ago and -days (e.g. from -14d to -7d)
+                conditions.append("created_at < datetime('now', '-' || ? || ' days')")
+                params.append(str(start_days_ago))
+                conditions.append("created_at >= datetime('now', '-' || ? || ' days')")
+                params.append(str(days))
+            elif days is not None:
+                conditions.append("created_at >= datetime('now', '-' || ? || ' days')")
+                params.append(str(days))
+
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            query += " GROUP BY platform"
+
             try:
-                cursor.execute(
-                    "SELECT platform, COUNT(*), COALESCE(SUM(likes), 0), COALESCE(SUM(shares), 0) "
-                    "FROM syndicated_posts GROUP BY platform"
-                )
+                cursor.execute(query, tuple(params))
             except sqlite3.OperationalError:
                 init_db(db_path)
                 return summary
 
             for plat, count, likes, shares in cursor.fetchall():
-                p_norm = plat.lower().strip()
+                p_norm = plat.lower().strip() if plat else "unknown"
                 if p_norm not in summary["platforms"]:
                     summary["platforms"][p_norm] = {"posts": 0, "likes": 0, "shares": 0}
                 summary["platforms"][p_norm]["posts"] = count

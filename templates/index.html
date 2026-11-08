@@ -1005,7 +1005,8 @@
                     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">Federated Total</div>
-                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary-color);">0 Posts</div>
+                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">0 Posts</div>
+                            <div id="syndication-delta-display" style="font-size: 0.7rem; color: var(--accent); margin-top: 2px;"></div>
                         </div>
                         <button class="btn btn-outline btn-sm" onclick="triggerSyndicationPoll()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Poll engagement for all syndicated posts">
                             🔄 Poll Metrics
@@ -1585,6 +1586,15 @@
                         const qDiff = d.deltas.queue_sent.diff;
                         const qSign = qDiff > 0 ? "+" : "";
                         document.getElementById('digest-queue-delta').textContent = `${qSign}${qDiff} (${qSign}${d.deltas.queue_sent.pct}%) vs prior`;
+
+                        if (d.deltas.syndication_posts) {
+                            const synDiff = d.deltas.syndication_posts.diff;
+                            const synSign = synDiff > 0 ? "+" : "";
+                            const synDeltaEl = document.getElementById('syndication-delta-display');
+                            if (synDeltaEl) {
+                                synDeltaEl.textContent = `${synSign}${synDiff} (${synSign}${d.deltas.syndication_posts.pct}%) vs prior`;
+                            }
+                        }
                     }
 
                     // Update health scorecard & threshold alerts
