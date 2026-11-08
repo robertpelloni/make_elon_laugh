@@ -2058,6 +2058,67 @@ class TestSyndication(unittest.TestCase):
             self.assertEqual(dl_post.status_code, 200)
             self.assertEqual(dl_post.mimetype, "image/png")
 
+    def test_smart_layout_auto_selection_and_api(self):
+        """Tests recommend_infographic_layout logic, layout='auto' in composite generation, and REST endpoint."""
+        # 1. Test concise 4 panels yields grid
+        rec_grid = meme_generator.recommend_infographic_layout(panels=[
+            {"title": "P1", "text": "Short 1"},
+            {"title": "P2", "text": "Short 2"},
+            {"title": "P3", "text": "Short 3"},
+            {"title": "P4", "text": "Short 4"}
+        ])
+        self.assertEqual(rec_grid["layout"], "grid")
+        self.assertEqual(rec_grid["panel_count"], 4)
+        self.assertIn("2x2 quadrant grid", rec_grid["rationale"])
+
+        # 2. Test 2 panels with dense text yields side-by-side
+        rec_side = meme_generator.recommend_infographic_layout(panels=[
+            {"title": "P1", "text": "A" * 150},
+            {"title": "P2", "text": "B" * 150}
+        ])
+        self.assertEqual(rec_side["layout"], "side-by-side")
+        self.assertEqual(rec_side["panel_count"], 2)
+        self.assertIn("Side-by-side", rec_side["rationale"])
+
+        # 3. Test layout='auto' in composite infographic generator
+        auto_bytes = meme_generator.create_composite_infographic(
+            panels=[{"title": "P1", "text": "Text 1"}, {"title": "P2", "text": "Text 2"}],
+            layout="auto"
+        )
+        self.assertIsInstance(auto_bytes, bytes)
+        self.assertEqual(auto_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        # 4. Test REST API /api/meme/composite/recommend-layout
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/meme/composite/recommend-layout", json={
+                "panels": [
+                    {"title": "Alpha", "text": "Brief one."},
+                    {"title": "Beta", "text": "Brief two."}
+                ]
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("recommendation", data)
+            self.assertEqual(data["recommendation"]["layout"], "side-by-side")
+
+            # 5. Test REST API /api/meme/composite with layout='auto'
+            res_auto = client.post("/api/meme/composite", json={
+                "layout": "auto",
+                "theme": "dark",
+                "panels": [
+                    {"title": "1", "text": "A"},
+                    {"title": "2", "text": "B"},
+                    {"title": "3", "text": "C"},
+                    {"title": "4", "text": "D"}
+                ]
+            })
+            self.assertEqual(res_auto.status_code, 200)
+            data_auto = res_auto.get_json()
+            self.assertTrue(data_auto["success"])
+            self.assertEqual(data_auto["layout"], "grid")
+            self.assertIn("recommendation", data_auto)
+
 
 if __name__ == "__main__":
     unittest.main()

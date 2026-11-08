@@ -1,19 +1,21 @@
-# Session Handoff - Release v0.36.0
+# Session Handoff - Release v0.37.0
 
-## Completed in v0.36.0:
-1. **Multi-Image Composite Infographic Generator & Grid Layout Engine**:
-   - Implemented `create_composite_infographic()` in `meme_generator.py` supporting `side-by-side` (2 panels horizontally, 800x420) and `grid` (4 quadrants in a 2x2 layout, 800x620) with customizable themes (`dark`, `cyberpunk`, `solar`, `clean`).
-   - Added `generate_composite_infographic_b64()` helper returning base64 encoded PNG images for frontend previews.
-   - Added REST API endpoints in `dashboard.py`:
-     - `/api/meme/composite` (POST) returning base64 rendered graphics with custom panel titles, bodies, and themes.
-     - `/api/meme/composite/download` (GET & POST) streaming binary composite PNG graphics with attachment headers.
-   - Integrated Multi-Panel Infographic Studio into the Command Center (`templates/index.html`):
-     - Added `🌌 Composite Infographic` action button with explanatory tooltip marker.
-     - Added layout selector (`2x2 Grid Layout (4 Panels)` vs `Side-by-Side (2 Panels)`), live graphic preview display, and direct one-click `⬇️ Download Infographic PNG` button.
-   - Added comprehensive unit testing `test_composite_infographics_and_api` in `test_bot.py` (109 passing unit tests, 0 `flake8` warnings).
-   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_36_composite_scrolled.png`).
-   - Sourced version from `VERSION.md` (`0.36.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
+## Completed in v0.37.0:
+1. **AI-Driven Smart Layout Auto-Selection & Heuristic Reasoning Engine**:
+   - Implemented `recommend_infographic_layout(panels, content_text)` in `meme_generator.py` evaluating panel count, text volume, and character density to automatically recommend either `grid` (for 3+ modular points or concise bullets) or `side-by-side` (for deep narrative comparisons or heavy prose) with detailed reasoning.
+   - Enhanced `create_composite_infographic()` to accept `layout='auto'`, automatically resolving the optimal visual grid layout and attaching decision rationale to metadata.
+2. **REST API Endpoint for Layout Recommendation**:
+   - Added `POST /api/meme/composite/recommend-layout` returning `{ "success": true, "recommendation": { "layout": "grid"|"side-by-side", "rationale": "..." } }`.
+   - Wired `layout='auto'` into `POST /api/meme/composite` in `dashboard.py`.
+3. **Command Center AI Layout Studio UI**:
+   - Added `Auto-Detect Layout` option in `#composite-layout-select`.
+   - Added `⚡ AI Layout Reasoner` button (`#btn-recommend-layout`) allowing operators to analyze tweet context or panel text on demand.
+   - Added layout recommendation explanation banner (`#composite-layout-banner`) detailing the AI's selection rationale.
+4. **Automated Unit Testing & Visual Verification**:
+   - Added unit test `test_smart_layout_auto_selection_and_api` in `test_bot.py` (110 passing unit tests, 0 `flake8` warnings).
+   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_37_layout_reasoner.png`).
+   - Sourced version from `VERSION.md` (`0.37.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
 
 ## Next Autonomous Objectives:
-- AI-driven smart layout auto-selection based on text length and topic complexity.
+- Autonomous multi-panel infographic scheduling with auto-selected visual layouts.
 - Enterprise event-driven Twitter webhook triggers if credentials permit.

@@ -114,6 +114,67 @@ def create_meme_card(text, title="Emperor Musk Bot", theme="dark", subtitle=None
     return buffer.getvalue()
 
 
+def recommend_infographic_layout(panels=None, content_text=None):
+    """
+    Analyzes panel count, average text length, character density, and complexity
+    to recommend the optimal visual composite layout ('grid' vs 'side-by-side').
+    Returns dict with:
+      - 'layout': 'grid' | 'side-by-side'
+      - 'rationale': String explanation for operator review
+      - 'panel_count': Number of identified panels
+      - 'avg_char_length': Average characters per panel
+    """
+    # Count panels or estimate from text
+    normalized_count = 0
+    total_chars = 0
+
+    if panels and isinstance(panels, list) and len(panels) > 0:
+        normalized_count = len(panels)
+        for p in panels:
+            if isinstance(p, dict):
+                total_chars += len(str(p.get("text", "")))
+            elif isinstance(p, str):
+                total_chars += len(p)
+    elif content_text and isinstance(content_text, str) and content_text.strip():
+        # Heuristic: split by numbered points or line breaks
+        lines = [ln.strip() for ln in content_text.strip().split("\n") if ln.strip()]
+        normalized_count = max(len(lines), 1)
+        total_chars = len(content_text)
+    else:
+        normalized_count = 4
+        total_chars = 320
+
+    avg_chars = total_chars // max(normalized_count, 1)
+
+    # Decision logic:
+    # If 2 panels or high text density (>120 chars/panel), side-by-side offers better vertical reading room.
+    # If 3 or 4 panels with concise modular text (<=120 chars/panel), 2x2 quadrant grid offers optimal symmetry.
+    if normalized_count == 2 or (avg_chars > 120 and normalized_count <= 2):
+        layout = "side-by-side"
+        rationale = (
+            f"Side-by-side horizontal layout selected: {normalized_count} panel(s) with high character "
+            f"density (~{avg_chars} chars/panel) benefit from wider text columns and extended vertical space."
+        )
+    elif normalized_count >= 3:
+        layout = "grid"
+        rationale = (
+            f"2x2 quadrant grid layout selected: {normalized_count} modular panels with concise character "
+            f"density (~{avg_chars} chars/panel) provide balanced multi-concept visual symmetry."
+        )
+    else:
+        layout = "grid"
+        rationale = (
+            f"Standard 2x2 quadrant grid selected by default: {normalized_count} panel(s) (~{avg_chars} chars/panel)."
+        )
+
+    return {
+        "layout": layout,
+        "rationale": rationale,
+        "panel_count": normalized_count,
+        "avg_char_length": avg_chars
+    }
+
+
 def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch",
                                  theme="dark", layout="grid", subtitle=None):
     """
@@ -121,12 +182,18 @@ def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch
     Supported layouts:
       - 'side-by-side': 2 panels positioned horizontally (800x420)
       - 'grid': 4 quadrant panels arranged in a 2x2 grid (800x620)
+      - 'auto': Automatically select layout using recommend_infographic_layout()
     Each item in `panels` can be a string or a dict with {'title': ..., 'text': ...}.
     Returns the raw PNG image bytes.
     """
     theme_key = (theme or "dark").lower().strip()
     palette = THEME_PALETTES.get(theme_key, THEME_PALETTES["dark"])
     layout_mode = (layout or "grid").lower().strip()
+
+    if layout_mode == "auto":
+        recommendation = recommend_infographic_layout(panels)
+        layout_mode = recommendation["layout"]
+
     if layout_mode not in ("side-by-side", "grid"):
         layout_mode = "grid"
 

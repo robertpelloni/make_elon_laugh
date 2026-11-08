@@ -631,14 +631,22 @@
                     <div id="composite-preview-container" style="display: none; margin-top: 0.75rem; text-align: center; border: 1px dashed var(--border-color); padding: 0.75rem; border-radius: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                             <span style="font-size: 0.85rem; font-weight: 600;">Multi-Image Composite Infographic:</span>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
                                 <select id="composite-layout-select" onchange="testCompositeInfographic()" style="font-size: 0.8rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                                    <option value="auto">✨ Auto-Detect Layout</option>
                                     <option value="grid">2x2 Grid Layout (4 Panels)</option>
                                     <option value="side-by-side">Side-by-Side (2 Panels)</option>
                                 </select>
-                                <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download Infographic PNG</button>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-recommend-layout" onclick="recommendLayout()" title="Analyze text density and suggest optimal layout">
+                                    ⚡ AI Layout Reasoner
+                                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                                      <span class="tooltiptext">Evaluates panel counts, character density, and structural symmetry to select between side-by-side and 2x2 quadrant grid layouts.</span>
+                                    </div>
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download PNG</button>
                             </div>
                         </div>
+                        <div id="composite-layout-banner" style="display: none; font-size: 0.78rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; text-align: left; color: var(--text-color);"></div>
                         <img id="composite-preview-img" class="meme-preview-img" alt="Composite Infographic Preview" style="margin: 0 auto; display: block; max-width: 100%;">
                     </div>
                     <div id="thread-split-container" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 10px;">
@@ -1241,6 +1249,11 @@
             }
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
         let lastRenderedMemeText = "";
 
         async function testMemeCard() {
@@ -1277,15 +1290,46 @@
             window.location.href = url;
         }
 
+        async function recommendLayout() {
+            const banner = document.getElementById('composite-layout-banner');
+            const sampleText = document.getElementById('sample-tweet').value.trim();
+            const layoutSelect = document.getElementById('composite-layout-select');
+
+            banner.style.display = 'block';
+            banner.textContent = "Analyzing content structure and character density...";
+
+            try {
+                const res = await fetch('/api/meme/composite/recommend-layout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content_text: sampleText})
+                });
+                const data = await res.json();
+                if (data.success && data.recommendation) {
+                    const rec = data.recommendation;
+                    banner.innerHTML = `<strong>💡 Layout Recommendation:</strong> ${escapeHtml(rec.rationale)}`;
+                    if (layoutSelect && rec.layout) {
+                        layoutSelect.value = rec.layout;
+                        testCompositeInfographic();
+                    }
+                } else {
+                    banner.textContent = data.error || "Failed to retrieve layout recommendation.";
+                }
+            } catch (err) {
+                banner.textContent = "Layout analysis error: " + err.message;
+            }
+        }
+
         async function testCompositeInfographic() {
             const preview = document.getElementById('gen-preview');
             const compContainer = document.getElementById('composite-preview-container');
             const compImg = document.getElementById('composite-preview-img');
             const layoutSelect = document.getElementById('composite-layout-select');
-            const layout = layoutSelect ? layoutSelect.value : 'grid';
+            const layout = layoutSelect ? layoutSelect.value : 'auto';
             const theme = document.getElementById('meme-theme-select').value;
+            const banner = document.getElementById('composite-layout-banner');
 
-            preview.textContent = `Generating ${layout} composite infographic (${theme} palette)...`;
+            preview.textContent = `Generating composite infographic (${layout} mode, ${theme} palette)...`;
             try {
                 const res = await fetch('/api/meme/composite', {
                     method: 'POST',
@@ -1298,9 +1342,14 @@
                 });
                 const data = await res.json();
                 if (data.success && data.image_b64) {
-                    preview.textContent = `Generated ${layout} composite infographic in ${theme} theme.`;
+                    const resolvedLayout = data.layout || layout;
+                    preview.textContent = `Generated ${resolvedLayout} composite infographic in ${theme} theme.`;
                     compImg.src = "data:image/png;base64," + data.image_b64;
                     compContainer.style.display = 'block';
+                    if (data.recommendation && data.recommendation.rationale) {
+                        banner.style.display = 'block';
+                        banner.innerHTML = `<strong>✨ Auto-Selected Layout (${resolvedLayout.toUpperCase()}):</strong> ${escapeHtml(data.recommendation.rationale)}`;
+                    }
                 } else {
                     preview.textContent = data.error || "Failed to generate composite infographic.";
                 }

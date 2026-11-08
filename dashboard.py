@@ -404,6 +404,30 @@ def api_meme_download():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/meme/composite/recommend-layout', methods=['POST'])
+def api_meme_composite_recommend_layout():
+    """
+    Analyzes candidate panel content and recommends the optimal visual layout.
+    Payload: {
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "content_text": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    panels = data.get("panels")
+    content_text = data.get("content_text")
+
+    try:
+        rec = meme_generator.recommend_infographic_layout(panels=panels, content_text=content_text)
+        return jsonify({
+            "success": True,
+            "recommendation": rec
+        })
+    except Exception as e:
+        app.logger.error(f"Error recommending infographic layout: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/meme/composite', methods=['POST'])
 def api_meme_composite():
     """
@@ -412,7 +436,7 @@ def api_meme_composite():
       "panels": [{"title": "...", "text": "..."}, ...],
       "title": "...",
       "theme": "dark|cyberpunk|solar|clean",
-      "layout": "grid|side-by-side"
+      "layout": "grid|side-by-side|auto"
     }
     """
     data = request.get_json(silent=True) or {}
@@ -420,6 +444,13 @@ def api_meme_composite():
     title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
     theme = str(data.get("theme") or "dark").strip().lower()
     layout = str(data.get("layout") or "grid").strip().lower()
+
+    # If layout is auto, resolve recommendation metadata
+    resolved_layout = layout
+    recommendation = None
+    if layout == "auto":
+        recommendation = meme_generator.recommend_infographic_layout(panels=panels)
+        resolved_layout = recommendation["layout"]
 
     try:
         b64_img = meme_generator.generate_composite_infographic_b64(
@@ -432,7 +463,9 @@ def api_meme_composite():
             "success": True,
             "title": title,
             "theme": theme,
-            "layout": layout,
+            "layout": resolved_layout,
+            "requested_layout": layout,
+            "recommendation": recommendation,
             "image_b64": b64_img
         })
     except Exception as e:

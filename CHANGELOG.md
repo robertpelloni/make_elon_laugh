@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.37.0] - 2026-11-08
+
+### Added
+- **AI-Driven Smart Layout Auto-Selection & Reasoning Engine (`meme_generator.py`)**:
+  - Implemented `recommend_infographic_layout(panels, content_text)` analyzing panel count and character density to automatically recommend either `grid` (for 3+ modular points or concise bullets) or `side-by-side` (for deep narrative comparisons or heavy prose).
+  - Enhanced `create_composite_infographic()` to accept `layout='auto'`, automatically resolving the ideal visual grid structure and attaching decision reasoning to the payload.
+- **REST API Endpoint for Layout Recommendation (`dashboard.py`)**:
+  - Added `POST /api/meme/composite/recommend-layout` returning recommended layout and heuristic rationale string.
+  - Integrated layout auto-selection into `POST /api/meme/composite` when `layout='auto'`.
+- **Command Center AI Layout Studio UI (`templates/index.html`)**:
+  - Added `Auto-Detect Layout` option in `#composite-layout-select`.
+  - Added `⚡ AI Layout Reasoner` button (`#btn-recommend-layout`) allowing operators to analyze tweet context or panel text on demand.
+  - Added layout recommendation explanation banner (`#composite-layout-banner`) detailing the AI's selection rationale.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_smart_layout_auto_selection_and_api` covering recommendation heuristics, auto-layout parameter resolution in generation endpoints, and recommendation REST API (110 tests passing).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_37_layout_reasoner.png`).
+
 ## [0.36.0] - 2026-11-08
 
 ### Added
