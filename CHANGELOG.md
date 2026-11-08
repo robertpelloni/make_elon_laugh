@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-11-07
+
+### Added
+- **Multi-Theme Visual Meme Card Engine (`meme_generator.py`, `joke_generator.py`)**:
+  - Added `THEME_PALETTES` dictionary defining distinct visual palettes: Cosmic Slate (`dark`), Neon Cyberpunk (`cyberpunk`), Solar Flare (`solar`), and Minimalist Light (`clean`).
+  - Extended `create_meme_card(text, title, theme, subtitle)` to render theme-specific backgrounds, cards, primary/secondary borders, titles, text, and accent colors.
+  - Updated `joke_generator.py`'s `generate_meme_card_b64` to forward `theme` parameters cleanly.
+- **Meme Theme Generation & Binary Download REST Endpoints (`dashboard.py`)**:
+  - Enhanced `/api/test-generate-meme` to accept `theme` parameter and return theme-tailored base64 image cards.
+  - Implemented `/api/meme/download` streaming binary PNG files as downloadable attachments (`meme_card_<theme>_<timestamp>.png`).
+- **Command Center Visual Meme Card UI Controls (`templates/index.html`)**:
+  - Added theme selection dropdown (Cosmic Slate, Neon Cyberpunk, Solar Flare, Minimalist Light) directly next to the Meme Card button.
+  - Added a dedicated "Download PNG Card" action button beneath the rendered meme card preview.
+  - Added explanatory tooltips guiding theme choices and one-click graphic downloads.
+- **Comprehensive Unit Testing**:
+  - Added unit tests in `test_bot.py` covering theme palettes, invalid fallback handling, base64 generation across themes, and binary `/api/meme/download` responses (expanded to 105 passing tests with 0 `flake8` warnings).
+
 ## [0.29.0] - 2026-11-07
 
 ### Added

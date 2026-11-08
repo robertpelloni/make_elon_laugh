@@ -47,6 +47,10 @@
 - [x] Implement `/api/targets` REST endpoint with CRUD capabilities (`dashboard.py`).
 - [x] Wire Target Routing table and profile manager into Command Center (`templates/index.html`).
 - [x] Expand unit test suite with target profile CRUD and routing tests (`test_bot.py`).
+- [x] Implement multi-theme visual meme card styles (`dark`, `cyberpunk`, `solar`, `clean`) in `meme_generator.py`.
+- [x] Expose theme selection and binary file streaming download in `/api/meme/download` (`dashboard.py`).
+- [x] Add theme selector dropdown and Download PNG Card button in Command Center UI (`templates/index.html`).
+- [x] Add automated unit tests for meme card themes and binary download attachments (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

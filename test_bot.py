@@ -522,6 +522,7 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         self.assertTrue(data.get("skipped"))
 
     def test_api_test_generate_meme_endpoint(self):
+        # Default theme
         response = self.client.post(
             '/api/test-generate-meme',
             json={"text": "Custom test joke 🛸"}
@@ -530,8 +531,33 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         data = response.get_json()
         self.assertTrue(data["success"])
         self.assertEqual(data["text"], "Custom test joke 🛸")
+        self.assertEqual(data["theme"], "dark")
         self.assertIn("image_b64", data)
         self.assertTrue(len(data["image_b64"]) > 0)
+
+        # Themed generation (cyberpunk)
+        res_cyber = self.client.post(
+            '/api/test-generate-meme',
+            json={"text": "Cyberpunk meme test", "theme": "cyberpunk"}
+        )
+        self.assertEqual(res_cyber.status_code, 200)
+        data_cyber = res_cyber.get_json()
+        self.assertTrue(data_cyber["success"])
+        self.assertEqual(data_cyber["theme"], "cyberpunk")
+
+        # Test download endpoint
+        res_dl = self.client.get('/api/meme/download?text=Download%20Test&theme=solar')
+        self.assertEqual(res_dl.status_code, 200)
+        self.assertEqual(res_dl.mimetype, 'image/png')
+        self.assertGreater(len(res_dl.data), 1000)
+
+    def test_meme_generator_themes_and_palettes(self):
+        for theme_name in ['dark', 'cyberpunk', 'solar', 'clean', 'unknown_fallback']:
+            raw_png = meme_generator.create_meme_card("Card content", theme=theme_name)
+            self.assertIsInstance(raw_png, bytes)
+            self.assertGreater(len(raw_png), 1000)
+            # Check PNG magic bytes
+            self.assertEqual(raw_png[:8], b'\x89PNG\r\n\x1a\n')
 
     def test_api_config_get_and_post(self):
         get_res = self.client.get('/api/config')

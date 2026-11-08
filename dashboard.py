@@ -7,11 +7,12 @@ import random
 import sqlite3
 import threading
 import time
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, Response
 
 import db
 import digest
 import joke_generator
+import meme_generator
 import scheduler
 import splitter
 import syndication
@@ -316,22 +317,47 @@ def api_test_generate():
 @app.route('/api/test-generate-meme', methods=['POST'])
 def api_test_generate_meme():
     """
-    Generates a visual meme card as a base64 PNG image based on content text.
+    Generates a visual meme card as a base64 PNG image based on content text and theme.
     """
     data = request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
+    theme = data.get("theme", "dark").strip().lower()
     if not text:
         text = joke_generator.generate_content()
 
     try:
-        b64_image = joke_generator.generate_meme_card_b64(text)
+        b64_image = joke_generator.generate_meme_card_b64(text, theme=theme)
         return jsonify({
             "success": True,
             "text": text,
+            "theme": theme,
             "image_b64": b64_image
         })
     except Exception as e:
         app.logger.error(f"Meme card generation error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/download', methods=['GET'])
+def api_meme_download():
+    """
+    Generates and serves a visual meme card directly as a downloadable PNG binary image.
+    Query params: ?text=...&theme=dark|cyberpunk|solar|clean
+    """
+    text = request.args.get("text", "").strip()
+    theme = request.args.get("theme", "dark").strip().lower()
+    if not text:
+        text = joke_generator.generate_content()
+
+    try:
+        raw_bytes = meme_generator.create_meme_card(text, theme=theme)
+        return Response(
+            raw_bytes,
+            mimetype="image/png",
+            headers={"Content-Disposition": "attachment; filename=meme_card.png"}
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving meme image download: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 

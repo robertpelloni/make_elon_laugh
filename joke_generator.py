@@ -170,11 +170,11 @@ def generate_content(context_tweet_text=None, persona="tactful_engineer"):
     return random.choice(collection)
 
 
-def generate_meme_card_b64(text, title="Emperor Musk Bot"):
+def generate_meme_card_b64(text, title="Emperor Musk Bot", theme="dark"):
     """
     Renders text to a visual meme card and returns a base64-encoded PNG string.
     """
-    raw_bytes = meme_generator.create_meme_card(text, title=title)
+    raw_bytes = meme_generator.create_meme_card(text, title=title, theme=theme)
     return base64.b64encode(raw_bytes).decode('utf-8')
 
 

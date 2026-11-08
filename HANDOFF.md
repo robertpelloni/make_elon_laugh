@@ -1,6 +1,22 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.29.0
+## Current Version: 0.30.0
+
+### Key Deliverables in v0.30.0
+1. **Multi-Theme Visual Meme Card Engine (`meme_generator.py`, `joke_generator.py`)**:
+   - Implemented `THEME_PALETTES` providing four visual themes: Cosmic Slate (`dark`), Neon Cyberpunk (`cyberpunk`), Solar Flare (`solar`), and Minimalist Light (`clean`).
+   - Extended `create_meme_card(text, title, theme, subtitle)` with theme-based backgrounds, accent headers, card borders, and responsive text wrapping.
+   - Updated `joke_generator.py`'s `generate_meme_card_b64` to forward theme parameters.
+2. **Meme Theme Generation & Binary Download Endpoints (`dashboard.py`)**:
+   - Added theme parameter parsing to `/api/test-generate-meme`.
+   - Implemented `/api/meme/download` streaming binary PNG files as downloadable attachments (`meme_card_<theme>_<timestamp>.png`).
+3. **Command Center Themed Meme Sandbox UI (`templates/index.html`)**:
+   - Added theme selection dropdown (Cosmic Slate, Neon Cyberpunk, Solar Flare, Minimalist Light) with helpful tooltips.
+   - Added dedicated "Download PNG Card" action button beneath the preview canvas triggering binary image downloads.
+4. **Testing, Linting & Visual Verification**:
+   - 105 passing unit tests in `test_bot.py`.
+   - Clean `flake8 .` linting with 0 errors.
+   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_30_meme_themes.png`).
 
 ### Key Deliverables in v0.29.0
 1. **Target Audience Segmentation & Dynamic Persona Routing (`db.py`, `bot.py`)**:
