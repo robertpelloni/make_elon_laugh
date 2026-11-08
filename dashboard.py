@@ -1074,6 +1074,40 @@ def api_syndication_latency():
     })
 
 
+@app.route('/api/syndication/composite-preview', methods=['POST'])
+def api_syndication_composite_preview():
+    """
+    Simulates multi-channel cross-posting structure and preview for composite infographics
+    across Twitter, Mastodon ActivityPub, and Bluesky ATProto.
+    Payload: {
+      "content": "...",
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "theme": "dark|cyberpunk|solar|clean",
+      "layout": "grid|side-by-side|auto"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    content = str(data.get("content") or "").strip()
+    panels = data.get("panels")
+    theme = str(data.get("theme") or "dark").strip().lower()
+    layout = str(data.get("layout") or "auto").strip().lower()
+
+    try:
+        preview = syndication.simulate_composite_syndication_preview(
+            content=content,
+            panels=panels,
+            theme=theme,
+            layout=layout
+        )
+        return jsonify({
+            "success": True,
+            "preview": preview
+        })
+    except Exception as e:
+        app.logger.error(f"Error generating composite syndication preview: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def api_webhook():
     """

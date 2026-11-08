@@ -387,3 +387,72 @@ def probe_all_federation_latencies(dry_run=False, timeout=3):
     for p in platforms:
         results[p] = probe_platform_latency(p, dry_run=dry_run, timeout=timeout)
     return results
+
+
+def simulate_composite_syndication_preview(content, panels=None, theme="dark", layout="auto"):
+    """
+    Simulates how a composite infographic post with attached text will be structured
+    and partitioned across Twitter/X, Mastodon ActivityPub, and Bluesky ATProto.
+    Returns dict with platform breakdowns, character counts, chunking splits, and attachment metadata.
+    """
+    clean_text = str(content or "").strip()
+    clean_theme = str(theme or "dark").strip().lower()
+    clean_layout = str(layout or "auto").strip().lower()
+
+    # Determine simulated dimensions based on layout
+    if clean_layout == "side-by-side":
+        dimensions = {"width": 800, "height": 420, "aspect_ratio": "1.90:1"}
+    else:  # grid or auto defaulting to grid
+        dimensions = {"width": 800, "height": 620, "aspect_ratio": "1.29:1"}
+
+    panel_count = len(panels) if (panels and isinstance(panels, (list, tuple))) else 4
+
+    # Platform chunking
+    twitter_chunks = splitter.split_for_platform(clean_text, "twitter") if clean_text else []
+    bluesky_chunks = splitter.split_for_platform(clean_text, "bluesky") if clean_text else []
+    mastodon_chunks = splitter.split_for_platform(clean_text, "mastodon") if clean_text else []
+
+    attachment_meta = {
+        "media_type": "composite_infographic",
+        "theme": clean_theme,
+        "layout": clean_layout,
+        "panel_count": panel_count,
+        "dimensions": dimensions,
+        "mime_type": "image/png"
+    }
+
+    return {
+        "content_length": len(clean_text),
+        "attachment": attachment_meta,
+        "channels": {
+            "twitter": {
+                "platform": "Twitter / X",
+                "char_limit": splitter.PLATFORM_LIMITS["twitter"],
+                "thread_chunks": twitter_chunks,
+                "parts_count": len(twitter_chunks),
+                "is_threaded": len(twitter_chunks) > 1,
+                "media_supported": True,
+                "ready": True
+            },
+            "mastodon": {
+                "platform": "Mastodon ActivityPub",
+                "char_limit": splitter.PLATFORM_LIMITS["mastodon"],
+                "thread_chunks": mastodon_chunks,
+                "parts_count": len(mastodon_chunks),
+                "is_threaded": len(mastodon_chunks) > 1,
+                "media_supported": True,
+                "instance": MASTODON_INSTANCE_URL,
+                "ready": MASTODON_ENABLED
+            },
+            "bluesky": {
+                "platform": "Bluesky ATProto",
+                "char_limit": splitter.PLATFORM_LIMITS["bluesky"],
+                "thread_chunks": bluesky_chunks,
+                "parts_count": len(bluesky_chunks),
+                "is_threaded": len(bluesky_chunks) > 1,
+                "media_supported": True,
+                "handle": BLUESKY_HANDLE,
+                "ready": BLUESKY_ENABLED
+            }
+        }
+    }

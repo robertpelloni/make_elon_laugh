@@ -66,7 +66,8 @@
 - [x] Implement multi-panel panel-level custom persona & rephrasing pipeline for infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`, Command Center UI).
 - [x] Implement multi-account direct syndication platform routing matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
 - [x] Implement federation instance connection latency prober and status ping worker (`syndication.py`, `dashboard.py`, Command Center UI).
+- [x] Implement multi-channel cross-posting preview simulation for composite graphics across Twitter, Mastodon, and Bluesky (`syndication.py`, `dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Multi-channel cross-posting preview simulation for composite graphics across Mastodon and Bluesky.
+- [ ] Implement Automated Syndication Retry Dead-Letter Queue with Exponential Backoff and Manual Replay.

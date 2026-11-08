@@ -649,10 +649,26 @@
                                       <span class="tooltiptext">Transforms and stylizes panel text according to the selected persona and tone style while preserving panel titles.</span>
                                     </div>
                                 </button>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-composite-crosspost-preview" onclick="previewCompositeCrossPost()" title="Simulate multi-channel cross-posting partition and layout across Twitter, Mastodon, and Bluesky">
+                                    📡 Cross-Post Preview
+                                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                                      <span class="tooltiptext">Simulates how this composite infographic and accompanying narrative partition across Twitter/X, Mastodon ActivityPub, and Bluesky ATProto.</span>
+                                    </div>
+                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download PNG</button>
                             </div>
                         </div>
                         <div id="composite-layout-banner" style="display: none; font-size: 0.78rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; text-align: left; color: var(--text-color);"></div>
+
+                        <!-- Multi-Channel Composite Cross-Posting Simulation Box -->
+                        <div id="composite-crosspost-preview-box" style="display: none; margin-bottom: 0.75rem; background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 6px; padding: 0.75rem; text-align: left;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-color);">🌐 Multi-Channel Federation Delivery Simulation</span>
+                                <button class="btn btn-secondary btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;" onclick="document.getElementById('composite-crosspost-preview-box').style.display='none'">✕ Close</button>
+                            </div>
+                            <div id="composite-crosspost-channels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.75rem;"></div>
+                        </div>
+
                         <img id="composite-preview-img" class="meme-preview-img" alt="Composite Infographic Preview" style="margin: 0 auto; display: block; max-width: 100%;">
                     </div>
                     <div id="thread-split-container" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 10px;">
@@ -1469,6 +1485,62 @@
             const layout = layoutSelect ? layoutSelect.value : 'grid';
             const url = `/api/meme/composite/download?theme=${encodeURIComponent(theme)}&layout=${encodeURIComponent(layout)}&title=${encodeURIComponent("Cosmic Infographic Dispatch")}`;
             window.location.href = url;
+        }
+
+        async function previewCompositeCrossPost() {
+            const box = document.getElementById('composite-crosspost-preview-box');
+            const channelsContainer = document.getElementById('composite-crosspost-channels');
+            const theme = document.getElementById('meme-theme-select').value;
+            const layoutSelect = document.getElementById('composite-layout-select');
+            const layout = layoutSelect ? layoutSelect.value : 'grid';
+            const sampleInput = document.getElementById('sample-tweet').value.trim();
+            const previewText = document.getElementById('gen-preview').textContent.trim();
+            const textToUse = sampleInput || (previewText.startsWith('Click') || previewText.startsWith('Generating') ? "Space exploration requires high specific impulse engines and multi-layer thermal shielding." : previewText);
+
+            try {
+                const res = await fetch('/api/syndication/composite-preview', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content: textToUse,
+                        theme: theme,
+                        layout: layout
+                    })
+                });
+                const data = await res.json();
+                if (data.success && data.preview) {
+                    const p = data.preview;
+                    const chans = p.channels;
+                    const attach = p.attachment;
+
+                    channelsContainer.innerHTML = Object.entries(chans).map(([k, c]) => {
+                        const statusBadge = c.ready
+                            ? '<span class="status-badge ok" style="font-size: 0.68rem;">Ready</span>'
+                            : '<span class="status-badge warn" style="font-size: 0.68rem;">Unconfigured</span>';
+                        return `
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                                    <strong>${c.platform}</strong>
+                                    ${statusBadge}
+                                </div>
+                                <div style="color: var(--text-muted); font-size: 0.7rem; margin-bottom: 0.3rem;">
+                                    Limit: <strong>${c.char_limit} chars</strong> | Parts: <strong>${c.parts_count}</strong>
+                                </div>
+                                <div style="font-size: 0.72rem; background: var(--surface-accent); padding: 0.3rem 0.4rem; border-radius: 4px; margin-bottom: 0.3rem; max-height: 60px; overflow-y: auto;">
+                                    ${c.thread_chunks.length > 0 ? c.thread_chunks[0] : '<em>No text</em>'}
+                                </div>
+                                <div style="font-size: 0.68rem; color: var(--accent);">
+                                    🖼️ Attachment: ${attach.dimensions.width}x${attach.dimensions.height} (${attach.layout})
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+
+                    box.style.display = 'block';
+                }
+            } catch (err) {
+                console.error("Failed to load composite cross-post preview:", err);
+            }
         }
 
         async function testSplitPreview() {

@@ -2444,6 +2444,50 @@ class TestSyndication(unittest.TestCase):
             self.assertTrue(pdata["success"])
             self.assertTrue(pdata["dry_run"])
 
+    def test_composite_syndication_preview_and_api(self):
+        """Tests simulate_composite_syndication_preview and /api/syndication/composite-preview."""
+        import syndication
+
+        # 1. Preview simulation with side-by-side layout
+        preview_sbs = syndication.simulate_composite_syndication_preview(
+            content="Multi-panel telemetry test payload for orbital insertion.",
+            panels=[{"title": "P1", "text": "T1"}, {"title": "P2", "text": "T2"}],
+            theme="cyberpunk",
+            layout="side-by-side"
+        )
+        self.assertEqual(preview_sbs["attachment"]["layout"], "side-by-side")
+        self.assertEqual(preview_sbs["attachment"]["dimensions"]["width"], 800)
+        self.assertEqual(preview_sbs["attachment"]["dimensions"]["height"], 420)
+        self.assertIn("twitter", preview_sbs["channels"])
+        self.assertIn("mastodon", preview_sbs["channels"])
+        self.assertIn("bluesky", preview_sbs["channels"])
+        self.assertEqual(preview_sbs["channels"]["twitter"]["parts_count"], 1)
+
+        # 2. Preview simulation with grid layout
+        preview_grid = syndication.simulate_composite_syndication_preview(
+            content="Long narrative payload " * 25,
+            theme="solar",
+            layout="grid"
+        )
+        self.assertEqual(preview_grid["attachment"]["layout"], "grid")
+        self.assertEqual(preview_grid["attachment"]["dimensions"]["height"], 620)
+        self.assertTrue(preview_grid["channels"]["twitter"]["parts_count"] > 1)
+        self.assertTrue(preview_grid["channels"]["twitter"]["is_threaded"])
+
+        # 3. REST API /api/syndication/composite-preview
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/syndication/composite-preview", json={
+                "content": "Deep space propulsion updates and telemetry simulation.",
+                "theme": "dark",
+                "layout": "side-by-side"
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("preview", data)
+            self.assertIn("channels", data["preview"])
+            self.assertEqual(data["preview"]["attachment"]["theme"], "dark")
+
 
 if __name__ == "__main__":
     unittest.main()
