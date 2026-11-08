@@ -501,6 +501,7 @@ def api_schedule():
         content = data.get("content", "").strip()
         scheduled_time = data.get("scheduled_time", "").strip()
         persona = data.get("persona", CURRENT_PERSONA).strip()
+        account_handle = data.get("account_handle", "@make_elon_laugh").strip() or "@make_elon_laugh"
 
         if not content:
             return jsonify({"success": False, "error": "Content cannot be empty."}), 400
@@ -508,13 +509,16 @@ def api_schedule():
             return jsonify({"success": False, "error": "Scheduled time is required (YYYY-MM-DD HH:MM)."}), 400
 
         try:
-            tweet_id = scheduler.enqueue_scheduled_tweet(content, scheduled_time, persona=persona)
+            tweet_id = scheduler.enqueue_scheduled_tweet(
+                content, scheduled_time, persona=persona, account_handle=account_handle
+            )
             if tweet_id:
-                logging.info(f"Enqueued scheduled tweet ID {tweet_id} for {scheduled_time}.")
+                logging.info(f"Enqueued scheduled tweet ID {tweet_id} [{account_handle}] for {scheduled_time}.")
                 return jsonify({
                     "success": True,
                     "id": tweet_id,
-                    "message": "Tweet scheduled successfully.",
+                    "account_handle": account_handle,
+                    "message": f"Tweet scheduled successfully for {account_handle}.",
                     "scheduled_tweets": db.get_scheduled_tweets(limit=10)
                 })
             return jsonify({"success": False, "error": "Database error while enqueuing tweet."}), 500
@@ -535,8 +539,9 @@ def api_schedule():
 
     # GET request
     status = request.args.get("status")
+    account_handle = request.args.get("account_handle")
     limit = request.args.get("limit", 20, type=int)
-    tweets = db.get_scheduled_tweets(status=status, limit=limit)
+    tweets = db.get_scheduled_tweets(status=status, account_handle=account_handle, limit=limit)
 
     # Compute calendar distribution across 7 days of current week (Monday=0 to Sunday=6)
     calendar_breakdown = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
@@ -545,10 +550,14 @@ def api_schedule():
     total_pending = 0
     total_sent = 0
     total_cancelled = 0
+    account_counts = {}
 
     all_recent = db.get_scheduled_tweets(limit=100)
     for t in all_recent:
         st = t.get("status", "pending")
+        acc = t.get("account_handle", "@make_elon_laugh") or "@make_elon_laugh"
+        account_counts[acc] = account_counts.get(acc, 0) + 1
+
         if st == "pending":
             total_pending += 1
             # Add to day breakdown if parsable
@@ -571,6 +580,7 @@ def api_schedule():
             "sent": total_sent,
             "cancelled": total_cancelled
         },
+        "account_counts": account_counts,
         "weekly_calendar": calendar_breakdown
     })
 

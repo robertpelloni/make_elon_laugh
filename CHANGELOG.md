@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-11-08
+
+### Added
+- **Multi-Account Scheduled Tweet Routing & Account Profiles (`db.py`, `scheduler.py`)**:
+  - Extended `scheduled_tweets` SQLite schema and automated migration logic with `account_handle` column (defaulting to primary `@make_elon_laugh`).
+  - Updated `db.schedule_tweet` and `db.get_scheduled_tweets` to persist and filter by `account_handle`.
+  - Enhanced `scheduler.enqueue_scheduled_tweet` with account normalization and `scheduler.process_due_tweets` with account attribution logging.
+- **Multi-Account Schedule REST APIs (`dashboard.py`)**:
+  - Enhanced `/api/schedule` (GET & POST) to handle optional `account_handle` queries and submissions.
+  - Returns `account_counts` distribution alongside existing calendar breakdown.
+- **Command Center Multi-Account Queue Controls (`templates/index.html`)**:
+  - Added Account Profile selector dropdown (`@make_elon_laugh [Primary]`, `@space_astronomy [Secondary]`) with tooltip guidance.
+  - Added dedicated Account column and visual badge indicator in the Scheduled Tweet Queue table.
+- **Comprehensive Unit Testing Suite**:
+  - Added tests in `test_bot.py` covering multi-account persistence, handle filtering, and `/api/schedule` REST endpoints (105 passing tests, 0 `flake8` warnings).
+
 ## [0.30.0] - 2026-11-07
 
 ### Added

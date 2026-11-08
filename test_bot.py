@@ -322,14 +322,28 @@ class TestDatabaseStorage(unittest.TestCase):
         self.assertEqual(ratings[1]["rating"], 1)
 
     def test_scheduled_tweets_storage(self):
-        # Schedule tweet
-        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer", self.test_db)
+        # Schedule tweet with default account
+        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer",
+                                db_path=self.test_db)
         self.assertIsNotNone(tid)
 
+        # Schedule second tweet with secondary account
+        tid2 = db.schedule_tweet("Nebula survey observation", "2026-12-02 12:00:00", "deadpan_astronomer",
+                                 db_path=self.test_db, account_handle="@space_astronomy")
+        self.assertIsNotNone(tid2)
+
         pending = db.get_scheduled_tweets(status="pending", limit=5, db_path=self.test_db)
-        self.assertEqual(len(pending), 1)
+        self.assertEqual(len(pending), 2)
         self.assertEqual(pending[0]["content"], "Starship launch tomorrow!")
         self.assertEqual(pending[0]["status"], "pending")
+        self.assertEqual(pending[0]["account_handle"], "@make_elon_laugh")
+        self.assertEqual(pending[1]["account_handle"], "@space_astronomy")
+
+        # Filter by account_handle
+        sec_tweets = db.get_scheduled_tweets(status="pending", account_handle="@space_astronomy",
+                                             limit=5, db_path=self.test_db)
+        self.assertEqual(len(sec_tweets), 1)
+        self.assertEqual(sec_tweets[0]["content"], "Nebula survey observation")
 
         # Update status
         updated = db.update_scheduled_tweet_status(tid, "sent", self.test_db)
@@ -677,10 +691,13 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         post_res = self.client.post('/api/schedule', json={
             "content": "Scheduled falcon flight test",
             "scheduled_time": "2026-11-10 14:00:00",
-            "persona": "witty_ai"
+            "persona": "witty_ai",
+            "account_handle": "@space_astronomy"
         })
         self.assertEqual(post_res.status_code, 200)
-        tid = post_res.get_json()["id"]
+        post_data = post_res.get_json()
+        tid = post_data["id"]
+        self.assertEqual(post_data.get("account_handle"), "@space_astronomy")
 
         # Verify weekly_calendar reflects the newly scheduled pending tweet
         get_res_after = self.client.get('/api/schedule')

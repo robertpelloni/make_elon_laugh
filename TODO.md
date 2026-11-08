@@ -51,6 +51,10 @@
 - [x] Expose theme selection and binary file streaming download in `/api/meme/download` (`dashboard.py`).
 - [x] Add theme selector dropdown and Download PNG Card button in Command Center UI (`templates/index.html`).
 - [x] Add automated unit tests for meme card themes and binary download attachments (`test_bot.py`).
+- [x] Implement multi-account scheduling queue schema and attribution (`db.py`, `scheduler.py`).
+- [x] Expose account handle filtering and breakdown in `/api/schedule` (`dashboard.py`).
+- [x] Wire account profile selector and badge indicators in Scheduled Tweet Queue table (`templates/index.html`).
+- [x] Add automated tests for multi-account scheduling persistence and APIs (`test_bot.py`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

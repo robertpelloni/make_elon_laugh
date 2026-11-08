@@ -12,9 +12,14 @@ from syndication import dispatch_syndicated_post
 logger = logging.getLogger(__name__)
 
 
-def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer", db_path=db.DB_PATH):
+SUPPORTED_ACCOUNTS = ["@make_elon_laugh", "@space_astronomy"]
+
+
+def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
+                            account_handle="@make_elon_laugh", db_path=db.DB_PATH):
     """
-    Enqueues a new tweet to be posted at scheduled_time (ISO 8601 string or YYYY-MM-DD HH:MM:SS).
+    Enqueues a new tweet to be posted at scheduled_time (ISO 8601 string or YYYY-MM-DD HH:MM:SS)
+    attributed to a specific account profile.
     """
     if not content or not str(content).strip():
         raise ValueError("Content cannot be empty.")
@@ -23,7 +28,13 @@ def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
     if persona not in joke_generator.PERSONAS:
         persona = "tactful_engineer"
 
-    return db.schedule_tweet(content, scheduled_time, persona=persona, db_path=db_path)
+    # Validate and normalize account handle
+    account_handle = str(account_handle).strip() if account_handle else "@make_elon_laugh"
+    if not account_handle.startswith("@"):
+        account_handle = f"@{account_handle}"
+
+    return db.schedule_tweet(content, scheduled_time, persona=persona,
+                             account_handle=account_handle, db_path=db_path)
 
 
 def get_pending_due_tweets(now_dt=None, db_path=db.DB_PATH):
@@ -48,7 +59,8 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
 
     for tweet in due_tweets:
         mode_label = "DRY-RUN" if dry_run else "LIVE"
-        logger.info(f"[{mode_label}] Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}")
+        acc = tweet.get("account_handle", "@make_elon_laugh")
+        logger.info(f"[{mode_label}][Account: {acc}] Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}")
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)
 

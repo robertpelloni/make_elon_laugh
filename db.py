@@ -55,6 +55,7 @@ def init_db(db_path=DB_PATH):
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS scheduled_tweets (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_handle TEXT DEFAULT '@make_elon_laugh',
                     content TEXT NOT NULL,
                     scheduled_time TIMESTAMP NOT NULL,
                     persona TEXT DEFAULT 'tactful_engineer',
@@ -62,6 +63,12 @@ def init_db(db_path=DB_PATH):
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+
+            # Migration: Ensure account_handle column exists on scheduled_tweets
+            cursor.execute("PRAGMA table_info(scheduled_tweets)")
+            sched_cols = [row[1] for row in cursor.fetchall()]
+            if 'account_handle' not in sched_cols:
+                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN account_handle TEXT DEFAULT '@make_elon_laugh'")
 
             # Table for cross-platform syndicated posts (Mastodon, Bluesky)
             cursor.execute('''
@@ -203,17 +210,19 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
         return []
 
 
-def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH):
-    """Enqueues a tweet/joke for automated future posting."""
+def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH,
+                   account_handle="@make_elon_laugh"):
+    """Enqueues a tweet/joke for automated future posting with optional target account routing."""
     try:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
-            sql = "INSERT INTO scheduled_tweets (content, scheduled_time, persona, status) VALUES (?, ?, ?, 'pending')"
+            sql = ("INSERT INTO scheduled_tweets (content, scheduled_time, persona, status, account_handle) "
+                   "VALUES (?, ?, ?, 'pending', ?)")
             try:
-                cursor.execute(sql, (content.strip(), scheduled_time, persona))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip()))
             except sqlite3.OperationalError:
                 init_db(db_path)
-                cursor.execute(sql, (content.strip(), scheduled_time, persona))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip()))
             conn.commit()
             return cursor.lastrowid
     except sqlite3.Error as e:
@@ -221,24 +230,34 @@ def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=
         return None
 
 
-def get_scheduled_tweets(status=None, limit=20, db_path=DB_PATH):
-    """Retrieves scheduled tweets filtered optionally by status."""
+def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_PATH):
+    """Retrieves scheduled tweets filtered optionally by status and target account."""
     try:
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             try:
+                query = ("SELECT id, content, scheduled_time, persona, status, created_at, account_handle "
+                         "FROM scheduled_tweets")
+                params = []
+                conditions = []
+
                 if status:
-                    cursor.execute(
-                        "SELECT id, content, scheduled_time, persona, status, created_at "
-                        "FROM scheduled_tweets WHERE status = ? ORDER BY scheduled_time ASC LIMIT ?",
-                        (status, limit)
-                    )
+                    conditions.append("status = ?")
+                    params.append(status)
+                if account_handle:
+                    conditions.append("account_handle = ?")
+                    params.append(account_handle.strip())
+
+                if conditions:
+                    query += " WHERE " + " AND ".join(conditions)
+
+                if status == "pending":
+                    query += " ORDER BY scheduled_time ASC LIMIT ?"
                 else:
-                    cursor.execute(
-                        "SELECT id, content, scheduled_time, persona, status, created_at "
-                        "FROM scheduled_tweets ORDER BY scheduled_time DESC LIMIT ?",
-                        (limit,)
-                    )
+                    query += " ORDER BY scheduled_time DESC LIMIT ?"
+                params.append(limit)
+
+                cursor.execute(query, tuple(params))
             except sqlite3.OperationalError:
                 init_db(db_path)
                 return []
@@ -250,7 +269,8 @@ def get_scheduled_tweets(status=None, limit=20, db_path=DB_PATH):
                     "scheduled_time": r[2],
                     "persona": r[3],
                     "status": r[4],
-                    "created_at": r[5]
+                    "created_at": r[5],
+                    "account_handle": r[6] if len(r) > 6 and r[6] else "@make_elon_laugh"
                 }
                 for r in cursor.fetchall()
             ]

@@ -1,6 +1,21 @@
 # Session Handoff & Continuity Notes
 
-## Current Version: 0.30.0
+## Current Version: 0.31.0
+
+### Key Deliverables in v0.31.0
+1. **Multi-Account Scheduled Tweet Routing & Account Profiles (`db.py`, `scheduler.py`)**:
+   - Added `account_handle` column and migration logic to `scheduled_tweets` SQLite table (defaults to `@make_elon_laugh`).
+   - Extended `db.schedule_tweet` and `db.get_scheduled_tweets` to persist and filter by `account_handle`.
+   - Updated `scheduler.enqueue_scheduled_tweet` and `scheduler.process_due_tweets` with account normalization and attribution logging.
+2. **Multi-Account Schedule REST APIs (`dashboard.py`)**:
+   - Enhanced `/api/schedule` (GET & POST) to handle `account_handle` queries and return `account_counts` distribution.
+3. **Command Center Multi-Account Queue Controls (`templates/index.html`)**:
+   - Added Account Profile selector dropdown (`@make_elon_laugh [Primary]`, `@space_astronomy [Secondary]`) with tooltip guidance.
+   - Added Account column and status badges to the queue table.
+4. **Testing, Linting & Visual Verification**:
+   - 105 unit tests passing cleanly in `test_bot.py`.
+   - Clean `flake8 .` linting with 0 errors.
+   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_31_multi_account.png`).
 
 ### Key Deliverables in v0.30.0
 1. **Multi-Theme Visual Meme Card Engine (`meme_generator.py`, `joke_generator.py`)**:
