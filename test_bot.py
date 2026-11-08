@@ -2488,6 +2488,87 @@ class TestSyndication(unittest.TestCase):
             self.assertIn("channels", data["preview"])
             self.assertEqual(data["preview"]["attachment"]["theme"], "dark")
 
+    def test_syndication_dead_letter_queue_and_api(self):
+        """Tests syndication DLQ database helpers, auto-enqueuing, replay, and REST APIs."""
+        import syndication
+        test_db = f"test_dlq_{int(time.time() * 1000)}.db"
+        db.init_db(test_db)
+
+        try:
+            # 1. Direct enqueue and retrieval
+            dlq_id = db.enqueue_syndication_dlq(
+                platform="mastodon",
+                content="Failed launch update tweet",
+                error_message="503 Service Unavailable",
+                account_handle="@space_astronomy",
+                db_path=test_db
+            )
+            self.assertIsNotNone(dlq_id)
+
+            items = db.get_syndication_dlq(db_path=test_db)
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["platform"], "mastodon")
+            self.assertEqual(items[0]["account_handle"], "@space_astronomy")
+            self.assertEqual(items[0]["status"], "pending")
+            self.assertEqual(items[0]["retry_count"], 0)
+
+            # 2. Replay dry-run
+            replay_res = syndication.replay_syndication_dlq_item(dlq_id, dry_run=True, db_path=test_db)
+            self.assertTrue(replay_res["success"])
+            self.assertEqual(replay_res["status"], "replayed")
+
+            items_replayed = db.get_syndication_dlq(status="replayed", db_path=test_db)
+            self.assertEqual(len(items_replayed), 1)
+
+            # 3. Discard helper
+            dlq_id2 = db.enqueue_syndication_dlq(
+                platform="bluesky",
+                content="Stale notice",
+                error_message="400 Bad Request",
+                db_path=test_db
+            )
+            discard_res = syndication.discard_syndication_dlq_item(dlq_id2, db_path=test_db)
+            self.assertTrue(discard_res["success"])
+
+            metrics = db.get_syndication_dlq_metrics(db_path=test_db)
+            self.assertEqual(metrics["replayed"], 1)
+            self.assertEqual(metrics["discarded"], 1)
+
+            # 4. Process DLQ batch helper
+            db.enqueue_syndication_dlq(
+                platform="mastodon",
+                content="Batch retryable item",
+                error_message="TimeoutError",
+                db_path=test_db
+            )
+            batch_summary = syndication.process_syndication_dlq(limit=5, dry_run=True, db_path=test_db)
+            self.assertEqual(batch_summary["processed"], 1)
+            self.assertEqual(batch_summary["replayed"], 1)
+
+            # 5. REST API endpoints
+            with dashboard.app.test_client() as client:
+                # GET /api/syndication/dlq
+                res_get = client.get("/api/syndication/dlq")
+                self.assertEqual(res_get.status_code, 200)
+                data_get = res_get.get_json()
+                self.assertTrue(data_get["success"])
+                self.assertIn("items", data_get)
+                self.assertIn("metrics", data_get)
+
+                # POST /api/syndication/dlq/replay (batch)
+                res_batch = client.post("/api/syndication/dlq/replay", json={"all": True, "dry_run": True})
+                self.assertEqual(res_batch.status_code, 200)
+                data_batch = res_batch.get_json()
+                self.assertTrue(data_batch["success"])
+                self.assertTrue(data_batch["batch"])
+
+                # POST /api/syndication/dlq/discard without id
+                res_bad = client.post("/api/syndication/dlq/discard", json={})
+                self.assertEqual(res_bad.status_code, 400)
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

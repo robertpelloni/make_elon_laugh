@@ -118,6 +118,22 @@ def init_db(db_path=DB_PATH):
                 )
             ''')
 
+            # Table for Dead-Letter Queue (DLQ) tracking failed syndication broadcasts
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS syndication_dlq (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    platform TEXT NOT NULL, -- 'mastodon', 'bluesky'
+                    account_handle TEXT DEFAULT '@make_elon_laugh',
+                    content TEXT NOT NULL,
+                    error_message TEXT,
+                    retry_count INTEGER DEFAULT 0,
+                    max_retries INTEGER DEFAULT 3,
+                    status TEXT DEFAULT 'pending', -- 'pending', 'replayed', 'exhausted', 'discarded'
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -711,3 +727,168 @@ def set_account_syndication_routes(account_handle, platforms, enabled=1, db_path
     except sqlite3.Error as e:
         logger.error(f"Database error setting syndication route for {handle_norm}: {e}")
         return False
+
+
+def enqueue_syndication_dlq(platform, content, error_message, account_handle="@make_elon_laugh",
+                            max_retries=3, db_path=DB_PATH):
+    """
+    Persists a failed syndication broadcast into the Dead-Letter Queue (DLQ).
+    """
+    if not platform or not content:
+        return None
+    plat_norm = str(platform).strip().lower()
+    handle_norm = str(account_handle).strip() if account_handle else "@make_elon_laugh"
+    if not handle_norm.startswith("@"):
+        handle_norm = f"@{handle_norm}"
+
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = '''
+                INSERT INTO syndication_dlq
+                (platform, account_handle, content, error_message, retry_count, max_retries, status)
+                VALUES (?, ?, ?, ?, 0, ?, 'pending')
+            '''
+            try:
+                cursor.execute(sql, (plat_norm, handle_norm, str(content), str(error_message or ""), max_retries))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, (plat_norm, handle_norm, str(content), str(error_message or ""), max_retries))
+            conn.commit()
+            dlq_id = cursor.lastrowid
+            logger.warning(
+                f"[DLQ] Enqueued failed {plat_norm} broadcast ID {dlq_id} for {handle_norm}: {error_message}"
+            )
+            return dlq_id
+    except sqlite3.Error as e:
+        logger.error(f"Database error enqueueing into syndication DLQ: {e}")
+        return None
+
+
+def get_syndication_dlq(status=None, limit=20, db_path=DB_PATH):
+    """
+    Retrieves records from the syndication DLQ, optionally filtered by status ('pending', 'replayed', etc.).
+    """
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            base_sql = (
+                "SELECT id, platform, account_handle, content, error_message, "
+                "retry_count, max_retries, status, created_at, updated_at FROM syndication_dlq"
+            )
+            params = []
+            if status:
+                base_sql += " WHERE status = ?"
+                params.append(str(status).strip().lower())
+            base_sql += " ORDER BY id DESC LIMIT ?"
+            params.append(int(limit))
+
+            try:
+                cursor.execute(base_sql, tuple(params))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(base_sql, tuple(params))
+
+            rows = cursor.fetchall()
+            return [
+                {
+                    "id": r[0],
+                    "platform": r[1],
+                    "account_handle": r[2],
+                    "content": r[3],
+                    "error_message": r[4],
+                    "retry_count": r[5],
+                    "max_retries": r[6],
+                    "status": r[7],
+                    "created_at": r[8],
+                    "updated_at": r[9]
+                }
+                for r in rows
+            ]
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching syndication DLQ items: {e}")
+        return []
+
+
+def update_syndication_dlq_status(dlq_id, status, error_message=None, increment_retry=False, db_path=DB_PATH):
+    """
+    Updates the status and optional error message of a syndication DLQ item,
+    optionally incrementing retry_count.
+    """
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            if increment_retry:
+                if error_message is not None:
+                    sql = '''
+                        UPDATE syndication_dlq
+                        SET status = ?, error_message = ?, retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    '''
+                    params = (status, str(error_message), dlq_id)
+                else:
+                    sql = '''
+                        UPDATE syndication_dlq
+                        SET status = ?, retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    '''
+                    params = (status, dlq_id)
+            else:
+                if error_message is not None:
+                    sql = '''
+                        UPDATE syndication_dlq
+                        SET status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    '''
+                    params = (status, str(error_message), dlq_id)
+                else:
+                    sql = '''
+                        UPDATE syndication_dlq
+                        SET status = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    '''
+                    params = (status, dlq_id)
+
+            try:
+                cursor.execute(sql, params)
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, params)
+
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating syndication DLQ item {dlq_id}: {e}")
+        return False
+
+
+def get_syndication_dlq_metrics(db_path=DB_PATH):
+    """
+    Computes summary metrics for syndication DLQ (pending, exhausted, replayed, discarded, total).
+    """
+    counts = {
+        "total": 0,
+        "pending": 0,
+        "exhausted": 0,
+        "replayed": 0,
+        "discarded": 0
+    }
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = "SELECT status, COUNT(*) FROM syndication_dlq GROUP BY status"
+            try:
+                cursor.execute(sql)
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql)
+
+            for status, count in cursor.fetchall():
+                st_key = str(status).lower()
+                if st_key in counts:
+                    counts[st_key] = count
+                counts["total"] += count
+            return counts
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching syndication DLQ metrics: {e}")
+        return counts

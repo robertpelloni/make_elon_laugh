@@ -1108,6 +1108,102 @@ def api_syndication_composite_preview():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/syndication/dlq', methods=['GET'])
+def api_syndication_dlq():
+    """
+    Returns items in the syndication Dead-Letter Queue (DLQ) and summary metrics.
+    Query parameters:
+        status: optional filter ('pending', 'exhausted', 'replayed', 'discarded')
+        limit: int (default 20)
+    """
+    try:
+        status = request.args.get('status')
+        limit = request.args.get('limit', 20)
+        try:
+            limit = max(1, min(100, int(limit)))
+        except (ValueError, TypeError):
+            limit = 20
+
+        items = db.get_syndication_dlq(status=status, limit=limit)
+        metrics = db.get_syndication_dlq_metrics()
+        return jsonify({
+            "success": True,
+            "items": items,
+            "metrics": metrics
+        })
+    except Exception as e:
+        app.logger.error(f"Error retrieving syndication DLQ: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/syndication/dlq/replay', methods=['POST'])
+def api_syndication_dlq_replay():
+    """
+    Replays an individual DLQ item by ID or batch-replays pending items.
+    JSON payload:
+        id: int (optional, specific DLQ ID)
+        all: bool (optional, if True replays all pending items)
+        dry_run: bool (optional, defaults to True for safety if not explicitly set to False)
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        dry_run = data.get('dry_run', True)
+        if isinstance(dry_run, str):
+            dry_run = dry_run.lower() in ('true', '1', 'yes')
+
+        item_id = data.get('id')
+        process_all = bool(data.get('all', False))
+
+        if process_all:
+            result = syndication.process_syndication_dlq(limit=data.get('limit', 10), dry_run=dry_run)
+            metrics = db.get_syndication_dlq_metrics()
+            return jsonify({
+                "success": True,
+                "batch": True,
+                "summary": result,
+                "metrics": metrics
+            })
+
+        if not item_id:
+            return jsonify({"success": False, "error": "Missing 'id' or 'all' in request."}), 400
+
+        result = syndication.replay_syndication_dlq_item(int(item_id), dry_run=dry_run)
+        metrics = db.get_syndication_dlq_metrics()
+        return jsonify({
+            "success": result.get("success", False),
+            "result": result,
+            "metrics": metrics
+        })
+    except Exception as e:
+        app.logger.error(f"Error replaying syndication DLQ item: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/syndication/dlq/discard', methods=['POST'])
+def api_syndication_dlq_discard():
+    """
+    Discards an item in the Dead-Letter Queue.
+    JSON payload:
+        id: int (required)
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        item_id = data.get('id')
+        if not item_id:
+            return jsonify({"success": False, "error": "Missing 'id' in request."}), 400
+
+        res = syndication.discard_syndication_dlq_item(int(item_id))
+        metrics = db.get_syndication_dlq_metrics()
+        return jsonify({
+            "success": res.get("success", False),
+            "result": res,
+            "metrics": metrics
+        })
+    except Exception as e:
+        app.logger.error(f"Error discarding syndication DLQ item: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def api_webhook():
     """

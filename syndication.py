@@ -145,10 +145,12 @@ def resolve_platforms_for_account(account_handle=None, fallback_to_defaults=True
     return default_plats
 
 
-def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, auto_split=True):
+def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, auto_split=True,
+                             account_handle="@make_elon_laugh", enqueue_dlq_on_fail=True):
     """
     Dispatches content to enabled federation platforms (Mastodon, Bluesky).
     If auto_split is True, content exceeding platform character limit is split into sequential chunks.
+    If dispatch fails and enqueue_dlq_on_fail is True (and not dry_run), enqueues the post into DLQ.
     Returns dict mapping platform -> {"success": bool, "status": str, "parts": int}.
     """
     global LAST_SYNDICATED_POST
@@ -199,6 +201,14 @@ def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, aut
                     remote_id=f"bsky_{int(time.time())}_{idx}" if (succ or dry_run) else None,
                     status=status_label
                 )
+
+        if not all_part_success and not dry_run and enqueue_dlq_on_fail:
+            db.enqueue_syndication_dlq(
+                platform=plat_lower,
+                content=text,
+                error_message=last_status,
+                account_handle=account_handle
+            )
 
         results[plat_lower] = {
             "success": all_part_success,
@@ -455,4 +465,105 @@ def simulate_composite_syndication_preview(content, panels=None, theme="dark", l
                 "ready": BLUESKY_ENABLED
             }
         }
+    }
+
+
+def replay_syndication_dlq_item(dlq_id, dry_run=False, timeout=5, db_path=db.DB_PATH):
+    """
+    Replays a specific Dead-Letter Queue item by ID against its target platform.
+    If successful, marks item status as 'replayed'.
+    If failed and retry limit reached, marks as 'exhausted'; otherwise leaves 'pending' with incremented retries.
+    """
+    items = db.get_syndication_dlq(limit=1000, db_path=db_path)
+    target = next((item for item in items if item["id"] == int(dlq_id)), None)
+    if not target:
+        return {"success": False, "error": f"DLQ item {dlq_id} not found", "item": None}
+
+    platform = target["platform"].lower()
+    content = target["content"]
+    retry_count = target["retry_count"] + 1
+    max_retries = target["max_retries"]
+
+    succ = False
+    s_msg = ""
+    if dry_run:
+        succ = True
+        s_msg = f"Simulated replay for {platform}"
+    else:
+        if platform == "mastodon":
+            succ, s_msg = dispatch_mastodon(content, dry_run=False, timeout=timeout)
+        elif platform == "bluesky":
+            succ, s_msg = dispatch_bluesky(content, dry_run=False, timeout=timeout)
+        else:
+            s_msg = f"Unsupported platform '{platform}'"
+
+    if succ:
+        db.update_syndication_dlq_status(
+            dlq_id=int(dlq_id),
+            status="replayed",
+            error_message="Replayed successfully",
+            increment_retry=True,
+            db_path=db_path
+        )
+        return {"success": True, "status": "replayed", "message": s_msg, "item_id": dlq_id}
+    else:
+        new_status = "exhausted" if retry_count >= max_retries else "pending"
+        db.update_syndication_dlq_status(
+            dlq_id=int(dlq_id),
+            status=new_status,
+            error_message=s_msg,
+            increment_retry=True,
+            db_path=db_path
+        )
+        return {
+            "success": False,
+            "status": new_status,
+            "error": s_msg,
+            "retry_count": retry_count,
+            "max_retries": max_retries,
+            "item_id": dlq_id
+        }
+
+
+def discard_syndication_dlq_item(dlq_id, db_path=db.DB_PATH):
+    """
+    Discards a Dead-Letter Queue item, marking it 'discarded'.
+    """
+    ok = db.update_syndication_dlq_status(
+        dlq_id=int(dlq_id),
+        status="discarded",
+        error_message="Discarded by operator",
+        increment_retry=False,
+        db_path=db_path
+    )
+    return {"success": ok, "item_id": dlq_id, "status": "discarded" if ok else "failed"}
+
+
+def process_syndication_dlq(limit=10, dry_run=False, db_path=db.DB_PATH):
+    """
+    Processes pending Dead-Letter Queue items eligible for retry.
+    Returns summary dict of processed items and outcomes.
+    """
+    pending = db.get_syndication_dlq(status="pending", limit=limit, db_path=db_path)
+    replayed = 0
+    exhausted = 0
+    still_pending = 0
+    details = []
+
+    for item in pending:
+        res = replay_syndication_dlq_item(item["id"], dry_run=dry_run, db_path=db_path)
+        details.append(res)
+        if res.get("success"):
+            replayed += 1
+        elif res.get("status") == "exhausted":
+            exhausted += 1
+        else:
+            still_pending += 1
+
+    return {
+        "processed": len(pending),
+        "replayed": replayed,
+        "exhausted": exhausted,
+        "still_pending": still_pending,
+        "results": details
     }

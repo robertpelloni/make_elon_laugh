@@ -1,19 +1,24 @@
-# Session Handoff - Release v0.43.0
+# Session Handoff - Release v0.44.0
 
-## Completed in v0.43.0:
-1. **Multi-Channel Cross-Posting Preview Simulation for Composite Graphics (`syndication.py`)**:
-   - Implemented `simulate_composite_syndication_preview(content, panels, theme, layout)` calculating per-network distribution simulation payloads across Twitter/X, Mastodon ActivityPub, and Bluesky ATProto.
-   - Automatically models character length limits, split thread part calculations, platform configuration readiness, and composite graphic dimensions.
-2. **Composite Syndication Preview REST API (`dashboard.py`)**:
-   - Added `POST /api/syndication/composite-preview` accepting composite content, panels, and layout parameters, returning serialized multi-channel preview structures.
-3. **Command Center Multi-Channel Federation Preview UI (`templates/index.html`)**:
-   - Added `📡 Cross-Post Preview` action button (`#btn-composite-crosspost-preview`) with comprehensive tooltip guidance in the Composite Infographic Studio.
-   - Added dynamic multi-channel preview container rendering simulation cards for Twitter/X, Mastodon ActivityPub, and Bluesky ATProto with character limits, thread count indicators, readiness badges, and graphic dimensions.
-4. **Automated Unit Testing & Visual Verification**:
-   - Added `test_composite_syndication_preview_and_api` in `test_bot.py` testing character thresholds, thread partitioning, attachment metadata, and REST API handling (116 passing unit tests, clean flake8).
-   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_43_composite_preview.png`).
-   - Sourced version from `VERSION.md` (`0.43.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
+## Completed in v0.44.0:
+1. **Automated Syndication Dead-Letter Queue (DLQ) & Retry Console (`db.py`, `syndication.py`)**:
+   - Implemented `syndication_dlq` SQLite table schema tracking failed federation broadcasts (`platform`, `account_handle`, `content`, `error_message`, `retry_count`, `max_retries`, `status`, timestamps) with automated forward migrations.
+   - Implemented database CRUD helpers `enqueue_syndication_dlq()`, `get_syndication_dlq()`, `update_syndication_dlq_status()`, and `get_syndication_dlq_metrics()`.
+   - Updated `dispatch_syndicated_post()` in `syndication.py` to automatically capture failed posts into the DLQ with account handle attribution and error descriptions.
+   - Implemented `replay_syndication_dlq_item()`, `discard_syndication_dlq_item()`, and `process_syndication_dlq()` supporting on-demand single replay and automated batch retry processing.
+2. **Dead-Letter Queue REST APIs (`dashboard.py`)**:
+   - Added `GET /api/syndication/dlq` returning queued DLQ items (filterable by status) and aggregate metrics.
+   - Added `POST /api/syndication/dlq/replay` supporting single item replay by ID or batch processing (`all=true`).
+   - Added `POST /api/syndication/dlq/discard` for operator-initiated item discarding.
+3. **Command Center DLQ & Retries Console (`templates/index.html`)**:
+   - Integrated interactive "Dead-Letter Queue & Retries" console within the Social Federation card with tooltip guidance.
+   - Added status metric badges (Pending, Exhausted, Replayed), item table with account handle badges, and direct `🔁 Replay` / `🗑️ Discard` one-click actions.
+   - Added `⚡ Process Retries` trigger button and dynamic client-side hydration (`loadSyndicationDlq()`).
+4. **Automated Testing & Visual Verification**:
+   - Added `test_syndication_dead_letter_queue_and_api` in `test_bot.py` testing database enqueuing, dry-run replay, discard operations, batch processing, and REST APIs (117 passing unit tests, clean flake8).
+   - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_44_syndication_dlq.png`).
+   - Sourced version from `VERSION.md` (`0.44.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
 
 ## Next Autonomous Objectives:
-- Automated Syndication Retry Dead-Letter Queue with Exponential Backoff and Manual Replay.
-- Automated retry backpressure and circuit breaker for federated node timeout spikes.
+- Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages.
+- Real-time automated DLQ background retry scheduler integration in bot continuous loop.

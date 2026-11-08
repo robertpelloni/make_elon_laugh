@@ -1123,6 +1123,47 @@
                     </div>
                 </div>
 
+                <!-- Syndication Dead-Letter Queue (DLQ) & Retry Console -->
+                <div style="margin-top: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-weight: 600; font-size: 0.85rem;">🔁 Dead-Letter Queue & Retries</span>
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                                <span class="tooltip-text">Autonomous dead-letter queue capturing failed federation broadcasts for Mastodon & Bluesky with exponential retry tracking and manual operator replay.</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span class="status-badge warn" id="dlq-pending-badge" style="font-size: 0.72rem;">0 Pending</span>
+                            <span class="status-badge alert" id="dlq-exhausted-badge" style="font-size: 0.72rem;">0 Exhausted</span>
+                            <span class="status-badge ok" id="dlq-replayed-badge" style="font-size: 0.72rem;">0 Replayed</span>
+                            <button class="btn btn-outline btn-sm" onclick="processAllDlqRetries()" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="Retry all eligible pending broadcasts in the Dead-Letter Queue">
+                                ⚡ Process Retries
+                            </button>
+                        </div>
+                    </div>
+                    <div id="dlq-items-table-container" style="max-height: 160px; overflow-y: auto; font-size: 0.75rem;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); text-align: left;">
+                                    <th style="padding: 0.3rem 0.4rem;">ID</th>
+                                    <th style="padding: 0.3rem 0.4rem;">Platform</th>
+                                    <th style="padding: 0.3rem 0.4rem;">Account</th>
+                                    <th style="padding: 0.3rem 0.4rem;">Content Snippet</th>
+                                    <th style="padding: 0.3rem 0.4rem;">Error / Status</th>
+                                    <th style="padding: 0.3rem 0.4rem;">Retries</th>
+                                    <th style="padding: 0.3rem 0.4rem; text-align: right;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dlq-table-body">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 0.6rem;">No failed syndications recorded in DLQ.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="dlq-feedback" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted);"></div>
+                </div>
+
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
@@ -2210,8 +2251,157 @@
                 }
                 await loadSyndicationRoutes();
                 await probeFederationLatency();
+                await loadSyndicationDlq();
             } catch (err) {
                 console.error("Error loading syndication settings:", err);
+            }
+        }
+
+        async function loadSyndicationDlq() {
+            try {
+                const res = await fetch('/api/syndication/dlq?limit=20');
+                const data = await res.json();
+                if (!data.success) return;
+
+                const m = data.metrics || {};
+                const pendBadge = document.getElementById('dlq-pending-badge');
+                const exhBadge = document.getElementById('dlq-exhausted-badge');
+                const repBadge = document.getElementById('dlq-replayed-badge');
+
+                if (pendBadge) pendBadge.textContent = `${m.pending || 0} Pending`;
+                if (exhBadge) exhBadge.textContent = `${m.exhausted || 0} Exhausted`;
+                if (repBadge) repBadge.textContent = `${m.replayed || 0} Replayed`;
+
+                const tbody = document.getElementById('dlq-table-body');
+                if (!tbody) return;
+
+                if (!data.items || data.items.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 0.6rem;">No failed syndications recorded in DLQ.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.items.map(item => `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 0.3rem 0.4rem; font-family: monospace;">#${item.id}</td>
+                        <td style="padding: 0.3rem 0.4rem;">
+                            <span class="status-badge ${item.platform === 'mastodon' ? 'info' : 'ok'}" style="font-size: 0.7rem;">
+                                ${escapeHtml(item.platform)}
+                            </span>
+                        </td>
+                        <td style="padding: 0.3rem 0.4rem; color: var(--text-muted);">${escapeHtml(item.account_handle || '@make_elon_laugh')}</td>
+                        <td style="padding: 0.3rem 0.4rem; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.content)}">
+                            ${escapeHtml(item.content)}
+                        </td>
+                        <td style="padding: 0.3rem 0.4rem;">
+                            <span class="status-badge ${item.status === 'replayed' ? 'ok' : (item.status === 'exhausted' ? 'alert' : 'warn')}" style="font-size: 0.7rem;" title="${escapeHtml(item.error_message || '')}">
+                                ${escapeHtml(item.status)}
+                            </span>
+                        </td>
+                        <td style="padding: 0.3rem 0.4rem; color: var(--text-muted);">${item.retry_count}/${item.max_retries}</td>
+                        <td style="padding: 0.3rem 0.4rem; text-align: right; white-space: nowrap;">
+                            ${item.status !== 'replayed' && item.status !== 'discarded' ? `
+                                <button class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; margin-right: 0.2rem;" onclick="replayDlqItem(${item.id})">🔁 Replay</button>
+                                <button class="btn btn-danger btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;" onclick="discardDlqItem(${item.id})">🗑️</button>
+                            ` : `<span style="color: var(--text-muted); font-size: 0.68rem;">Resolved</span>`}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error loading DLQ items:", err);
+            }
+        }
+
+        async function replayDlqItem(id) {
+            const feedback = document.getElementById('dlq-feedback');
+            if (feedback) feedback.textContent = `⏳ Replaying DLQ item #${id}...`;
+            try {
+                const res = await fetch('/api/syndication/dlq/replay', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: id, dry_run: true })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (feedback) {
+                        feedback.textContent = `✅ DLQ #${id} replayed successfully (dry run).`;
+                        feedback.style.color = "var(--accent-success)";
+                    }
+                } else {
+                    if (feedback) {
+                        feedback.textContent = `❌ Replay failed: ${data.result ? data.result.error : data.error}`;
+                        feedback.style.color = "var(--accent-alert)";
+                    }
+                }
+                await loadSyndicationDlq();
+                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
+            } catch (e) {
+                if (feedback) {
+                    feedback.textContent = `❌ Error: ${e.message}`;
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            }
+        }
+
+        async function discardDlqItem(id) {
+            const feedback = document.getElementById('dlq-feedback');
+            if (feedback) feedback.textContent = `⏳ Discarding DLQ item #${id}...`;
+            try {
+                const res = await fetch('/api/syndication/dlq/discard', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: id })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (feedback) {
+                        feedback.textContent = `🗑️ DLQ #${id} marked discarded.`;
+                        feedback.style.color = "var(--text-muted)";
+                    }
+                } else {
+                    if (feedback) {
+                        feedback.textContent = `❌ Discard failed: ${data.error}`;
+                        feedback.style.color = "var(--accent-alert)";
+                    }
+                }
+                await loadSyndicationDlq();
+                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
+            } catch (e) {
+                if (feedback) {
+                    feedback.textContent = `❌ Error: ${e.message}`;
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            }
+        }
+
+        async function processAllDlqRetries() {
+            const feedback = document.getElementById('dlq-feedback');
+            if (feedback) feedback.textContent = "⏳ Batch-processing pending DLQ retries...";
+            try {
+                const res = await fetch('/api/syndication/dlq/replay', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ all: true, dry_run: true })
+                });
+                const data = await res.json();
+                if (data.success && data.summary) {
+                    const s = data.summary;
+                    if (feedback) {
+                        feedback.textContent = `✅ Processed ${s.processed} items (${s.replayed} replayed, ${s.still_pending} pending, ${s.exhausted} exhausted).`;
+                        feedback.style.color = "var(--accent-success)";
+                    }
+                } else {
+                    if (feedback) {
+                        feedback.textContent = `❌ Batch retry failed: ${data.error}`;
+                        feedback.style.color = "var(--accent-alert)";
+                    }
+                }
+                await loadSyndicationDlq();
+                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 5000);
+            } catch (e) {
+                if (feedback) {
+                    feedback.textContent = `❌ Error: ${e.message}`;
+                    feedback.style.color = "var(--accent-alert)";
+                }
             }
         }
 

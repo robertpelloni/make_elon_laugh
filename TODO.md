@@ -67,7 +67,8 @@
 - [x] Implement multi-account direct syndication platform routing matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
 - [x] Implement federation instance connection latency prober and status ping worker (`syndication.py`, `dashboard.py`, Command Center UI).
 - [x] Implement multi-channel cross-posting preview simulation for composite graphics across Twitter, Mastodon, and Bluesky (`syndication.py`, `dashboard.py`, Command Center UI).
+- [x] Implement automated syndication dead-letter queue (DLQ) and retry console (`db.py`, `syndication.py`, `dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Implement Automated Syndication Retry Dead-Letter Queue with Exponential Backoff and Manual Replay.
+- [ ] Implement Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages.
