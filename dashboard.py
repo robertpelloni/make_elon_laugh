@@ -949,6 +949,65 @@ def api_syndication():
     })
 
 
+@app.route('/api/syndication/routing', methods=['GET', 'POST'])
+def api_syndication_routing():
+    """
+    Manages account-level syndication routing matrix rules.
+    GET: Returns current per-account routing rules and list of supported accounts/platforms.
+    POST: Upserts routing rules for a given account.
+          Body: {
+            "account_handle": "@make_elon_laugh",
+            "platforms": ["mastodon", "bluesky"],
+            "enabled": true
+          }
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        account_handle = str(data.get("account_handle", "")).strip()
+        if not account_handle:
+            return jsonify({"success": False, "error": "Account handle is required."}), 400
+
+        platforms = data.get("platforms", [])
+        if isinstance(platforms, str):
+            platforms = [p.strip().lower() for p in platforms.split(",") if p.strip()]
+        elif isinstance(platforms, (list, tuple)):
+            platforms = [str(p).strip().lower() for p in platforms if str(p).strip()]
+        else:
+            platforms = []
+
+        enabled = data.get("enabled", True)
+
+        ok = db.set_account_syndication_routes(
+            account_handle=account_handle,
+            platforms=platforms,
+            enabled=1 if enabled else 0
+        )
+        if ok:
+            logging.info(
+                f"Updated syndication routing for account {account_handle} -> {platforms} (enabled: {enabled})"
+            )
+            return jsonify({
+                "success": True,
+                "message": f"Syndication route updated for {account_handle}.",
+                "account_handle": account_handle,
+                "platforms": platforms,
+                "enabled": bool(enabled)
+            })
+        return jsonify({"success": False, "error": "Failed to save syndication route."}), 500
+
+    # GET
+    routes = db.get_account_syndication_routes()
+    supported_accounts = scheduler.SUPPORTED_ACCOUNTS
+    supported_platforms = ["mastodon", "bluesky"]
+
+    return jsonify({
+        "success": True,
+        "routes": routes,
+        "supported_accounts": supported_accounts,
+        "supported_platforms": supported_platforms
+    })
+
+
 @app.route('/api/syndication/metrics', methods=['GET'])
 def api_syndication_metrics():
     """

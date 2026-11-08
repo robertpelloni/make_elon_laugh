@@ -2329,6 +2329,82 @@ class TestSyndication(unittest.TestCase):
             self.assertTrue(comp_data["success"])
             self.assertIn("image_b64", comp_data)
 
+    def test_account_syndication_routing_and_api(self):
+        """Validates account-level syndication routing matrix DB methods, resolution, and REST APIs."""
+        import syndication
+        test_db = f"test_syn_route_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Initially empty routes
+            routes = db.get_account_syndication_routes(test_db)
+            self.assertEqual(routes, [])
+
+            # 2. Upsert route for primary account
+            ok = db.set_account_syndication_routes(
+                "@make_elon_laugh", ["mastodon"], enabled=1, db_path=test_db
+            )
+            self.assertTrue(ok)
+
+            # 3. Upsert route for secondary account
+            ok2 = db.set_account_syndication_routes(
+                "@space_astronomy", "bluesky, mastodon", enabled=1, db_path=test_db
+            )
+            self.assertTrue(ok2)
+
+            routes_after = db.get_account_syndication_routes(test_db)
+            self.assertEqual(len(routes_after), 2)
+
+            # 4. Resolve platforms with account overrides
+            plats_primary = syndication.resolve_platforms_for_account("@make_elon_laugh", db_path=test_db)
+            self.assertEqual(plats_primary, ["mastodon"])
+
+            plats_sec = syndication.resolve_platforms_for_account("@space_astronomy", db_path=test_db)
+            self.assertEqual(sorted(plats_sec), ["bluesky", "mastodon"])
+
+            # 5. Explicitly disabled route
+            db.set_account_syndication_routes("@space_astronomy", ["bluesky"], enabled=0, db_path=test_db)
+            plats_disabled = syndication.resolve_platforms_for_account("@space_astronomy", db_path=test_db)
+            self.assertEqual(plats_disabled, [])
+
+            # 6. Fallback for unconfigured account
+            plats_unconf = syndication.resolve_platforms_for_account("@unconfigured_acc", db_path=test_db)
+            self.assertIsInstance(plats_unconf, list)
+
+            # 7. Test REST APIs /api/syndication/routing
+            with dashboard.app.test_client() as client:
+                # GET
+                get_res = client.get("/api/syndication/routing")
+                self.assertEqual(get_res.status_code, 200)
+                get_data = get_res.get_json()
+                self.assertTrue(get_data["success"])
+                self.assertIn("routes", get_data)
+                self.assertIn("@make_elon_laugh", get_data["supported_accounts"])
+
+                # POST
+                post_res = client.post("/api/syndication/routing", json={
+                    "account_handle": "@make_elon_laugh",
+                    "platforms": ["mastodon", "bluesky"],
+                    "enabled": True
+                })
+                self.assertEqual(post_res.status_code, 200)
+                post_data = post_res.get_json()
+                self.assertTrue(post_data["success"])
+                self.assertEqual(post_data["account_handle"], "@make_elon_laugh")
+
+                # POST empty account error
+                bad_res = client.post("/api/syndication/routing", json={
+                    "account_handle": ""
+                })
+                self.assertEqual(bad_res.status_code, 400)
+
+        finally:
+            if os.path.exists(test_db):
+                try:
+                    os.remove(test_db)
+                except OSError:
+                    pass
+
 
 if __name__ == "__main__":
     unittest.main()

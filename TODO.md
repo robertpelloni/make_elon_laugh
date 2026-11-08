@@ -64,7 +64,8 @@
 - [x] Implement autonomous multi-panel infographic queue scheduling with auto-selected layouts (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
 - [x] Implement digest pipeline visual media distribution and multi-platform webhook analytics (`digest.py`, `webhook.py`, `generate_digest.py`, Command Center UI).
 - [x] Implement multi-panel panel-level custom persona & rephrasing pipeline for infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`, Command Center UI).
+- [x] Implement multi-account direct syndication platform routing matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Multi-account direct syndication platform routing matrix (per-account federation rules).
+- [ ] Federation instance connection latency prober and status ping worker.

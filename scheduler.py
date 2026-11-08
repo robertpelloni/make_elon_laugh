@@ -138,9 +138,14 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)
 
-        # Trigger syndication to federated platforms if enabled
+        # Trigger syndication to federated platforms resolved per account profile
         try:
-            dispatch_syndicated_post(tweet["content"], dry_run=dry_run)
+            from syndication import resolve_platforms_for_account
+            target_platforms = resolve_platforms_for_account(acc, fallback_to_defaults=True, db_path=db_path)
+            if target_platforms:
+                dispatch_syndicated_post(tweet["content"], platforms=target_platforms, dry_run=dry_run)
+            else:
+                logger.info(f"Syndication bypassed for account {acc} (no active routing rules).")
         except Exception as e:
             logger.warning(f"Federated syndication failed for scheduled tweet {tweet['id']}: {e}")
 

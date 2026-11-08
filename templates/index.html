@@ -1057,6 +1057,50 @@
                     </div>
                 </div>
 
+                <!-- Multi-Account Direct Syndication Platform Routing Matrix -->
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-color);">
+                            🧭 Account Syndication Routing Matrix
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Map specific Twitter/X posting accounts to tailored decentralized networks (e.g. primary account to Mastodon + Bluesky, or secondary astrophysics account strictly to Bluesky).</span>
+                            </div>
+                        </span>
+                        <span id="syn-routing-status" class="status-badge info" style="font-size: 0.7rem;">Dynamic Routing Active</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.8rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <label for="syn-route-account" style="color: var(--text-muted); font-size: 0.75rem; margin: 0;">Account:</label>
+                            <select id="syn-route-account" onchange="onSyndicationAccountSelected()" style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                <option value="@make_elon_laugh">@make_elon_laugh [Primary]</option>
+                                <option value="@space_astronomy">@space_astronomy [Secondary]</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.8rem;">
+                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
+                                <input type="checkbox" id="syn-route-mastodon" checked>
+                                <span>🐘 Mastodon</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
+                                <input type="checkbox" id="syn-route-bluesky" checked>
+                                <span>🦋 Bluesky</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
+                                <input type="checkbox" id="syn-route-enabled" checked>
+                                <span>Active</span>
+                            </label>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="saveSyndicationRoute()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
+                            💾 Save Route Rule
+                        </button>
+                        <span id="syn-route-feedback" style="font-size: 0.72rem; color: var(--text-muted);"></span>
+                    </div>
+                    <!-- Live Routing Table / Badges -->
+                    <div id="syn-routes-table" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                        <!-- Injected dynamically via loadSyndicationRoutes -->
+                    </div>
+                </div>
+
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
@@ -1962,6 +2006,101 @@
             }
         }
 
+        let currentSyndicationRoutes = [];
+
+        async function loadSyndicationRoutes() {
+            try {
+                const res = await fetch('/api/syndication/routing');
+                const data = await res.json();
+                if (data.success) {
+                    currentSyndicationRoutes = data.routes || [];
+                    renderSyndicationRoutes();
+                    syncSyndicationFormWithCurrentAccount();
+                }
+            } catch (err) {
+                console.error("Error loading syndication routes:", err);
+            }
+        }
+
+        function renderSyndicationRoutes() {
+            const container = document.getElementById('syn-routes-table');
+            if (!container) return;
+            if (!currentSyndicationRoutes || currentSyndicationRoutes.length === 0) {
+                container.innerHTML = '<span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">No account-specific overrides configured (using system defaults).</span>';
+                return;
+            }
+
+            container.innerHTML = currentSyndicationRoutes.map(r => {
+                const plats = r.platforms && r.platforms.length > 0 ? r.platforms.map(p => p === 'mastodon' ? '🐘 Mastodon' : (p === 'bluesky' ? '🦋 Bluesky' : p)).join(', ') : 'None';
+                const statusColor = r.enabled ? 'var(--accent-success)' : 'var(--accent-alert)';
+                return `
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.72rem;">
+                        <strong>${r.account_handle}</strong>: <span>${plats}</span>
+                        <span style="color: ${statusColor}; font-weight: 600;">[${r.enabled ? 'Active' : 'Disabled'}]</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function onSyndicationAccountSelected() {
+            syncSyndicationFormWithCurrentAccount();
+        }
+
+        function syncSyndicationFormWithCurrentAccount() {
+            const acc = document.getElementById('syn-route-account').value;
+            const existing = currentSyndicationRoutes.find(r => r.account_handle === acc);
+            if (existing) {
+                document.getElementById('syn-route-mastodon').checked = existing.platforms.includes('mastodon');
+                document.getElementById('syn-route-bluesky').checked = existing.platforms.includes('bluesky');
+                document.getElementById('syn-route-enabled').checked = !!existing.enabled;
+            } else {
+                // Defaults
+                document.getElementById('syn-route-mastodon').checked = true;
+                document.getElementById('syn-route-bluesky').checked = true;
+                document.getElementById('syn-route-enabled').checked = true;
+            }
+        }
+
+        async function saveSyndicationRoute() {
+            const acc = document.getElementById('syn-route-account').value;
+            const mastodonChecked = document.getElementById('syn-route-mastodon').checked;
+            const blueskyChecked = document.getElementById('syn-route-bluesky').checked;
+            const enabled = document.getElementById('syn-route-enabled').checked;
+            const feedback = document.getElementById('syn-route-feedback');
+
+            const platforms = [];
+            if (mastodonChecked) platforms.push('mastodon');
+            if (blueskyChecked) platforms.push('bluesky');
+
+            feedback.textContent = "⏳ Saving...";
+            feedback.style.color = "var(--text-muted)";
+
+            try {
+                const res = await fetch('/api/syndication/routing', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        account_handle: acc,
+                        platforms: platforms,
+                        enabled: enabled
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    feedback.textContent = `✅ Saved for ${acc}`;
+                    feedback.style.color = "var(--accent-success)";
+                    await loadSyndicationRoutes();
+                    setTimeout(() => { feedback.textContent = ""; }, 3000);
+                } else {
+                    feedback.textContent = "❌ " + (data.error || "Save failed.");
+                    feedback.style.color = "var(--accent-alert)";
+                }
+            } catch (err) {
+                feedback.textContent = "❌ Error: " + err.message;
+                feedback.style.color = "var(--accent-alert)";
+            }
+        }
+
         async function fetchSyndicationSettings() {
             try {
                 const res = await fetch('/api/syndication');
@@ -1990,6 +2129,7 @@
                     bskyTag.textContent = data.bluesky.enabled ? "Active" : "Disabled";
                     bskyTag.style.color = data.bluesky.enabled ? "var(--accent-success)" : "var(--text-muted)";
                 }
+                await loadSyndicationRoutes();
             } catch (err) {
                 console.error("Error loading syndication settings:", err);
             }

@@ -116,6 +116,35 @@ def dispatch_bluesky(text, dry_run=False, timeout=5):
     return True, "200 OK"
 
 
+def resolve_platforms_for_account(account_handle=None, fallback_to_defaults=True, db_path=db.DB_PATH):
+    """
+    Resolves the targeted syndication platforms for a specific posting account handle
+    based on the account_syndication_routes database table.
+    Returns list of lowercase platform names (e.g. ['mastodon', 'bluesky']).
+    If the account route is explicitly disabled, returns empty list [].
+    If no routing record is found and fallback_to_defaults is True, falls back to
+    system environment variables (MASTODON_ENABLED, BLUESKY_ENABLED).
+    """
+    if account_handle:
+        plats, enabled = db.get_syndication_platforms_for_account(account_handle, db_path=db_path)
+        if enabled is False:
+            # Explicitly disabled for this account
+            return []
+        if plats is not None:
+            return [p.strip().lower() for p in plats if p.strip()]
+
+    if not fallback_to_defaults:
+        return []
+
+    # Module-level defaults
+    default_plats = []
+    if MASTODON_ENABLED:
+        default_plats.append("mastodon")
+    if BLUESKY_ENABLED:
+        default_plats.append("bluesky")
+    return default_plats
+
+
 def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, auto_split=True):
     """
     Dispatches content to enabled federation platforms (Mastodon, Bluesky).

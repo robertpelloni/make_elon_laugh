@@ -107,6 +107,17 @@ def init_db(db_path=DB_PATH):
                 )
             ''')
 
+            # Table for account syndication routing rules
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS account_syndication_routes (
+                    account_handle TEXT PRIMARY KEY,
+                    platforms TEXT NOT NULL, -- comma-separated platforms e.g. "mastodon,bluesky"
+                    enabled INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
         logger.info(f"Database initialized and migrated at {db_path}.")
     except sqlite3.Error as e:
@@ -588,3 +599,115 @@ def get_target_persona_override(target_id, db_path=DB_PATH):
         logger.error(f"Database error checking persona override for {target_id}: {e}")
 
     return None, True
+
+
+def get_account_syndication_routes(db_path=DB_PATH):
+    """
+    Retrieves all configured account-level syndication routing configurations.
+    Returns list of dicts: [{'account_handle': str, 'platforms': list, 'enabled': bool, 'updated_at': str}].
+    """
+    routes = []
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT account_handle, platforms, enabled, updated_at "
+                    "FROM account_syndication_routes ORDER BY account_handle ASC"
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return routes
+
+            for row in cursor.fetchall():
+                raw_plats = row[1] or ""
+                platforms_list = [p.strip().lower() for p in raw_plats.split(",") if p.strip()]
+                routes.append({
+                    "account_handle": str(row[0]),
+                    "platforms": platforms_list,
+                    "enabled": bool(row[2]),
+                    "updated_at": str(row[3])
+                })
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching account syndication routes: {e}")
+    return routes
+
+
+def get_syndication_platforms_for_account(account_handle, db_path=DB_PATH):
+    """
+    Returns (platforms: list, enabled: bool) for a specific account handle.
+    If no record exists, returns (None, None).
+    """
+    if not account_handle:
+        return None, None
+    handle_norm = str(account_handle).strip()
+    if not handle_norm.startswith("@"):
+        handle_norm = f"@{handle_norm}"
+
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute(
+                    "SELECT platforms, enabled FROM account_syndication_routes WHERE account_handle = ?",
+                    (handle_norm,)
+                )
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                return None, None
+
+            row = cursor.fetchone()
+            if row:
+                raw_plats = row[0] or ""
+                platforms_list = [p.strip().lower() for p in raw_plats.split(",") if p.strip()]
+                return platforms_list, bool(row[1])
+    except sqlite3.Error as e:
+        logger.error(f"Database error checking syndication route for {handle_norm}: {e}")
+
+    return None, None
+
+
+def set_account_syndication_routes(account_handle, platforms, enabled=1, db_path=DB_PATH):
+    """
+    Upserts an account's syndication routing configuration.
+    platforms can be a list of strings or a comma-separated string.
+    """
+    if not account_handle or not str(account_handle).strip():
+        raise ValueError("Account handle cannot be empty.")
+
+    handle_norm = str(account_handle).strip()
+    if not handle_norm.startswith("@"):
+        handle_norm = f"@{handle_norm}"
+
+    if isinstance(platforms, (list, tuple)):
+        clean_plats = ",".join(sorted(list({str(p).strip().lower() for p in platforms if str(p).strip()})))
+    else:
+        raw_items = [str(p).strip().lower() for p in str(platforms).split(",") if str(p).strip()]
+        clean_plats = ",".join(sorted(list(set(raw_items))))
+
+    is_enabled = 1 if enabled else 0
+
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = '''
+                INSERT INTO account_syndication_routes (account_handle, platforms, enabled, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(account_handle) DO UPDATE SET
+                    platforms=excluded.platforms,
+                    enabled=excluded.enabled,
+                    updated_at=CURRENT_TIMESTAMP
+            '''
+            try:
+                cursor.execute(sql, (handle_norm, clean_plats, is_enabled))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, (handle_norm, clean_plats, is_enabled))
+            conn.commit()
+            logger.info(
+                f"Account syndication route set for {handle_norm}: platforms='{clean_plats}', enabled={is_enabled}"
+            )
+            return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error setting syndication route for {handle_norm}: {e}")
+        return False
