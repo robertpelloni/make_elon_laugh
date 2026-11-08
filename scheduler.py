@@ -15,13 +15,16 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_ACCOUNTS = ["@make_elon_laugh", "@space_astronomy"]
 SUPPORTED_MEDIA_THEMES = ["dark", "cyberpunk", "solar", "clean"]
+SUPPORTED_MEDIA_TYPES = ["single", "composite"]
+SUPPORTED_COMPOSITE_LAYOUTS = ["auto", "grid", "side-by-side"]
 
 
 def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
-                            account_handle="@make_elon_laugh", media_theme=None, db_path=db.DB_PATH):
+                            account_handle="@make_elon_laugh", media_theme=None,
+                            media_type="single", composite_layout="auto", db_path=db.DB_PATH):
     """
     Enqueues a new tweet to be posted at scheduled_time (ISO 8601 string or YYYY-MM-DD HH:MM:SS)
-    attributed to a specific account profile and optional visual meme card theme.
+    attributed to a specific account profile and optional visual meme card or composite infographic.
     """
     if not content or not str(content).strip():
         raise ValueError("Content cannot be empty.")
@@ -44,8 +47,18 @@ def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
         else:
             raise ValueError(f"Invalid media_theme '{media_theme}'. Choose from: {SUPPORTED_MEDIA_THEMES}")
 
-    return db.schedule_tweet(content, scheduled_time, persona=persona,
-                             account_handle=account_handle, media_theme=clean_media, db_path=db_path)
+    # Validate media_type and composite_layout
+    clean_type = "composite" if str(media_type).strip().lower() == "composite" else "single"
+    clean_layout = str(composite_layout).strip().lower() if composite_layout else "auto"
+    if clean_layout not in SUPPORTED_COMPOSITE_LAYOUTS:
+        clean_layout = "auto"
+
+    return db.schedule_tweet(
+        content, scheduled_time, persona=persona,
+        account_handle=account_handle, media_theme=clean_media,
+        media_type=clean_type, composite_layout=clean_layout,
+        db_path=db_path
+    )
 
 
 def get_pending_due_tweets(now_dt=None, db_path=db.DB_PATH):
@@ -83,22 +96,44 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
         mode_label = "DRY-RUN" if dry_run else "LIVE"
         acc = tweet.get("account_handle", "@make_elon_laugh")
         media_theme = tweet.get("media_theme")
-        media_info = f" [Attached Meme: {media_theme}]" if media_theme else ""
+        media_type = tweet.get("media_type", "single")
+        composite_layout = tweet.get("composite_layout", "auto")
+
+        media_info = ""
+        if media_theme:
+            if media_type == "composite":
+                media_info = f" [Attached Composite Infographic: {media_theme} (layout: {composite_layout})]"
+            else:
+                media_info = f" [Attached Meme: {media_theme}]"
+
         logger.info(
             f"[{mode_label}][Account: {acc}]{media_info} "
             f"Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}"
         )
 
-        # Generate attached meme card binary if media_theme is configured
+        # Generate attached media binary if media_theme is configured
         if media_theme:
             try:
-                card_bytes = meme_generator.create_meme_card(tweet["content"], theme=media_theme)
-                logger.info(
-                    f"Generated {len(card_bytes)} bytes meme card card image "
-                    f"({media_theme}) for tweet ID {tweet['id']}."
-                )
+                if media_type == "composite":
+                    img_bytes = meme_generator.create_composite_infographic(
+                        panels=None,
+                        theme=media_theme,
+                        layout=composite_layout or "auto",
+                        title=f"{acc} Autonomous Briefing",
+                        subtitle=f"Scheduled Broadcast | {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
+                    )
+                    logger.info(
+                        f"Generated {len(img_bytes)} bytes composite infographic "
+                        f"({media_theme}, {composite_layout}) for tweet ID {tweet['id']}."
+                    )
+                else:
+                    card_bytes = meme_generator.create_meme_card(tweet["content"], theme=media_theme)
+                    logger.info(
+                        f"Generated {len(card_bytes)} bytes meme card image "
+                        f"({media_theme}) for tweet ID {tweet['id']}."
+                    )
             except Exception as meme_err:
-                logger.warning(f"Failed to generate meme card for scheduled tweet {tweet['id']}: {meme_err}")
+                logger.warning(f"Failed to generate media for scheduled tweet {tweet['id']}: {meme_err}")
 
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)

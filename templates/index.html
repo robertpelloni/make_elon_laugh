@@ -800,12 +800,21 @@
                 <div style="display: flex; align-items: center; gap: 0.3rem;">
                     <select id="sched-media-theme" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
                         <option value="" selected>📄 No Card Attachment</option>
-                        <option value="dark">🖼️ Dark Theme Meme</option>
-                        <option value="cyberpunk">🎨 Cyberpunk Meme</option>
-                        <option value="solar">☀️ Solar Flare Meme</option>
-                        <option value="clean">✨ Clean Minimal Meme</option>
+                        <option value="dark">🖼️ Dark Theme</option>
+                        <option value="cyberpunk">🎨 Cyberpunk Theme</option>
+                        <option value="solar">☀️ Solar Flare Theme</option>
+                        <option value="clean">✨ Clean Minimal Theme</option>
                     </select>
-                    <span class="tooltip-marker" data-tooltip="Automatically generates and attaches a stylized Pillow infographic meme card image in the selected aesthetic upon dispatch.">?</span>
+                    <span class="tooltip-marker" data-tooltip="Select visual aesthetic palette for auto-generated meme card or composite infographic.">?</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <select id="sched-media-type" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
+                        <option value="single" selected>🖼️ Single Card</option>
+                        <option value="composite">🌌 Composite (Auto Layout)</option>
+                        <option value="composite-grid">🌌 Composite (2x2 Grid)</option>
+                        <option value="composite-side">🌌 Composite (Side-by-Side)</option>
+                    </select>
+                    <span class="tooltip-marker" data-tooltip="Format of attached media: Single meme card vs. Multi-panel composite infographic with auto-selected or specified grid layout.">?</span>
                 </div>
                 <button type="button" class="btn btn-secondary" onclick="suggestOptimalSlot()" title="Suggest high-engagement peak audience window" style="white-space: nowrap; font-size: 0.85rem; padding: 0.6rem 0.9rem;">
                     ⚡ Suggest Peak Slot <span class="tooltip-marker" data-tooltip="Calculates optimal UTC window (09:00, 13:00, 17:00, 21:00) based on global space and tech audience engagement patterns.">?</span>
@@ -1571,7 +1580,7 @@
                         <td><span class="status-badge ${t.account_handle === '@make_elon_laugh' ? 'ok' : 'info'}" style="font-size: 0.75rem;">${escapeHtml(t.account_handle || '@make_elon_laugh')}</span></td>
                         <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
                         <td>
-                            ${t.media_theme ? `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>` : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
+                            ${t.media_theme ? (t.media_type === 'composite' ? `<span class="status-badge info" style="font-size: 0.75rem; background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.4);" title="Multi-panel composite infographic attached [${escapeHtml(t.composite_layout || 'auto')}]">🌌 ${escapeHtml(t.media_theme)} (${escapeHtml(t.composite_layout || 'auto')})</span>` : `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>`) : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
                         </td>
                         <td>${escapeHtml(String(t.scheduled_time))}</td>
                         <td><span class="status-badge ok" style="font-size: 0.75rem;">${escapeHtml(t.persona)}</span></td>
@@ -1625,6 +1634,20 @@
             const accountHandle = (document.getElementById('sched-account') ? document.getElementById('sched-account').value : '@make_elon_laugh');
             const mediaThemeEl = document.getElementById('sched-media-theme');
             const mediaTheme = (mediaThemeEl && mediaThemeEl.value) ? mediaThemeEl.value : null;
+            const mediaTypeRaw = (document.getElementById('sched-media-type') ? document.getElementById('sched-media-type').value : 'single');
+
+            let mediaType = "single";
+            let compositeLayout = "auto";
+            if (mediaTypeRaw === 'composite') {
+                mediaType = "composite";
+                compositeLayout = "auto";
+            } else if (mediaTypeRaw === 'composite-grid') {
+                mediaType = "composite";
+                compositeLayout = "grid";
+            } else if (mediaTypeRaw === 'composite-side') {
+                mediaType = "composite";
+                compositeLayout = "side-by-side";
+            }
 
             try {
                 const res = await fetch('/api/schedule', {
@@ -1635,7 +1658,9 @@
                         scheduled_time: formattedTime,
                         persona: persona,
                         account_handle: accountHandle,
-                        media_theme: mediaTheme
+                        media_theme: mediaTheme,
+                        media_type: mediaType,
+                        composite_layout: compositeLayout
                     })
                 });
                 const data = await res.json();

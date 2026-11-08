@@ -2119,6 +2119,79 @@ class TestSyndication(unittest.TestCase):
             self.assertEqual(data_auto["layout"], "grid")
             self.assertIn("recommendation", data_auto)
 
+    def test_composite_infographic_queue_scheduling(self):
+        """Validates queue scheduling with composite infographics, DB persistence, and processing."""
+        temp_db = f"test_sched_comp_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(temp_db)
+
+            # 1. Enqueue with composite media
+            tweet_id = scheduler.enqueue_scheduled_tweet(
+                content="Deep space telemetry multi-panel review",
+                scheduled_time="2099-01-01 10:00:00",
+                persona="tactful_engineer",
+                account_handle="@space_astronomy",
+                media_theme="cyberpunk",
+                media_type="composite",
+                composite_layout="side-by-side",
+                db_path=temp_db
+            )
+            self.assertIsNotNone(tweet_id)
+
+            # 2. Fetch and verify columns
+            items = db.get_scheduled_tweets(limit=5, db_path=temp_db)
+            self.assertEqual(len(items), 1)
+            t = items[0]
+            self.assertEqual(t["id"], tweet_id)
+            self.assertEqual(t["account_handle"], "@space_astronomy")
+            self.assertEqual(t["media_theme"], "cyberpunk")
+            self.assertEqual(t["media_type"], "composite")
+            self.assertEqual(t["composite_layout"], "side-by-side")
+
+            # 3. Process due tweets with composite media generation in dry-run
+            # Mark tweet due immediately
+            db.update_scheduled_tweet_status(tweet_id, "pending", db_path=temp_db)
+            with db.get_db_connection(temp_db) as conn:
+                conn.cursor().execute(
+                    "UPDATE scheduled_tweets SET scheduled_time = '2020-01-01 00:00:00' WHERE id = ?",
+                    (tweet_id,)
+                )
+                conn.commit()
+
+            processed = scheduler.process_due_tweets(dry_run=True, db_path=temp_db)
+            self.assertEqual(processed, 1)
+
+            # Check status is now 'sent'
+            after_items = db.get_scheduled_tweets(limit=5, db_path=temp_db)
+            self.assertEqual(after_items[0]["status"], "sent")
+
+            # 4. Test REST API /api/schedule with composite parameters
+            with dashboard.app.test_client() as client:
+                res = client.post("/api/schedule", json={
+                    "content": "Dashboard scheduled composite post",
+                    "scheduled_time": "2099-12-31 23:59",
+                    "persona": "witty_ai",
+                    "account_handle": "@make_elon_laugh",
+                    "media_theme": "solar",
+                    "media_type": "composite",
+                    "composite_layout": "grid"
+                })
+                self.assertEqual(res.status_code, 200)
+                res_data = res.get_json()
+                self.assertTrue(res_data["success"])
+                self.assertEqual(res_data["media_type"], "composite")
+                self.assertEqual(res_data["composite_layout"], "grid")
+
+                # Cleanup test tweet
+                client.delete("/api/schedule", json={"id": res_data["id"]})
+
+        finally:
+            if os.path.exists(temp_db):
+                try:
+                    os.remove(temp_db)
+                except OSError:
+                    pass
+
 
 if __name__ == "__main__":
     unittest.main()

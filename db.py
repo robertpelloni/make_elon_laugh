@@ -61,17 +61,23 @@ def init_db(db_path=DB_PATH):
                     persona TEXT DEFAULT 'tactful_engineer',
                     status TEXT DEFAULT 'pending', -- pending, sent, cancelled
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    media_theme TEXT DEFAULT NULL
+                    media_theme TEXT DEFAULT NULL,
+                    media_type TEXT DEFAULT 'single', -- 'single' (meme card) or 'composite' (infographic)
+                    composite_layout TEXT DEFAULT 'auto' -- 'auto', 'grid', 'side-by-side'
                 )
             ''')
 
-            # Migration: Ensure account_handle and media_theme columns exist on scheduled_tweets
+            # Migration: Ensure account_handle, media_theme, media_type, composite_layout exist on scheduled_tweets
             cursor.execute("PRAGMA table_info(scheduled_tweets)")
             sched_cols = [row[1] for row in cursor.fetchall()]
             if 'account_handle' not in sched_cols:
                 cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN account_handle TEXT DEFAULT '@make_elon_laugh'")
             if 'media_theme' not in sched_cols:
                 cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN media_theme TEXT DEFAULT NULL")
+            if 'media_type' not in sched_cols:
+                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN media_type TEXT DEFAULT 'single'")
+            if 'composite_layout' not in sched_cols:
+                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN composite_layout TEXT DEFAULT 'auto'")
 
             # Table for cross-platform syndicated posts (Mastodon, Bluesky)
             cursor.execute('''
@@ -214,25 +220,37 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
 
 
 def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH,
-                   account_handle="@make_elon_laugh", media_theme=None):
+                   account_handle="@make_elon_laugh", media_theme=None,
+                   media_type="single", composite_layout="auto"):
     """
-    Enqueues a tweet/joke for automated future posting with optional target account routing
-    and visual meme card media theme.
+    Enqueues a tweet/joke for automated future posting with optional target account routing,
+    visual meme card or composite infographic media theme and layout format.
     """
     try:
         clean_media = media_theme.strip().lower() if (media_theme and str(media_theme).strip()) else None
+        clean_type = "composite" if str(media_type).strip().lower() == "composite" else "single"
+        clean_layout = str(composite_layout).strip().lower() if composite_layout else "auto"
+        if clean_layout not in ("auto", "grid", "side-by-side"):
+            clean_layout = "auto"
+
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             sql = (
                 "INSERT INTO scheduled_tweets "
-                "(content, scheduled_time, persona, status, account_handle, media_theme) "
-                "VALUES (?, ?, ?, 'pending', ?, ?)"
+                "(content, scheduled_time, persona, status, account_handle, media_theme, media_type, composite_layout) "
+                "VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)"
             )
             try:
-                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
+                cursor.execute(sql, (
+                    content.strip(), scheduled_time, persona, account_handle.strip(),
+                    clean_media, clean_type, clean_layout
+                ))
             except sqlite3.OperationalError:
                 init_db(db_path)
-                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
+                cursor.execute(sql, (
+                    content.strip(), scheduled_time, persona, account_handle.strip(),
+                    clean_media, clean_type, clean_layout
+                ))
             conn.commit()
             return cursor.lastrowid
     except sqlite3.Error as e:
@@ -246,8 +264,11 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             try:
-                query = ("SELECT id, content, scheduled_time, persona, status, created_at, account_handle, media_theme "
-                         "FROM scheduled_tweets")
+                query = (
+                    "SELECT id, content, scheduled_time, persona, status, created_at, "
+                    "account_handle, media_theme, media_type, composite_layout "
+                    "FROM scheduled_tweets"
+                )
                 params = []
                 conditions = []
 
@@ -281,7 +302,9 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
                     "status": r[4],
                     "created_at": r[5],
                     "account_handle": r[6] if len(r) > 6 and r[6] else "@make_elon_laugh",
-                    "media_theme": r[7] if len(r) > 7 and r[7] else None
+                    "media_theme": r[7] if len(r) > 7 and r[7] else None,
+                    "media_type": r[8] if len(r) > 8 and r[8] else "single",
+                    "composite_layout": r[9] if len(r) > 9 and r[9] else "auto"
                 }
                 for r in cursor.fetchall()
             ]

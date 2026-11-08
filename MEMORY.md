@@ -6,7 +6,8 @@
 - All controls have explicit interactive forms, distinct labels, and tooltip guidance for complete operational clarity.
 - Visual meme card generation is provided via `meme_generator.py` and `joke_generator.py` using Pillow, outputting base64-encoded PNG cards accessible at `/api/test-generate-meme`.
 - The desktop system tray companion is located in `tray.py`, allowing operators on desktop environments to launch the dashboard, run checks, and quit servers, while cleanly detecting headless environments and remaining non-blocking.
-- The global version string is governed centrally by `VERSION.md` (currently `v0.37.0`) and dynamically read by the dashboard and documentation.
+- The global version string is governed centrally by `VERSION.md` (currently `v0.38.0`) and dynamically read by the dashboard and documentation.
+- Autonomous Multi-Panel Infographic Queue Scheduling (`db.py`, `scheduler.py`, `dashboard.py`) provides automated composite media generation and queue dispatching with customizable visual layouts (`auto`, `grid`, `side-by-side`) and theme palettes.
 - AI-Driven Smart Layout Auto-Selection (`meme_generator.py`, `dashboard.py`) evaluates panel counts, content length, and character density to automatically recommend between 2x2 grid and side-by-side composite formats, explaining rationale via `/api/meme/composite/recommend-layout` and UI banners.
 - Multi-Image Composite Infographic Generator & Grid Layout Engine (`meme_generator.py`) produces 4-quadrant grids (800x620) and dual-card side-by-side graphics (800x420) across 4 themes with REST downloads (`/api/meme/composite/download`).
 - Dynamic Tone Stylist & Rephraser Engine (`joke_generator.py`, `/api/content/rephrase`) provides 4 style variations (`witty`, `concise`, `enthusiastic`, `academic`) with prompt instructions and offline fallbacks, wired directly into Command Center queue planning.

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-11-08
+
+### Added
+- **Autonomous Multi-Panel Infographic Queue Scheduling (`db.py`, `scheduler.py`)**:
+  - Enhanced SQLite database schema with `media_type` (default `'single'`) and `composite_layout` (default `'auto'`) columns on `scheduled_tweets` with automatic forward PRAGMA migrations.
+  - Updated `schedule_tweet()` and `get_scheduled_tweets()` to persist and retrieve `media_type` and `composite_layout` attributes.
+  - Extended `scheduler.enqueue_scheduled_tweet()` to validate and accept `media_type` (`single`, `composite`) and `composite_layout` (`auto`, `grid`, `side-by-side`).
+  - Updated `scheduler.process_due_tweets()` to dynamically generate composite infographics via `meme_generator.create_composite_infographic()` with automated layout resolution and topic extraction when `media_type == 'composite'`.
+- **Composite Queue Scheduling REST API (`dashboard.py`)**:
+  - Updated `POST /api/schedule` to accept `media_type` and `composite_layout` and return them in serialized responses.
+- **Command Center Media Type & Composite Queue UI (`templates/index.html`)**:
+  - Added `#sched-media-type` dropdown with Single Card, Composite (Auto Layout), Composite (2x2 Grid), and Composite (Side-by-Side) options with tooltip guidance.
+  - Updated scheduled tweet table renderer to display distinct badges for composite infographics (`🌌 cyberpunk (auto)`).
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_composite_infographic_queue_scheduling` in `test_bot.py` validating schema migration, queue enqueuing, dry-run dispatch generation, and REST endpoint handling (111 tests passing, clean flake8).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_38_composite_queue.png`).
+
 ## [0.37.0] - 2026-11-08
 
 ### Added

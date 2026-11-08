@@ -651,6 +651,8 @@ def api_schedule():
         persona = data.get("persona", CURRENT_PERSONA).strip()
         account_handle = data.get("account_handle", "@make_elon_laugh").strip() or "@make_elon_laugh"
         media_theme = data.get("media_theme")
+        media_type = data.get("media_type", "single")
+        composite_layout = data.get("composite_layout", "auto")
 
         if not content:
             return jsonify({"success": False, "error": "Content cannot be empty."}), 400
@@ -660,18 +662,20 @@ def api_schedule():
         try:
             tweet_id = scheduler.enqueue_scheduled_tweet(
                 content, scheduled_time, persona=persona, account_handle=account_handle,
-                media_theme=media_theme
+                media_theme=media_theme, media_type=media_type, composite_layout=composite_layout
             )
             if tweet_id:
                 logging.info(
                     f"Enqueued scheduled tweet ID {tweet_id} [{account_handle}] "
-                    f"for {scheduled_time} (theme: {media_theme})."
+                    f"for {scheduled_time} (theme: {media_theme}, type: {media_type}, layout: {composite_layout})."
                 )
                 return jsonify({
                     "success": True,
                     "id": tweet_id,
                     "account_handle": account_handle,
                     "media_theme": media_theme,
+                    "media_type": media_type,
+                    "composite_layout": composite_layout,
                     "message": f"Tweet scheduled successfully for {account_handle}.",
                     "scheduled_tweets": db.get_scheduled_tweets(limit=10)
                 })
