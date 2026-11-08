@@ -114,6 +114,10 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "cancelled": 0,
             "persona_distribution": {},
             "account_distribution": {},
+            "media_distribution": {
+                "single": 0,
+                "composite": 0,
+            },
         },
         "ratings": {
             "total_ratings": 0,
@@ -273,6 +277,23 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             except sqlite3.OperationalError:
                 pass
 
+            # Media distribution in queue (single card vs composite infographic)
+            try:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(media_type, 'single'), COUNT(*)
+                    FROM scheduled_tweets
+                    WHERE created_at >= datetime('now', '-' || ? || ' days')
+                    GROUP BY media_type
+                    """,
+                    (str(days),),
+                )
+                for m_type, count in cursor.fetchall():
+                    norm_type = m_type if m_type in ("single", "composite") else "single"
+                    digest["queue"]["media_distribution"][norm_type] = count
+            except sqlite3.OperationalError:
+                pass
+
             # 3. Community Ratings & Approval
             cursor.execute(
                 """
@@ -386,6 +407,8 @@ def export_digest_markdown(digest):
 
     personas_md = ", ".join([f"{k}: {v}" for k, v in queue.get("persona_distribution", {}).items()]) or "None"
     accounts_md = ", ".join([f"{k}: {v}" for k, v in queue.get("account_distribution", {}).items()]) or "None"
+    media_dict = queue.get("media_distribution", {})
+    media_md = f"Single: {media_dict.get('single', 0)}, Composite: {media_dict.get('composite', 0)}"
 
     def fmt_delta(key):
         d = deltas.get(key, {})
@@ -452,6 +475,7 @@ def export_digest_markdown(digest):
   - Cancelled: {queue.get('cancelled', 0)}
 - **Persona Distribution:** {personas_md}
 - **Account Attribution:** {accounts_md}
+- **Media Distribution:** {media_md}
 
 ## 🌟 Humor Approval & Ratings
 - **Total Community Ratings:** {rat.get('total_ratings', 0)}
@@ -521,6 +545,16 @@ def export_digest_html(digest):
         ])
     else:
         account_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
+
+    media_dist = queue.get("media_distribution", {})
+    single_cnt = media_dist.get("single", 0)
+    comp_cnt = media_dist.get("composite", 0)
+    media_badges = (
+        f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
+        f'background: #fef3c7; color: #92400e;">Single: {single_cnt}</span>'
+        f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
+        f'background: #ede9fe; color: #5b21b6;">Composite: {comp_cnt}</span>'
+    )
 
     if alerts:
         alert_items = "".join([
@@ -681,6 +715,7 @@ def export_digest_html(digest):
       <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
       <li><strong>Persona Distribution:</strong> {persona_badges}</li>
       <li><strong>Account Attribution:</strong> {account_badges}</li>
+      <li><strong>Media Distribution:</strong> {media_badges}</li>
     </ul>
 
     <h2>🌟 Community Humor Approval</h2>

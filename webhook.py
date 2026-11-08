@@ -94,6 +94,10 @@ def format_slack_payload(digest_data):
 
     alerts = digest_data.get("alerts", [])
 
+    media_dist = queue.get("media_distribution", {})
+    single_cnt = media_dist.get("single", 0)
+    comp_cnt = media_dist.get("composite", 0)
+
     blocks = [
         {
             "type": "header",
@@ -116,6 +120,10 @@ def format_slack_payload(digest_data):
                         f"*Queue Dispatched:* {queue.get('sent', 0)}\n"
                         f"*Humor Approval:* {rat.get('approval_rate', 0)}%"
                     )
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Media Queue:*\nSingle: {single_cnt} | Composite: {comp_cnt}"
                 }
             ]
         }
@@ -167,12 +175,17 @@ def format_discord_payload(digest_data):
     alerts = digest_data.get("alerts", [])
     color = 0xef4444 if any(a.get("level") == "critical" for a in alerts) else (0xf59e0b if alerts else 0x1DA1F2)
 
+    media_dist = queue.get("media_distribution", {})
+    single_cnt = media_dist.get("single", 0)
+    comp_cnt = media_dist.get("composite", 0)
+
     fields = [
         {"name": "Replies Sent", "value": str(rep.get("total_replies", 0)), "inline": True},
         {"name": "Likes / RTs", "value": likes_rts, "inline": True},
         {"name": "Humor Approval", "value": f"{rat.get('approval_rate', 0)}%", "inline": True},
         {"name": "Queue Dispatches", "value": str(queue.get("sent", 0)), "inline": True},
         {"name": "Pending in Queue", "value": str(queue.get("pending", 0)), "inline": True},
+        {"name": "Media Distribution", "value": f"Single: {single_cnt} | Composite: {comp_cnt}", "inline": True},
     ]
 
     if alerts:

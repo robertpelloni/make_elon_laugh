@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.39.0] - 2026-11-08
+
+### Added
+- **Digest Pipeline Visual Media Distribution & Multi-Platform Webhook Analytics (`digest.py`, `webhook.py`, `generate_digest.py`)**:
+  - Enhanced `digest.generate_performance_digest()` with `media_distribution` metrics aggregation across scheduled single card memes and composite multi-panel infographics with SQL query protection.
+  - Updated `export_digest_markdown()` and `export_digest_html()` with visual media queue distribution badges and summary statistics (`Single: X, Composite: Y`).
+  - Enhanced `webhook.format_slack_payload()` and `webhook.format_discord_payload()` to embed media queue analytics into outbound alert channels.
+  - Verified multi-format file generation (`.md`, `.html`, `.json`) via CLI generator `generate_digest.py`.
+- **Command Center Visual Media Digest Card UI (`templates/index.html`)**:
+  - Added `#digest-queue-media` live metric counter within the Weekly Performance Digest card displaying real-time ratios of scheduled single cards versus composite infographics.
+- **Automated Unit Testing & Visual Verification**:
+  - Added `test_digest_pipeline_media_distribution_analytics` in `test_bot.py` testing DB aggregation, Markdown/HTML report generation, and Slack/Discord webhook serialization (112 passing unit tests, clean flake8).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_39_digest_media.png`).
+
 ## [0.38.0] - 2026-11-08
 
 ### Added

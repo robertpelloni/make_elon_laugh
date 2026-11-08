@@ -1,18 +1,17 @@
-# Session Handoff - Release v0.38.0
+# Session Handoff - Release v0.39.0
 
-## Completed in v0.38.0:
-1. **Autonomous Multi-Panel Infographic Queue Scheduling (`db.py`, `scheduler.py`)**:
-   - Added `media_type` (default `'single'`) and `composite_layout` (default `'auto'`) columns to `scheduled_tweets` SQLite schema with PRAGMA forward migrations.
-   - Enhanced `scheduler.enqueue_scheduled_tweet()` and `scheduler.process_due_tweets()` to support multi-panel composite infographics using `meme_generator.create_composite_infographic()` with automated layout resolution (`auto`, `grid`, `side-by-side`).
-2. **REST API Endpoint Updates (`dashboard.py`)**:
-   - Updated `POST /api/schedule` to parse and serialize `media_type` and `composite_layout` parameters.
-3. **Command Center UI Updates (`templates/index.html`)**:
-   - Added `#sched-media-type` dropdown with Single Card, Composite (Auto Layout), Composite (2x2 Grid), and Composite (Side-by-Side) options and tooltip guidance.
-   - Updated scheduled tweet table renderer to display distinct badges for composite infographics (`🌌 cyberpunk (auto)`).
-4. **Automated Unit Testing & Visual Verification**:
-   - Added unit test `test_composite_infographic_queue_scheduling` in `test_bot.py` (111 passing unit tests, 0 `flake8` warnings).
-   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_38_composite_queue.png`).
-   - Sourced version from `VERSION.md` (`0.38.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
+## Completed in v0.39.0:
+1. **Digest Pipeline Visual Media Distribution & Multi-Platform Webhook Analytics (`digest.py`, `webhook.py`, `generate_digest.py`)**:
+   - Enhanced `digest.generate_performance_digest()` with `media_distribution` metrics aggregation across scheduled single card memes and composite multi-panel infographics with SQL query protection.
+   - Updated `export_digest_markdown()` and `export_digest_html()` with visual media queue distribution badges and summary statistics (`Single: X, Composite: Y`).
+   - Enhanced `webhook.format_slack_payload()` and `webhook.format_discord_payload()` to embed media queue analytics into outbound alert channels.
+   - Verified multi-format file generation (`.md`, `.html`, `.json`) via CLI generator `generate_digest.py`.
+2. **Command Center Visual Media Digest Card UI (`templates/index.html`)**:
+   - Added `#digest-queue-media` live metric counter within the Weekly Performance Digest card displaying real-time ratios of scheduled single cards versus composite infographics.
+3. **Automated Unit Testing & Visual Verification**:
+   - Added `test_digest_pipeline_media_distribution_analytics` in `test_bot.py` testing DB aggregation, Markdown/HTML report generation, and Slack/Discord webhook serialization (112 passing unit tests, clean flake8).
+   - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_39_digest_media.png`).
+   - Sourced version from `VERSION.md` (`0.39.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
 
 ## Next Autonomous Objectives:
 - Panel-level custom persona assignment and rephrasing pipeline for infographics.

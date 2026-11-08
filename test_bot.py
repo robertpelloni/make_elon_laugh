@@ -2192,6 +2192,81 @@ class TestSyndication(unittest.TestCase):
                 except OSError:
                     pass
 
+    def test_digest_pipeline_media_distribution_analytics(self):
+        """Verifies media distribution tracking in digests, Markdown/HTML reports, and webhooks."""
+        temp_db = f"test_digest_media_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(temp_db)
+
+            # Insert 1 single and 2 composite scheduled tweets
+            db.schedule_tweet(
+                content="Single meme test",
+                scheduled_time="2099-01-01 10:00:00",
+                persona="tactful_engineer",
+                account_handle="@make_elon_laugh",
+                media_theme="dark",
+                media_type="single",
+                composite_layout="auto",
+                db_path=temp_db
+            )
+            db.schedule_tweet(
+                content="Composite grid test",
+                scheduled_time="2099-01-01 11:00:00",
+                persona="witty_ai",
+                account_handle="@make_elon_laugh",
+                media_theme="cyberpunk",
+                media_type="composite",
+                composite_layout="grid",
+                db_path=temp_db
+            )
+            db.schedule_tweet(
+                content="Composite side-by-side test",
+                scheduled_time="2099-01-01 12:00:00",
+                persona="deadpan_astronomer",
+                account_handle="@space_astronomy",
+                media_theme="solar",
+                media_type="composite",
+                composite_layout="side-by-side",
+                db_path=temp_db
+            )
+
+            # Generate digest
+            d = digest.generate_performance_digest(db_path=temp_db, days=7)
+            media_dist = d["queue"].get("media_distribution", {})
+            self.assertEqual(media_dist.get("single"), 1)
+            self.assertEqual(media_dist.get("composite"), 2)
+
+            # Verify Markdown export
+            md = digest.export_digest_markdown(d)
+            self.assertIn("Media Distribution:", md)
+            self.assertIn("Single: 1, Composite: 2", md)
+
+            # Verify HTML export
+            html = digest.export_digest_html(d)
+            self.assertIn("Media Distribution:", html)
+            self.assertIn("Single: 1", html)
+            self.assertIn("Composite: 2", html)
+
+            # Verify Webhook Slack payload
+            slack = webhook.format_slack_payload(d)
+            fields = [b.get("fields", []) for b in slack.get("blocks", []) if "fields" in b]
+            flat_fields = [f.get("text", "") for field_list in fields for f in field_list]
+            self.assertTrue(any("Media Queue:" in t and "Single: 1 | Composite: 2" in t for t in flat_fields))
+
+            # Verify Webhook Discord payload
+            discord = webhook.format_discord_payload(d)
+            d_fields = discord["embeds"][0]["fields"]
+            media_field = next((f for f in d_fields if f["name"] == "Media Distribution"), None)
+            self.assertIsNotNone(media_field)
+            self.assertEqual(media_field["value"], "Single: 1 | Composite: 2")
+
+        finally:
+            if os.path.exists(temp_db):
+                try:
+                    os.remove(temp_db)
+                except OSError:
+                    pass
+
 
 if __name__ == "__main__":
     unittest.main()
