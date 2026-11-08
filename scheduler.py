@@ -7,19 +7,21 @@ import logging
 from datetime import datetime, timezone
 import db
 import joke_generator
+import meme_generator
 from syndication import dispatch_syndicated_post
 
 logger = logging.getLogger(__name__)
 
 
 SUPPORTED_ACCOUNTS = ["@make_elon_laugh", "@space_astronomy"]
+SUPPORTED_MEDIA_THEMES = ["dark", "cyberpunk", "solar", "clean"]
 
 
 def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
-                            account_handle="@make_elon_laugh", db_path=db.DB_PATH):
+                            account_handle="@make_elon_laugh", media_theme=None, db_path=db.DB_PATH):
     """
     Enqueues a new tweet to be posted at scheduled_time (ISO 8601 string or YYYY-MM-DD HH:MM:SS)
-    attributed to a specific account profile.
+    attributed to a specific account profile and optional visual meme card theme.
     """
     if not content or not str(content).strip():
         raise ValueError("Content cannot be empty.")
@@ -33,20 +35,40 @@ def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
     if not account_handle.startswith("@"):
         account_handle = f"@{account_handle}"
 
+    # Validate media theme if provided
+    clean_media = None
+    if media_theme and str(media_theme).strip().lower() not in ("none", "null", ""):
+        candidate_theme = str(media_theme).strip().lower()
+        if candidate_theme in SUPPORTED_MEDIA_THEMES:
+            clean_media = candidate_theme
+        else:
+            raise ValueError(f"Invalid media_theme '{media_theme}'. Choose from: {SUPPORTED_MEDIA_THEMES}")
+
     return db.schedule_tweet(content, scheduled_time, persona=persona,
-                             account_handle=account_handle, db_path=db_path)
+                             account_handle=account_handle, media_theme=clean_media, db_path=db_path)
 
 
 def get_pending_due_tweets(now_dt=None, db_path=db.DB_PATH):
     """
     Finds all pending scheduled tweets whose scheduled_time <= now_dt.
+    Handles scheduled_time formatted as ISO string, datetime string, or integer unix timestamp.
     """
     if now_dt is None:
         now_dt = datetime.now(timezone.utc)
 
     now_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    now_ts = now_dt.timestamp()
+
     pending = db.get_scheduled_tweets(status="pending", limit=50, db_path=db_path)
-    due = [t for t in pending if t["scheduled_time"] <= now_str]
+    due = []
+    for t in pending:
+        raw_st = t.get("scheduled_time")
+        if isinstance(raw_st, (int, float)):
+            if raw_st <= now_ts:
+                due.append(t)
+        elif isinstance(raw_st, str):
+            if raw_st <= now_str:
+                due.append(t)
     return due
 
 
@@ -60,7 +82,24 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
     for tweet in due_tweets:
         mode_label = "DRY-RUN" if dry_run else "LIVE"
         acc = tweet.get("account_handle", "@make_elon_laugh")
-        logger.info(f"[{mode_label}][Account: {acc}] Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}")
+        media_theme = tweet.get("media_theme")
+        media_info = f" [Attached Meme: {media_theme}]" if media_theme else ""
+        logger.info(
+            f"[{mode_label}][Account: {acc}]{media_info} "
+            f"Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}"
+        )
+
+        # Generate attached meme card binary if media_theme is configured
+        if media_theme:
+            try:
+                card_bytes = meme_generator.create_meme_card(tweet["content"], theme=media_theme)
+                logger.info(
+                    f"Generated {len(card_bytes)} bytes meme card card image "
+                    f"({media_theme}) for tweet ID {tweet['id']}."
+                )
+            except Exception as meme_err:
+                logger.warning(f"Failed to generate meme card for scheduled tweet {tweet['id']}: {meme_err}")
+
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)
 

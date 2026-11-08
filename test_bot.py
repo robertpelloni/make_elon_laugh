@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 import unittest
 from unittest.mock import patch, MagicMock
 from auth import validate_api_keys, get_twitter_client
@@ -1884,6 +1885,77 @@ class TestSyndication(unittest.TestCase):
             self.assertEqual(data["tone_style"], "enthusiastic")
             self.assertIn("rephrased", data)
             self.assertIn("tones", data)
+
+    def test_schedule_with_media_theme(self):
+        """Tests scheduling tweets with visual meme card media attachments."""
+        test_db = f"test_sched_media_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Test database enqueuing and retrieval with media_theme
+            tid = db.schedule_tweet(
+                "Starship landing test verified 🚀",
+                "2026-12-01 12:00:00",
+                persona="tactful_engineer",
+                account_handle="@make_elon_laugh",
+                media_theme="cyberpunk",
+                db_path=test_db
+            )
+            self.assertIsNotNone(tid)
+
+            tweets = db.get_scheduled_tweets(limit=10, db_path=test_db)
+            saved = next(t for t in tweets if t["id"] == tid)
+            self.assertEqual(saved["media_theme"], "cyberpunk")
+            self.assertEqual(saved["account_handle"], "@make_elon_laugh")
+
+            # 2. Test scheduler helper enqueue validation
+            # Invalid theme should raise ValueError
+            with self.assertRaises(ValueError):
+                scheduler.enqueue_scheduled_tweet(
+                    "Invalid theme tweet",
+                    "2026-12-01 12:00:00",
+                    media_theme="unsupported_palette",
+                    db_path=test_db
+                )
+
+            # Valid enqueue via scheduler
+            tid2 = scheduler.enqueue_scheduled_tweet(
+                "Due solar tweet ☀️",
+                "2020-01-01 00:00:00",
+                persona="witty_ai",
+                account_handle="@space_astronomy",
+                media_theme="solar",
+                db_path=test_db
+            )
+            self.assertIsNotNone(tid2)
+
+            # 3. Test due processing triggers meme card generation
+            processed = scheduler.process_due_tweets(dry_run=True, db_path=test_db)
+            self.assertEqual(processed, 1)
+
+            # Check status updated to sent
+            sent_tweets = db.get_scheduled_tweets(status="sent", db_path=test_db)
+            self.assertEqual(len(sent_tweets), 1)
+            self.assertEqual(sent_tweets[0]["id"], tid2)
+            self.assertEqual(sent_tweets[0]["media_theme"], "solar")
+
+            # 4. Test Dashboard REST API with media_theme
+            with dashboard.app.test_client() as client:
+                res = client.post("/api/schedule", json={
+                    "content": "API queued tweet with dark meme card",
+                    "scheduled_time": "2026-12-05 18:00:00",
+                    "persona": "deadpan_astronomer",
+                    "account_handle": "@make_elon_laugh",
+                    "media_theme": "dark"
+                })
+                self.assertEqual(res.status_code, 200)
+                data = res.get_json()
+                self.assertTrue(data["success"])
+                self.assertEqual(data.get("media_theme"), "dark")
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
 
 
 if __name__ == "__main__":

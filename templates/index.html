@@ -770,6 +770,16 @@
                     </select>
                     <span class="tooltip-marker" data-tooltip="Selects the Twitter / X account identity that will broadcast this scheduled tweet.">?</span>
                 </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <select id="sched-media-theme" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
+                        <option value="" selected>📄 No Card Attachment</option>
+                        <option value="dark">🖼️ Dark Theme Meme</option>
+                        <option value="cyberpunk">🎨 Cyberpunk Meme</option>
+                        <option value="solar">☀️ Solar Flare Meme</option>
+                        <option value="clean">✨ Clean Minimal Meme</option>
+                    </select>
+                    <span class="tooltip-marker" data-tooltip="Automatically generates and attaches a stylized Pillow infographic meme card image in the selected aesthetic upon dispatch.">?</span>
+                </div>
                 <button type="button" class="btn btn-secondary" onclick="suggestOptimalSlot()" title="Suggest high-engagement peak audience window" style="white-space: nowrap; font-size: 0.85rem; padding: 0.6rem 0.9rem;">
                     ⚡ Suggest Peak Slot <span class="tooltip-marker" data-tooltip="Calculates optimal UTC window (09:00, 13:00, 17:00, 21:00) based on global space and tech audience engagement patterns.">?</span>
                 </button>
@@ -786,6 +796,7 @@
                             <th>ID</th>
                             <th>Account</th>
                             <th>Content</th>
+                            <th>Media Card</th>
                             <th>Scheduled Time (UTC)</th>
                             <th>Persona</th>
                             <th>Status</th>
@@ -793,7 +804,7 @@
                         </tr>
                     </thead>
                     <tbody id="sched-tbody">
-                        <tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1438,7 +1449,7 @@
                 }
 
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
                     return;
                 }
                 function escapeHtml(str) {
@@ -1450,7 +1461,10 @@
                         <td style="font-family: monospace;">#${escapeHtml(String(t.id))}</td>
                         <td><span class="status-badge ${t.account_handle === '@make_elon_laugh' ? 'ok' : 'info'}" style="font-size: 0.75rem;">${escapeHtml(t.account_handle || '@make_elon_laugh')}</span></td>
                         <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
-                        <td>${escapeHtml(t.scheduled_time)}</td>
+                        <td>
+                            ${t.media_theme ? `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>` : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
+                        </td>
+                        <td>${escapeHtml(String(t.scheduled_time))}</td>
                         <td><span class="status-badge ok" style="font-size: 0.75rem;">${escapeHtml(t.persona)}</span></td>
                         <td>
                             <span class="status-badge ${t.status === 'sent' ? 'ok' : (t.status === 'pending' ? 'warn' : 'alert')}">
@@ -1500,12 +1514,20 @@
             const formattedTime = timeVal.replace("T", " ") + ":00";
             const persona = document.getElementById('persona-select').value;
             const accountHandle = (document.getElementById('sched-account') ? document.getElementById('sched-account').value : '@make_elon_laugh');
+            const mediaThemeEl = document.getElementById('sched-media-theme');
+            const mediaTheme = (mediaThemeEl && mediaThemeEl.value) ? mediaThemeEl.value : null;
 
             try {
                 const res = await fetch('/api/schedule', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona, account_handle: accountHandle})
+                    body: JSON.stringify({
+                        content: content,
+                        scheduled_time: formattedTime,
+                        persona: persona,
+                        account_handle: accountHandle,
+                        media_theme: mediaTheme
+                    })
                 });
                 const data = await res.json();
                 if (data.success) {

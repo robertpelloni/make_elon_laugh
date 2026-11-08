@@ -60,15 +60,18 @@ def init_db(db_path=DB_PATH):
                     scheduled_time TIMESTAMP NOT NULL,
                     persona TEXT DEFAULT 'tactful_engineer',
                     status TEXT DEFAULT 'pending', -- pending, sent, cancelled
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    media_theme TEXT DEFAULT NULL
                 )
             ''')
 
-            # Migration: Ensure account_handle column exists on scheduled_tweets
+            # Migration: Ensure account_handle and media_theme columns exist on scheduled_tweets
             cursor.execute("PRAGMA table_info(scheduled_tweets)")
             sched_cols = [row[1] for row in cursor.fetchall()]
             if 'account_handle' not in sched_cols:
                 cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN account_handle TEXT DEFAULT '@make_elon_laugh'")
+            if 'media_theme' not in sched_cols:
+                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN media_theme TEXT DEFAULT NULL")
 
             # Table for cross-platform syndicated posts (Mastodon, Bluesky)
             cursor.execute('''
@@ -211,18 +214,25 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
 
 
 def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH,
-                   account_handle="@make_elon_laugh"):
-    """Enqueues a tweet/joke for automated future posting with optional target account routing."""
+                   account_handle="@make_elon_laugh", media_theme=None):
+    """
+    Enqueues a tweet/joke for automated future posting with optional target account routing
+    and visual meme card media theme.
+    """
     try:
+        clean_media = media_theme.strip().lower() if (media_theme and str(media_theme).strip()) else None
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
-            sql = ("INSERT INTO scheduled_tweets (content, scheduled_time, persona, status, account_handle) "
-                   "VALUES (?, ?, ?, 'pending', ?)")
+            sql = (
+                "INSERT INTO scheduled_tweets "
+                "(content, scheduled_time, persona, status, account_handle, media_theme) "
+                "VALUES (?, ?, ?, 'pending', ?, ?)"
+            )
             try:
-                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip()))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
             except sqlite3.OperationalError:
                 init_db(db_path)
-                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip()))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
             conn.commit()
             return cursor.lastrowid
     except sqlite3.Error as e:
@@ -236,7 +246,7 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             try:
-                query = ("SELECT id, content, scheduled_time, persona, status, created_at, account_handle "
+                query = ("SELECT id, content, scheduled_time, persona, status, created_at, account_handle, media_theme "
                          "FROM scheduled_tweets")
                 params = []
                 conditions = []
@@ -270,7 +280,8 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
                     "persona": r[3],
                     "status": r[4],
                     "created_at": r[5],
-                    "account_handle": r[6] if len(r) > 6 and r[6] else "@make_elon_laugh"
+                    "account_handle": r[6] if len(r) > 6 and r[6] else "@make_elon_laugh",
+                    "media_theme": r[7] if len(r) > 7 and r[7] else None
                 }
                 for r in cursor.fetchall()
             ]

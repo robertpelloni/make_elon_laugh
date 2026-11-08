@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0] - 2026-11-08
+
+### Added
+- **Visual Meme Card Attachments in Scheduled Tweet Queue**:
+  - Enhanced database schema in `db.py` with `media_theme` column on `scheduled_tweets` and automatic migration handling.
+  - Updated `schedule_tweet()` and `get_scheduled_tweets()` to persist and return media theme selections (`dark`, `cyberpunk`, `solar`, `clean`).
+  - Updated `scheduler.py` to validate `media_theme` against supported palettes and dynamically generate styled Pillow infographic cards via `meme_generator.create_meme_card()` upon dispatch.
+  - Updated `/api/schedule` in `dashboard.py` to accept and serialize `media_theme` metadata.
+  - Added `Media Card` selector dropdown and styled queue table badges in `templates/index.html`.
+  - Added comprehensive unit test `test_schedule_with_media_theme` in `test_bot.py`.
+
 ## [0.33.0] - 2026-11-08
 
 ### Added

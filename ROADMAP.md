@@ -44,4 +44,5 @@
 *   [x] Multi-account Twitter / X scheduling and cross-account coordination (`db.py`, `scheduler.py`, `/api/schedule`, Command Center UI).
 *   [x] Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`, Command Center UI).
 *   [x] Automated LLM-Driven Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`, `dashboard.py`, Command Center UI).
-*   [ ] Multi-image meme card attachments support in scheduled tweets.
+*   [x] Visual Meme Card Attachments in Scheduled Tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+*   [ ] Multi-image composite layouts for visual infographics.

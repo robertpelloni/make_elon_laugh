@@ -57,7 +57,8 @@
 - [x] Add automated tests for multi-account scheduling persistence and APIs (`test_bot.py`).
 - [x] Implement multi-account queue breakdown and federation health details in performance digests (`digest.py`, `generate_digest.py`, Command Center UI).
 - [x] Implement dynamic tone variation and content rephrasing engine (`joke_generator.py`, `/api/content/rephrase`, Command Center UI).
+- [x] Implement visual meme card media theme attachments in scheduled tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Multi-image meme card attachments support in scheduled tweets.
+- [ ] Multi-image composite layouts for visual infographics.
