@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+from datetime import datetime, timezone
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,21 @@ def init_db(db_path=DB_PATH):
                     max_retries INTEGER DEFAULT 3,
                     status TEXT DEFAULT 'pending', -- 'pending', 'replayed', 'exhausted', 'discarded'
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # Table for Federation Circuit Breaker states per platform
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS federation_circuit_breakers (
+                    platform TEXT PRIMARY KEY,
+                    state TEXT NOT NULL DEFAULT 'CLOSED', -- 'CLOSED', 'OPEN', 'HALF-OPEN'
+                    consecutive_failures INTEGER DEFAULT 0,
+                    failure_threshold INTEGER DEFAULT 3,
+                    cooldown_seconds INTEGER DEFAULT 60,
+                    tripped_at TIMESTAMP,
+                    last_success_at TIMESTAMP,
+                    last_failure_reason TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -892,3 +908,151 @@ def get_syndication_dlq_metrics(db_path=DB_PATH):
     except sqlite3.Error as e:
         logger.error(f"Database error fetching syndication DLQ metrics: {e}")
         return counts
+
+
+def get_circuit_breaker_state(platform, db_path=DB_PATH):
+    """
+    Retrieves the persisted circuit breaker state for a specific platform.
+    Returns dict with keys: platform, state, consecutive_failures, failure_threshold,
+    cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at.
+    """
+    platform = str(platform).lower().strip()
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = '''
+                SELECT platform, state, consecutive_failures, failure_threshold,
+                       cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
+                FROM federation_circuit_breakers WHERE platform = ?
+            '''
+            try:
+                cursor.execute(sql, (platform,))
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql, (platform,))
+
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "platform": row[0],
+                    "state": row[1],
+                    "consecutive_failures": row[2],
+                    "failure_threshold": row[3],
+                    "cooldown_seconds": row[4],
+                    "tripped_at": row[5],
+                    "last_success_at": row[6],
+                    "last_failure_reason": row[7],
+                    "updated_at": row[8]
+                }
+            return None
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching circuit breaker for {platform}: {e}")
+        return None
+
+
+def update_circuit_breaker_state(platform, state, consecutive_failures=None,
+                                 failure_threshold=3, cooldown_seconds=60,
+                                 tripped_at=None, last_success_at=None,
+                                 last_failure_reason=None, db_path=DB_PATH):
+    """
+    Persists or updates the circuit breaker state and telemetry for a specific federation platform.
+    """
+    platform = str(platform).lower().strip()
+    state = str(state).upper().strip()
+    now_str = datetime.now(timezone.utc).isoformat()
+
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            existing = get_circuit_breaker_state(platform, db_path=db_path)
+            if existing is None:
+                cursor.execute('''
+                    INSERT INTO federation_circuit_breakers (
+                        platform, state, consecutive_failures, failure_threshold,
+                        cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    platform, state,
+                    consecutive_failures if consecutive_failures is not None else 0,
+                    failure_threshold, cooldown_seconds,
+                    tripped_at, last_success_at, last_failure_reason, now_str
+                ))
+            else:
+                new_fails = (consecutive_failures if consecutive_failures is not None
+                             else existing["consecutive_failures"])
+                new_tripped = (tripped_at if tripped_at is not None
+                               else (existing["tripped_at"] if state == "OPEN" else None))
+                new_success = (last_success_at if last_success_at is not None
+                               else existing["last_success_at"])
+                new_reason = (last_failure_reason if last_failure_reason is not None
+                              else existing["last_failure_reason"])
+
+                cursor.execute('''
+                    UPDATE federation_circuit_breakers
+                    SET state = ?, consecutive_failures = ?, failure_threshold = ?,
+                        cooldown_seconds = ?, tripped_at = ?, last_success_at = ?,
+                        last_failure_reason = ?, updated_at = ?
+                    WHERE platform = ?
+                ''', (
+                    state, new_fails, failure_threshold, cooldown_seconds,
+                    new_tripped, new_success, new_reason, now_str, platform
+                ))
+            conn.commit()
+            return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating circuit breaker for {platform}: {e}")
+        return False
+
+
+def get_all_circuit_breakers(db_path=DB_PATH):
+    """
+    Returns a dictionary mapping platform name -> circuit breaker state dict.
+    Ensures default entries exist for known platforms ('mastodon', 'bluesky').
+    """
+    defaults = ["mastodon", "bluesky"]
+    results = {}
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            sql = '''
+                SELECT platform, state, consecutive_failures, failure_threshold,
+                       cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
+                FROM federation_circuit_breakers
+            '''
+            try:
+                cursor.execute(sql)
+            except sqlite3.OperationalError:
+                init_db(db_path)
+                cursor.execute(sql)
+
+            for row in cursor.fetchall():
+                p_name = row[0]
+                results[p_name] = {
+                    "platform": p_name,
+                    "state": row[1],
+                    "consecutive_failures": row[2],
+                    "failure_threshold": row[3],
+                    "cooldown_seconds": row[4],
+                    "tripped_at": row[5],
+                    "last_success_at": row[6],
+                    "last_failure_reason": row[7],
+                    "updated_at": row[8]
+                }
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching all circuit breakers: {e}")
+
+    # Ensure defaults exist
+    for p in defaults:
+        if p not in results:
+            results[p] = {
+                "platform": p,
+                "state": "CLOSED",
+                "consecutive_failures": 0,
+                "failure_threshold": 3,
+                "cooldown_seconds": 60,
+                "tripped_at": None,
+                "last_success_at": None,
+                "last_failure_reason": None,
+                "updated_at": None
+            }
+    return results

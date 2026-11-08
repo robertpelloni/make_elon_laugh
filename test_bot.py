@@ -2622,6 +2622,107 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_federation_circuit_breaker_and_apis(self):
+        """Tests FederationCircuitBreaker mechanics, state transitions, fast failure, and REST APIs."""
+        import syndication
+        import dashboard
+        from datetime import datetime, timezone
+        test_db = f"test_cb_{int(time.time() * 1000)}.db"
+        db.init_db(test_db)
+
+        try:
+            # 1. Initial State should be CLOSED
+            st = syndication.FederationCircuitBreaker.get_status("mastodon", db_path=test_db)
+            self.assertEqual(st["state"], "CLOSED")
+            self.assertEqual(st["consecutive_failures"], 0)
+
+            can_send, reason, state = syndication.FederationCircuitBreaker.can_dispatch("mastodon", db_path=test_db)
+            self.assertTrue(can_send)
+            self.assertEqual(state, "CLOSED")
+
+            # 2. Record 2 failures (below threshold 3) -> remains CLOSED
+            syndication.FederationCircuitBreaker.record_failure("mastodon", "Timeout 1", db_path=test_db)
+            syndication.FederationCircuitBreaker.record_failure("mastodon", "Timeout 2", db_path=test_db)
+            st = syndication.FederationCircuitBreaker.get_status("mastodon", db_path=test_db)
+            self.assertEqual(st["state"], "CLOSED")
+            self.assertEqual(st["consecutive_failures"], 2)
+
+            # 3. Record 3rd failure -> trips to OPEN
+            syndication.FederationCircuitBreaker.record_failure("mastodon", "HTTP 503 Outage", db_path=test_db)
+            st = syndication.FederationCircuitBreaker.get_status("mastodon", db_path=test_db)
+            self.assertEqual(st["state"], "OPEN")
+            self.assertEqual(st["consecutive_failures"], 3)
+            self.assertEqual(st["last_failure_reason"], "HTTP 503 Outage")
+            self.assertGreater(st["cooldown_remaining"], 0)
+
+            # Fast failure check
+            can_send, reason, state = syndication.FederationCircuitBreaker.can_dispatch("mastodon", db_path=test_db)
+            self.assertFalse(can_send)
+            self.assertEqual(state, "OPEN")
+            self.assertIn("Circuit breaker is OPEN", reason)
+
+            # 4. Fast-failure dispatching in dispatch_syndicated_post
+            # Simulate non-dry-run dispatch to tripped mastodon
+            orig_enabled = syndication.MASTODON_ENABLED
+            syndication.MASTODON_ENABLED = True
+            try:
+                res = syndication.dispatch_syndicated_post(
+                    text="Hello outage",
+                    platforms=["mastodon"],
+                    dry_run=False,
+                    enqueue_dlq_on_fail=True,
+                    db_path=test_db
+                )
+                self.assertIn("mastodon", res)
+                self.assertFalse(res["mastodon"]["success"])
+                self.assertIn("Circuit breaker is OPEN", res["mastodon"]["status"])
+            finally:
+                syndication.MASTODON_ENABLED = orig_enabled
+
+            # 5. Cooldown expiration transition to HALF-OPEN
+            # Simulate time travel by updating tripped_at 120s ago
+            past_tripped = datetime.fromtimestamp(time.time() - 120, tz=timezone.utc).isoformat()
+            db.update_circuit_breaker_state(
+                platform="mastodon",
+                state="OPEN",
+                consecutive_failures=3,
+                tripped_at=past_tripped,
+                db_path=test_db
+            )
+            st_canary = syndication.FederationCircuitBreaker.get_status("mastodon", db_path=test_db)
+            self.assertEqual(st_canary["state"], "HALF-OPEN")
+            self.assertEqual(st_canary["cooldown_remaining"], 0)
+
+            # In HALF-OPEN, canary dispatch is permitted
+            can_send, reason, state = syndication.FederationCircuitBreaker.can_dispatch("mastodon", db_path=test_db)
+            self.assertTrue(can_send)
+            self.assertEqual(state, "HALF-OPEN")
+
+            # 6. Canary success resets to CLOSED
+            syndication.FederationCircuitBreaker.record_success("mastodon", db_path=test_db)
+            st_healthy = syndication.FederationCircuitBreaker.get_status("mastodon", db_path=test_db)
+            self.assertEqual(st_healthy["state"], "CLOSED")
+            self.assertEqual(st_healthy["consecutive_failures"], 0)
+
+            # 7. Test REST APIs via test client
+            client = dashboard.app.test_client()
+            resp = client.get('/api/syndication/circuit-breakers')
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("mastodon", data["circuit_breakers"])
+            self.assertIn("bluesky", data["circuit_breakers"])
+
+            # Test reset endpoint
+            resp_reset = client.post('/api/syndication/circuit-breakers/reset', json={"platform": "all"})
+            self.assertEqual(resp_reset.status_code, 200)
+            reset_data = resp_reset.get_json()
+            self.assertTrue(reset_data["success"])
+            self.assertEqual(reset_data["circuit_breakers"]["mastodon"]["state"], "CLOSED")
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.46.0] - 2026-11-08
+
+### Added
+- **Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`)**:
+  - Implemented `federation_circuit_breakers` SQLite schema tracking tri-state circuit breaker telemetry (`platform`, `state`, `consecutive_failures`, `failure_threshold`, `cooldown_seconds`, `tripped_at`, `last_success_at`, `last_failure_reason`, timestamps) with automated forward migrations.
+  - Implemented database CRUD helpers `get_circuit_breaker_state()`, `update_circuit_breaker_state()`, and `get_all_circuit_breakers()`.
+  - Created `FederationCircuitBreaker` engine in `syndication.py` supporting `CLOSED` (normal operation), `OPEN` (tripped/failing fast to prevent cascading network pressure), and `HALF-OPEN` (automatic cooldown expiry allowing canary trial probes).
+  - Integrated circuit breaker checks into `dispatch_syndicated_post()`, fast-failing outbound dispatches during node outages, enqueuing failure statuses to the Dead-Letter Queue (DLQ), and automatically resetting to `CLOSED` upon successful deliveries.
+- **Circuit Breaker REST APIs (`dashboard.py`)**:
+  - Added `GET /api/syndication/circuit-breakers` returning real-time circuit states, consecutive failures, remaining cooldown seconds, and failure reasons.
+  - Added `POST /api/syndication/circuit-breakers/reset` supporting single platform or batch (`all`) manual operator circuit resets.
+- **Command Center Circuit Breaker & Sentinel UI (`templates/index.html`)**:
+  - Integrated "Federation Circuit Breaker & Sentinel" control card within the Social Federation card.
+  - Added status badges (`🟢 CLOSED`, `🔴 OPEN`, `🟡 HALF-OPEN`), failure thresholds (`0 / 3`), real-time cooldown countdown indicators, failure diagnostic summaries, per-platform `🔄 Force Reset Circuit` buttons, and `🔄 Reset All Circuits` bulk trigger.
+  - Added dynamic client-side hydration (`loadSyndicationCircuitBreakers()`, `resetFederationCircuitBreakers()`).
+- **Automated Unit Testing & Visual Verification**:
+  - Added `test_federation_circuit_breaker_and_apis` in `test_bot.py` validating circuit breaker mechanics, consecutive failure trips, fast-failing dispatches, cooldown expiration to half-open, canary recovery, and dashboard REST APIs (119 passing tests, 0 flake8 errors).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_46_circuit_breaker.png`).
+
 ## [0.45.0] - 2026-11-08
 
 ### Added

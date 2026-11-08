@@ -56,4 +56,5 @@
 *   [x] Multi-Channel Cross-Posting Preview Simulation for Composite Graphics across Twitter, Mastodon & Bluesky (`syndication.py`, `dashboard.py`, Command Center UI).
 *   [x] Automated Syndication Dead-Letter Queue (DLQ) & Retry Console (`db.py`, `syndication.py`, `dashboard.py`, Command Center UI).
 *   [x] Performance Digest Multi-Channel DLQ Deliverability & Webhook Integration (`digest.py`, `webhook.py`, `templates/index.html`).
-*   [ ] Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages.
+*   [x] Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`, `dashboard.py`, Command Center UI).
+*   [ ] Automated Scheduled Tweet Calendar Drag-and-Drop & Rescheduling Engine.

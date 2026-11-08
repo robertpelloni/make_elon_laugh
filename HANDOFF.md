@@ -1,20 +1,25 @@
-# Session Handoff - Release v0.45.0
+# Session Handoff - Release v0.46.0
 
-## Completed in v0.45.0:
-1. **Performance Digest DLQ Deliverability & Webhook Integration (`digest.py`, `webhook.py`)**:
-   - Incorporated syndication Dead-Letter Queue (DLQ) metrics (`get_syndication_dlq_metrics()`) directly into `generate_performance_digest()`.
-   - Implemented automated threshold alerting in `evaluate_performance_alerts()` flagging warnings when pending or exhausted syndication dead-letters exceed operational tolerances.
-   - Formatted DLQ deliverability breakdowns across Markdown (`export_digest_markdown`) and HTML (`export_digest_html`) report exports.
-   - Enriched Slack (`format_slack_payload`) and Discord (`format_discord_payload`) automated webhook broadcasts with syndication deliverability health metrics.
-2. **Command Center DLQ Digest UI Integration (`templates/index.html`)**:
-   - Added dynamic `#digest-dlq-badge` in the Weekly Performance Digest card displaying real-time DLQ queue deliverability ratios (`DLQ: 0 Pend, 0 Exh, 3 Repl`).
-3. **Verification & Quality**:
-   - Added `test_digest_pipeline_dlq_deliverability_metrics` in `test_bot.py`.
-   - 118 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
+## Completed in v0.46.0:
+1. **Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`)**:
+   - Implemented SQLite table schema `federation_circuit_breakers` tracking tri-state circuit telemetry (`platform`, `state`, `consecutive_failures`, `failure_threshold`, `cooldown_seconds`, `tripped_at`, `last_success_at`, `last_failure_reason`, timestamps) with automated forward migrations.
+   - Implemented database CRUD helpers `get_circuit_breaker_state()`, `update_circuit_breaker_state()`, and `get_all_circuit_breakers()`.
+   - Created `FederationCircuitBreaker` engine in `syndication.py` supporting `CLOSED` (normal operation), `OPEN` (tripped/failing fast to prevent cascading network load), and `HALF-OPEN` (automatic cooldown expiry allowing canary trial probes).
+   - Integrated circuit breaker checks into `dispatch_syndicated_post()`, fast-failing outbound dispatches during node outages, enqueuing failure statuses to the Dead-Letter Queue (DLQ), and automatically resetting to `CLOSED` upon successful deliveries.
+2. **Circuit Breaker REST APIs (`dashboard.py`)**:
+   - Added `GET /api/syndication/circuit-breakers` returning real-time circuit states, consecutive failures, remaining cooldown seconds, and failure reasons.
+   - Added `POST /api/syndication/circuit-breakers/reset` supporting single platform or batch (`all`) manual operator circuit resets.
+3. **Command Center Circuit Breaker & Sentinel UI (`templates/index.html`)**:
+   - Integrated "Federation Circuit Breaker & Sentinel" control card within the Social Federation card.
+   - Added status badges (`🟢 CLOSED`, `🔴 OPEN`, `🟡 HALF-OPEN`), failure thresholds (`0 / 3`), real-time cooldown countdown indicators, failure diagnostic summaries, per-platform `🔄 Force Reset Circuit` buttons, and `🔄 Reset All Circuits` bulk trigger.
+   - Added dynamic client-side hydration (`loadSyndicationCircuitBreakers()`, `resetFederationCircuitBreakers()`).
+4. **Verification & Quality**:
+   - Added `test_federation_circuit_breaker_and_apis` in `test_bot.py`.
+   - 119 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
    - Zero lint errors (`flake8 .`).
-   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_45_digest_dlq.png`).
-   - Global version string bumped to `0.45.0` in `VERSION.md`.
+   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_46_circuit_breaker.png`).
+   - Global version string bumped to `0.46.0` in `VERSION.md`.
 
 ## Next Autonomous Objectives:
-- Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages.
 - Automated Scheduled Tweet Calendar Drag-and-Drop & Rescheduling Engine.
+- Explore Enterprise X webhook endpoints for event-driven tweet triggers.

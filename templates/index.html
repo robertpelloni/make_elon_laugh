@@ -1165,6 +1165,60 @@
                     <div id="dlq-feedback" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted);"></div>
                 </div>
 
+                <!-- Federation Circuit Breaker & Health Sentinel -->
+                <div style="margin-top: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-weight: 600; font-size: 0.85rem;">🛡️ Federation Circuit Breaker & Sentinel</span>
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                                <span class="tooltip-text">Automated tri-state rate-limiting backpressure and fault sentinel (CLOSED, OPEN, HALF-OPEN). Fast-fails requests to prevent cascading node outages and throttles network calls during downtime.</span>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button class="btn btn-outline btn-sm" onclick="resetFederationCircuitBreakers('all')" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="Reset all platform circuit breakers to CLOSED nominal state">
+                                🔄 Reset All Circuits
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.6rem;">
+                        <!-- Mastodon Circuit Card -->
+                        <div id="cb-mastodon-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.78rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                                <span style="font-weight: 600;">🐘 Mastodon Sentinel</span>
+                                <span class="status-badge ok" id="cb-mastodon-state">🟢 CLOSED</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.4rem;">
+                                <span>Failures: <strong id="cb-mastodon-fails" style="color: var(--text-color);">0 / 3</strong></span>
+                                <span>Cooldown: <strong id="cb-mastodon-cooldown" style="color: var(--text-color);">0s</strong></span>
+                            </div>
+                            <div id="cb-mastodon-reason" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                Nominal state.
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="resetFederationCircuitBreakers('mastodon')" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; width: 100%;">
+                                🔄 Force Reset Circuit
+                            </button>
+                        </div>
+                        <!-- Bluesky Circuit Card -->
+                        <div id="cb-bluesky-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.78rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                                <span style="font-weight: 600;">🦋 Bluesky Sentinel</span>
+                                <span class="status-badge ok" id="cb-bluesky-state">🟢 CLOSED</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.4rem;">
+                                <span>Failures: <strong id="cb-bluesky-fails" style="color: var(--text-color);">0 / 3</strong></span>
+                                <span>Cooldown: <strong id="cb-bluesky-cooldown" style="color: var(--text-color);">0s</strong></span>
+                            </div>
+                            <div id="cb-bluesky-reason" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                Nominal state.
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="resetFederationCircuitBreakers('bluesky')" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; width: 100%;">
+                                🔄 Force Reset Circuit
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cb-feedback" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted);"></div>
+                </div>
+
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
@@ -2260,8 +2314,76 @@
                 await loadSyndicationRoutes();
                 await probeFederationLatency();
                 await loadSyndicationDlq();
+                await loadSyndicationCircuitBreakers();
             } catch (err) {
                 console.error("Error loading syndication settings:", err);
+            }
+        }
+
+        async function loadSyndicationCircuitBreakers() {
+            try {
+                const res = await fetch('/api/syndication/circuit-breakers');
+                const data = await res.json();
+                if (!data.success || !data.circuit_breakers) return;
+
+                const cbs = data.circuit_breakers;
+                const updateCbCard = (platform, cb) => {
+                    const stateBadge = document.getElementById(`cb-${platform}-state`);
+                    const failsEl = document.getElementById(`cb-${platform}-fails`);
+                    const cdEl = document.getElementById(`cb-${platform}-cooldown`);
+                    const reasonEl = document.getElementById(`cb-${platform}-reason`);
+
+                    if (stateBadge && cb) {
+                        stateBadge.className = `status-badge ${cb.state === 'CLOSED' ? 'ok' : (cb.state === 'OPEN' ? 'alert' : 'warn')}`;
+                        stateBadge.textContent = cb.state === 'CLOSED' ? '🟢 CLOSED' : (cb.state === 'OPEN' ? '🔴 OPEN' : '🟡 HALF-OPEN');
+                    }
+                    if (failsEl && cb) {
+                        failsEl.textContent = `${cb.consecutive_failures || 0} / ${cb.failure_threshold || 3}`;
+                    }
+                    if (cdEl && cb) {
+                        cdEl.textContent = `${cb.cooldown_remaining || 0}s`;
+                    }
+                    if (reasonEl && cb) {
+                        reasonEl.textContent = cb.last_failure_reason || (cb.state === 'CLOSED' ? 'Nominal state (healthy).' : 'Active backpressure.');
+                        reasonEl.title = cb.last_failure_reason || '';
+                    }
+                };
+
+                updateCbCard('mastodon', cbs.mastodon);
+                updateCbCard('bluesky', cbs.bluesky);
+            } catch (err) {
+                console.error("Error loading circuit breakers:", err);
+            }
+        }
+
+        async function resetFederationCircuitBreakers(platform) {
+            const feedback = document.getElementById('cb-feedback');
+            if (feedback) feedback.textContent = `⏳ Resetting circuit breaker for ${platform}...`;
+            try {
+                const res = await fetch('/api/syndication/circuit-breakers/reset', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ platform: platform })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (feedback) {
+                        feedback.textContent = `✅ ${data.message}`;
+                        feedback.style.color = "var(--accent-success)";
+                    }
+                    await loadSyndicationCircuitBreakers();
+                } else {
+                    if (feedback) {
+                        feedback.textContent = `❌ ${data.error || 'Reset failed.'}`;
+                        feedback.style.color = "var(--accent-alert)";
+                    }
+                }
+                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
+            } catch (err) {
+                if (feedback) {
+                    feedback.textContent = `❌ Error: ${err.message}`;
+                    feedback.style.color = "var(--accent-alert)";
+                }
             }
         }
 

@@ -1204,6 +1204,51 @@ def api_syndication_dlq_discard():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/syndication/circuit-breakers', methods=['GET'])
+def api_syndication_circuit_breakers_get():
+    """
+    Returns real-time status, states, consecutive failure counts, and cooldowns
+    for all federation circuit breakers (Mastodon, Bluesky).
+    """
+    try:
+        breakers = {}
+        for platform in ["mastodon", "bluesky"]:
+            breakers[platform] = syndication.FederationCircuitBreaker.get_status(platform)
+        return jsonify({
+            "success": True,
+            "circuit_breakers": breakers
+        })
+    except Exception as e:
+        app.logger.error(f"Error querying federation circuit breakers: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/syndication/circuit-breakers/reset', methods=['POST'])
+def api_syndication_circuit_breakers_reset():
+    """
+    Manually resets one or all federation circuit breakers to CLOSED.
+    JSON body:
+        platform: 'mastodon' | 'bluesky' | 'all' (default: 'all')
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        platform = data.get('platform', 'all').lower().strip()
+        syndication.FederationCircuitBreaker.reset(platform=platform)
+
+        breakers = {}
+        for p in ["mastodon", "bluesky"]:
+            breakers[p] = syndication.FederationCircuitBreaker.get_status(p)
+
+        return jsonify({
+            "success": True,
+            "message": f"Circuit breaker for '{platform}' successfully reset to CLOSED.",
+            "circuit_breakers": breakers
+        })
+    except Exception as e:
+        app.logger.error(f"Error resetting federation circuit breakers: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/webhook', methods=['GET', 'POST'])
 def api_webhook():
     """

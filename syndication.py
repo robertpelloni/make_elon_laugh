@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import logging
 import os
@@ -18,6 +19,150 @@ BLUESKY_HANDLE = os.environ.get("BLUESKY_HANDLE", "")
 BLUESKY_APP_PASSWORD = os.environ.get("BLUESKY_APP_PASSWORD", "")
 
 LAST_SYNDICATED_POST = None
+
+# Circuit Breaker Configuration Defaults
+CIRCUIT_BREAKER_FAILURE_THRESHOLD = 3
+CIRCUIT_BREAKER_COOLDOWN_SECONDS = 60
+
+
+class FederationCircuitBreaker:
+    """
+    Manages rate-limiting backpressure and fault tolerance for federation node outages.
+    Implements standard tri-state circuit breaker mechanics:
+      - CLOSED: Normal operation. All outbound broadcasts are forwarded.
+      - OPEN: Outage/rate-limit tripped. Requests fail fast without network load.
+      - HALF-OPEN: Cooldown expired. Allows a single canary attempt to probe node recovery.
+    """
+
+    @classmethod
+    def get_status(cls, platform, db_path=db.DB_PATH):
+        """
+        Retrieves real-time status and computes remaining cooldown for a platform.
+        """
+        platform = str(platform).lower().strip()
+        data = db.get_circuit_breaker_state(platform, db_path=db_path)
+        if not data:
+            data = {
+                "platform": platform,
+                "state": "CLOSED",
+                "consecutive_failures": 0,
+                "failure_threshold": CIRCUIT_BREAKER_FAILURE_THRESHOLD,
+                "cooldown_seconds": CIRCUIT_BREAKER_COOLDOWN_SECONDS,
+                "tripped_at": None,
+                "last_success_at": None,
+                "last_failure_reason": None,
+                "updated_at": None
+            }
+
+        state = data["state"]
+        cooldown_remaining = 0
+        if state == "OPEN" and data["tripped_at"]:
+            try:
+                tripped_dt = datetime.fromisoformat(data["tripped_at"])
+                if tripped_dt.tzinfo is None:
+                    tripped_dt = tripped_dt.replace(tzinfo=timezone.utc)
+                elapsed = (datetime.now(timezone.utc) - tripped_dt).total_seconds()
+                cooldown = data["cooldown_seconds"] or CIRCUIT_BREAKER_COOLDOWN_SECONDS
+                if elapsed >= cooldown:
+                    # Cooldown expired, transition to HALF-OPEN canary state
+                    state = "HALF-OPEN"
+                    db.update_circuit_breaker_state(
+                        platform=platform,
+                        state="HALF-OPEN",
+                        db_path=db_path
+                    )
+                    data["state"] = "HALF-OPEN"
+                else:
+                    cooldown_remaining = max(0, int(cooldown - elapsed))
+            except Exception as e:
+                logging.warning(f"Error parsing circuit breaker tripped_at for {platform}: {e}")
+
+        data["cooldown_remaining"] = cooldown_remaining
+        return data
+
+    @classmethod
+    def can_dispatch(cls, platform, db_path=db.DB_PATH):
+        """
+        Checks if requests can proceed to the specified platform.
+        Returns (allowed: bool, reason: str, state: str).
+        """
+        status = cls.get_status(platform, db_path=db_path)
+        state = status["state"]
+        if state == "CLOSED":
+            return True, "Circuit is closed (nominal).", state
+        elif state == "HALF-OPEN":
+            return True, "Circuit is half-open (canary trial).", state
+        else:
+            remaining = status.get("cooldown_remaining", 0)
+            reason = (
+                f"Circuit breaker is OPEN ({status.get('last_failure_reason', 'Repeated failures')}). "
+                f"Cooldown remaining: {remaining}s."
+            )
+            return False, reason, state
+
+    @classmethod
+    def record_success(cls, platform, db_path=db.DB_PATH):
+        """
+        Records a successful broadcast, resetting consecutive failures and returning circuit to CLOSED.
+        """
+        now_str = datetime.now(timezone.utc).isoformat()
+        db.update_circuit_breaker_state(
+            platform=platform,
+            state="CLOSED",
+            consecutive_failures=0,
+            last_success_at=now_str,
+            db_path=db_path
+        )
+        logging.info(f"[CircuitBreaker] {platform.upper()} circuit CLOSED (healthy).")
+
+    @classmethod
+    def record_failure(cls, platform, error_reason, db_path=db.DB_PATH):
+        """
+        Records a failed broadcast. Increments failures and trips to OPEN if threshold reached.
+        """
+        status = cls.get_status(platform, db_path=db_path)
+        fails = (status.get("consecutive_failures") or 0) + 1
+        threshold = status.get("failure_threshold") or CIRCUIT_BREAKER_FAILURE_THRESHOLD
+        now_str = datetime.now(timezone.utc).isoformat()
+
+        if fails >= threshold or status["state"] == "HALF-OPEN":
+            # Trip circuit to OPEN
+            db.update_circuit_breaker_state(
+                platform=platform,
+                state="OPEN",
+                consecutive_failures=fails,
+                tripped_at=now_str,
+                last_failure_reason=str(error_reason),
+                db_path=db_path
+            )
+            logging.warning(
+                f"[CircuitBreaker] {platform.upper()} circuit TRIPPED to OPEN after {fails} failures: {error_reason}"
+            )
+        else:
+            db.update_circuit_breaker_state(
+                platform=platform,
+                state="CLOSED",
+                consecutive_failures=fails,
+                last_failure_reason=str(error_reason),
+                db_path=db_path
+            )
+
+    @classmethod
+    def reset(cls, platform="all", db_path=db.DB_PATH):
+        """
+        Manually forces circuit breaker state back to CLOSED.
+        """
+        platforms = ["mastodon", "bluesky"] if platform.lower() == "all" else [platform.lower()]
+        for p in platforms:
+            db.update_circuit_breaker_state(
+                platform=p,
+                state="CLOSED",
+                consecutive_failures=0,
+                last_failure_reason=None,
+                db_path=db_path
+            )
+            logging.info(f"[CircuitBreaker] Manually reset circuit breaker for {p.upper()} to CLOSED.")
+        return True
 
 
 def format_mastodon_payload(text):
@@ -146,7 +291,8 @@ def resolve_platforms_for_account(account_handle=None, fallback_to_defaults=True
 
 
 def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, auto_split=True,
-                             account_handle="@make_elon_laugh", enqueue_dlq_on_fail=True):
+                             account_handle="@make_elon_laugh", enqueue_dlq_on_fail=True,
+                             db_path=db.DB_PATH):
     """
     Dispatches content to enabled federation platforms (Mastodon, Bluesky).
     If auto_split is True, content exceeding platform character limit is split into sequential chunks.
@@ -172,6 +318,28 @@ def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, aut
 
     for platform in target_platforms:
         plat_lower = platform.lower().strip()
+
+        # Circuit breaker fast-failure check (skip network attempt if OPEN)
+        if not dry_run:
+            can_send, cb_reason, cb_state = FederationCircuitBreaker.can_dispatch(plat_lower, db_path=db_path)
+            if not can_send:
+                logging.warning(f"[CircuitBreaker] Fast-failing dispatch to {plat_lower}: {cb_reason}")
+                if enqueue_dlq_on_fail:
+                    db.enqueue_syndication_dlq(
+                        platform=plat_lower,
+                        content=text,
+                        error_message=cb_reason,
+                        account_handle=account_handle,
+                        db_path=db_path
+                    )
+                results[plat_lower] = {
+                    "success": False,
+                    "status": cb_reason,
+                    "parts": 0,
+                    "circuit_breaker": cb_state
+                }
+                continue
+
         chunks = splitter.split_for_platform(text, plat_lower) if auto_split else [text]
         all_part_success = True
         last_status = "200 OK"
@@ -187,7 +355,8 @@ def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, aut
                     platform="mastodon",
                     content=chunk,
                     remote_id=f"mast_{int(time.time())}_{idx}" if (succ or dry_run) else None,
-                    status=status_label
+                    status=status_label,
+                    db_path=db_path
                 )
             elif plat_lower == "bluesky":
                 succ, s_msg = dispatch_bluesky(chunk, dry_run=dry_run, timeout=timeout)
@@ -199,15 +368,23 @@ def dispatch_syndicated_post(text, platforms=None, dry_run=False, timeout=5, aut
                     platform="bluesky",
                     content=chunk,
                     remote_id=f"bsky_{int(time.time())}_{idx}" if (succ or dry_run) else None,
-                    status=status_label
+                    status=status_label,
+                    db_path=db_path
                 )
+
+        if not dry_run:
+            if all_part_success:
+                FederationCircuitBreaker.record_success(plat_lower, db_path=db_path)
+            else:
+                FederationCircuitBreaker.record_failure(plat_lower, last_status, db_path=db_path)
 
         if not all_part_success and not dry_run and enqueue_dlq_on_fail:
             db.enqueue_syndication_dlq(
                 platform=plat_lower,
                 content=text,
                 error_message=last_status,
-                account_handle=account_handle
+                account_handle=account_handle,
+                db_path=db_path
             )
 
         results[plat_lower] = {
