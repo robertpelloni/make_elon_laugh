@@ -98,6 +98,11 @@ def format_slack_payload(digest_data):
     single_cnt = media_dist.get("single", 0)
     comp_cnt = media_dist.get("composite", 0)
 
+    dlq = digest_data.get("dlq", {})
+    dlq_pend = dlq.get("pending", 0)
+    dlq_exh = dlq.get("exhausted", 0)
+    dlq_rep = dlq.get("replayed", 0)
+
     blocks = [
         {
             "type": "header",
@@ -124,6 +129,10 @@ def format_slack_payload(digest_data):
                 {
                     "type": "mrkdwn",
                     "text": f"*Media Queue:*\nSingle: {single_cnt} | Composite: {comp_cnt}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*DLQ Deliverability:*\nPend: {dlq_pend} | Exh: {dlq_exh} | Repl: {dlq_rep}"
                 }
             ]
         }
@@ -179,6 +188,11 @@ def format_discord_payload(digest_data):
     single_cnt = media_dist.get("single", 0)
     comp_cnt = media_dist.get("composite", 0)
 
+    dlq = digest_data.get("dlq", {})
+    dlq_pend = dlq.get("pending", 0)
+    dlq_exh = dlq.get("exhausted", 0)
+    dlq_rep = dlq.get("replayed", 0)
+
     fields = [
         {"name": "Replies Sent", "value": str(rep.get("total_replies", 0)), "inline": True},
         {"name": "Likes / RTs", "value": likes_rts, "inline": True},
@@ -186,6 +200,7 @@ def format_discord_payload(digest_data):
         {"name": "Queue Dispatches", "value": str(queue.get("sent", 0)), "inline": True},
         {"name": "Pending in Queue", "value": str(queue.get("pending", 0)), "inline": True},
         {"name": "Media Distribution", "value": f"Single: {single_cnt} | Composite: {comp_cnt}", "inline": True},
+        {"name": "DLQ Deliverability", "value": f"Pend: {dlq_pend} | Exh: {dlq_exh} | Repl: {dlq_rep}", "inline": True},
     ]
 
     if alerts:

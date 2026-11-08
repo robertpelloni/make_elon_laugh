@@ -1,24 +1,20 @@
-# Session Handoff - Release v0.44.0
+# Session Handoff - Release v0.45.0
 
-## Completed in v0.44.0:
-1. **Automated Syndication Dead-Letter Queue (DLQ) & Retry Console (`db.py`, `syndication.py`)**:
-   - Implemented `syndication_dlq` SQLite table schema tracking failed federation broadcasts (`platform`, `account_handle`, `content`, `error_message`, `retry_count`, `max_retries`, `status`, timestamps) with automated forward migrations.
-   - Implemented database CRUD helpers `enqueue_syndication_dlq()`, `get_syndication_dlq()`, `update_syndication_dlq_status()`, and `get_syndication_dlq_metrics()`.
-   - Updated `dispatch_syndicated_post()` in `syndication.py` to automatically capture failed posts into the DLQ with account handle attribution and error descriptions.
-   - Implemented `replay_syndication_dlq_item()`, `discard_syndication_dlq_item()`, and `process_syndication_dlq()` supporting on-demand single replay and automated batch retry processing.
-2. **Dead-Letter Queue REST APIs (`dashboard.py`)**:
-   - Added `GET /api/syndication/dlq` returning queued DLQ items (filterable by status) and aggregate metrics.
-   - Added `POST /api/syndication/dlq/replay` supporting single item replay by ID or batch processing (`all=true`).
-   - Added `POST /api/syndication/dlq/discard` for operator-initiated item discarding.
-3. **Command Center DLQ & Retries Console (`templates/index.html`)**:
-   - Integrated interactive "Dead-Letter Queue & Retries" console within the Social Federation card with tooltip guidance.
-   - Added status metric badges (Pending, Exhausted, Replayed), item table with account handle badges, and direct `🔁 Replay` / `🗑️ Discard` one-click actions.
-   - Added `⚡ Process Retries` trigger button and dynamic client-side hydration (`loadSyndicationDlq()`).
-4. **Automated Testing & Visual Verification**:
-   - Added `test_syndication_dead_letter_queue_and_api` in `test_bot.py` testing database enqueuing, dry-run replay, discard operations, batch processing, and REST APIs (117 passing unit tests, clean flake8).
-   - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_44_syndication_dlq.png`).
-   - Sourced version from `VERSION.md` (`0.44.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
+## Completed in v0.45.0:
+1. **Performance Digest DLQ Deliverability & Webhook Integration (`digest.py`, `webhook.py`)**:
+   - Incorporated syndication Dead-Letter Queue (DLQ) metrics (`get_syndication_dlq_metrics()`) directly into `generate_performance_digest()`.
+   - Implemented automated threshold alerting in `evaluate_performance_alerts()` flagging warnings when pending or exhausted syndication dead-letters exceed operational tolerances.
+   - Formatted DLQ deliverability breakdowns across Markdown (`export_digest_markdown`) and HTML (`export_digest_html`) report exports.
+   - Enriched Slack (`format_slack_payload`) and Discord (`format_discord_payload`) automated webhook broadcasts with syndication deliverability health metrics.
+2. **Command Center DLQ Digest UI Integration (`templates/index.html`)**:
+   - Added dynamic `#digest-dlq-badge` in the Weekly Performance Digest card displaying real-time DLQ queue deliverability ratios (`DLQ: 0 Pend, 0 Exh, 3 Repl`).
+3. **Verification & Quality**:
+   - Added `test_digest_pipeline_dlq_deliverability_metrics` in `test_bot.py`.
+   - 118 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
+   - Zero lint errors (`flake8 .`).
+   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_45_digest_dlq.png`).
+   - Global version string bumped to `0.45.0` in `VERSION.md`.
 
 ## Next Autonomous Objectives:
 - Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages.
-- Real-time automated DLQ background retry scheduler integration in bot continuous loop.
+- Automated Scheduled Tweet Calendar Drag-and-Drop & Rescheduling Engine.

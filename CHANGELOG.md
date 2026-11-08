@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.45.0] - 2026-11-08
+
+### Added
+- **Performance Digest DLQ Deliverability & Webhook Integration (`digest.py`, `webhook.py`)**:
+  - Incorporated syndication Dead-Letter Queue (DLQ) metrics (`get_syndication_dlq_metrics()`) directly into `generate_performance_digest()`, tracking pending failures, exhausted retries, and successful replayed items in the weekly performance pipeline.
+  - Implemented automated threshold alerting in `evaluate_performance_alerts()` flagging warnings when pending or exhausted syndication dead-letters exceed operational tolerances.
+  - Formatted DLQ deliverability breakdowns across Markdown (`export_digest_markdown`) and HTML (`export_digest_html`) report exports.
+  - Enriched Slack (`format_slack_payload`) and Discord (`format_discord_payload`) automated webhook broadcasts with syndication deliverability health metrics.
+- **Command Center DLQ Digest UI Integration (`templates/index.html`)**:
+  - Added dynamic `#digest-dlq-badge` in the Weekly Performance Digest card displaying real-time DLQ queue deliverability ratios (`DLQ: 0 Pend, 0 Exh, 3 Repl`).
+- **Automated Unit Testing & Visual Verification**:
+  - Added `test_digest_pipeline_dlq_deliverability_metrics` in `test_bot.py` validating metrics aggregation, threshold alerts, multi-format exports, and webhook serialization (118 passing unit tests, clean flake8).
+  - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_45_digest_dlq.png`).
+
 ## [0.44.0] - 2026-11-08
 
 ### Added

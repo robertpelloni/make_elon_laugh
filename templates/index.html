@@ -960,6 +960,7 @@
                     <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
                     <div id="digest-queue-accounts" style="font-size: 0.75rem; color: var(--primary); margin-top: 0.1rem;">Accounts: -</div>
                     <div id="digest-queue-media" style="font-size: 0.75rem; color: var(--accent); margin-top: 0.1rem;" title="Scheduled visual media card & composite infographic ratio">Media: -</div>
+                    <div id="digest-dlq-badge" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;" title="Federation dead-letter queue deliverability metrics">DLQ Deliverability: -</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
@@ -1979,6 +1980,13 @@
                     const mediaDist = d.queue && d.queue.media_distribution ? d.queue.media_distribution : { single: 0, composite: 0 };
                     const mediaEl = document.getElementById('digest-queue-media');
                     if (mediaEl) mediaEl.textContent = `Media: Single (${mediaDist.single || 0}), Composite (${mediaDist.composite || 0})`;
+
+                    const dlqData = d.dlq || { pending: 0, exhausted: 0, replayed: 0 };
+                    const dlqEl = document.getElementById('digest-dlq-badge');
+                    if (dlqEl) {
+                        dlqEl.textContent = `DLQ: ${dlqData.pending || 0} Pend, ${dlqData.exhausted || 0} Exh, ${dlqData.replayed || 0} Repl`;
+                        dlqEl.style.color = (dlqData.exhausted > 0) ? 'var(--accent-alert)' : ((dlqData.pending > 0) ? 'var(--accent-warn)' : 'var(--accent-success)');
+                    }
 
                     const topRep = d.replies.top_reply;
                     const topBox = document.getElementById('digest-top-reply-box');

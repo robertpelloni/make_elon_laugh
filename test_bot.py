@@ -2569,6 +2569,59 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_digest_pipeline_dlq_deliverability_metrics(self):
+        """Tests that performance digest aggregates DLQ deliverability metrics, alerts, and formats webhooks."""
+        import digest
+        import webhook
+        test_db = f"test_digest_dlq_{int(time.time() * 1000)}.db"
+        db.init_db(test_db)
+
+        try:
+            # 1. Enqueue an exhausted item to trigger critical alert
+            dlq_id = db.enqueue_syndication_dlq(
+                platform="mastodon",
+                content="Critical alert trigger payload",
+                error_message="Connection Refused",
+                max_retries=1,
+                db_path=test_db
+            )
+            # Replay and exhaust
+            db.update_syndication_dlq_status(
+                dlq_id=dlq_id,
+                status="exhausted",
+                error_message="Connection Refused (retries exhausted)",
+                increment_retry=True,
+                db_path=test_db
+            )
+
+            d = digest.generate_performance_digest(db_path=test_db, days=7)
+            self.assertIn("dlq", d)
+            self.assertEqual(d["dlq"]["exhausted"], 1)
+
+            # Check that alert was triggered
+            alert_types = [a["type"] for a in d.get("alerts", [])]
+            self.assertIn("syndication_dlq_exhausted_failures", alert_types)
+
+            # 2. Markdown export verification
+            md = digest.export_digest_markdown(d)
+            self.assertIn("## 🔁 Federation Deliverability & Dead-Letter Queue", md)
+            self.assertIn("- **DLQ Exhausted Failures:** 1", md)
+
+            # 3. HTML export verification
+            html = digest.export_digest_html(d)
+            self.assertIn("Federation Deliverability", html)
+
+            # 4. Webhook payload formatting verification
+            slack = webhook.format_slack_payload(d)
+            self.assertTrue(any("DLQ Deliverability" in str(block) for block in slack.get("blocks", [])))
+
+            discord = webhook.format_discord_payload(d)
+            embed_fields = discord["embeds"][0]["fields"]
+            self.assertTrue(any(f["name"] == "DLQ Deliverability" for f in embed_fields))
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

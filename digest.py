@@ -69,6 +69,23 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
             )
         })
 
+    dlq = digest_data.get("dlq", {})
+    dlq_exhausted = dlq.get("exhausted", 0)
+    dlq_pending = dlq.get("pending", 0)
+
+    if dlq_exhausted > 0:
+        alerts.append({
+            "level": "critical",
+            "type": "syndication_dlq_exhausted_failures",
+            "message": f"Syndication DLQ has {dlq_exhausted} exhausted broadcast failures requiring manual review."
+        })
+    elif dlq_pending > 5:
+        alerts.append({
+            "level": "warning",
+            "type": "syndication_dlq_pending_high",
+            "message": f"Syndication DLQ pending retries elevated ({dlq_pending} pending retries)."
+        })
+
     return alerts
 
 
@@ -132,6 +149,13 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
                 "mastodon": {"posts": 0, "likes": 0, "shares": 0},
                 "bluesky": {"posts": 0, "likes": 0, "shares": 0}
             }
+        },
+        "dlq": {
+            "total": 0,
+            "pending": 0,
+            "exhausted": 0,
+            "replayed": 0,
+            "discarded": 0
         },
         "deltas": {
             "replies": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
@@ -380,6 +404,11 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
+            # 6. Dead-Letter Queue Metrics Aggregation
+            digest["dlq"] = db.get_syndication_dlq_metrics(db_path=db_path)
+            if digest["dlq"].get("exhausted", 0) > 0:
+                digest["health_scorecard"]["overall_health"] = "Attention (Syndication Failures in DLQ)"
+
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
 
@@ -488,6 +517,12 @@ def export_digest_markdown(digest):
 - **Total Syndicated Posts:** {syn.get('total_posts', 0)} [{fmt_delta('syndication_posts')}]
 - **Federated Engagement Delta:** [{fmt_delta('syndication_engagement')}]
 {federation_reach_md}
+
+## 🔁 Federation Deliverability & Dead-Letter Queue
+- **DLQ Pending Retries:** {digest.get('dlq', {}).get('pending', 0)}
+- **DLQ Exhausted Failures:** {digest.get('dlq', {}).get('exhausted', 0)}
+- **DLQ Successfully Replayed:** {digest.get('dlq', {}).get('replayed', 0)}
+- **DLQ Discarded:** {digest.get('dlq', {}).get('discarded', 0)}
 
 ---
 *Autonomous Tactful Humor Operations Console*
@@ -733,6 +768,22 @@ def export_digest_html(digest):
     <ul>
       {federation_html_items}
     </ul>
+
+    <h2>🔁 Federation Deliverability &amp; Dead-Letter Queue</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">Pending Retries</div>
+        <div class="card-val">{digest.get('dlq', {}).get('pending', 0)}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Exhausted Failures</div>
+        <div class="card-val">{digest.get('dlq', {}).get('exhausted', 0)}</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Successfully Replayed</div>
+        <div class="card-val">{digest.get('dlq', {}).get('replayed', 0)}</div>
+      </div>
+    </div>
 
     <footer>
       Autonomous Tactful Humor Operations Console &bull; Confidential Digest Report
