@@ -6,7 +6,8 @@
 - All controls have explicit interactive forms, distinct labels, and tooltip guidance for complete operational clarity.
 - Visual meme card generation is provided via `meme_generator.py` and `joke_generator.py` using Pillow, outputting base64-encoded PNG cards accessible at `/api/test-generate-meme`.
 - The desktop system tray companion is located in `tray.py`, allowing operators on desktop environments to launch the dashboard, run checks, and quit servers, while cleanly detecting headless environments and remaining non-blocking.
-- The global version string is governed centrally by `VERSION.md` (currently `v0.39.0`) and dynamically read by the dashboard and documentation.
+- The global version string is governed centrally by `VERSION.md` (currently `v0.40.0`) and dynamically read by the dashboard and documentation.
+- Panel-Level Custom Persona & Rephrasing Pipeline for Infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`) enables dynamic persona-guided rephrasing of multi-panel composite infographics with REST endpoints (`/api/meme/composite/rephrase-panels`) and Command Center UI triggers.
 - Digest Pipeline Visual Media Distribution & Multi-Platform Webhook Analytics (`digest.py`, `webhook.py`, `generate_digest.py`) aggregates scheduled visual media queues (Single Cards vs Composite Infographics) across Markdown, HTML, Slack, Discord, and dashboard performance metrics.
 - Autonomous Multi-Panel Infographic Queue Scheduling (`db.py`, `scheduler.py`, `dashboard.py`) provides automated composite media generation and queue dispatching with customizable visual layouts (`auto`, `grid`, `side-by-side`) and theme palettes.
 - AI-Driven Smart Layout Auto-Selection (`meme_generator.py`, `dashboard.py`) evaluates panel counts, content length, and character density to automatically recommend between 2x2 grid and side-by-side composite formats, explaining rationale via `/api/meme/composite/recommend-layout` and UI banners.

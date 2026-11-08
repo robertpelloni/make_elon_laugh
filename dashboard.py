@@ -404,6 +404,38 @@ def api_meme_download():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/meme/composite/rephrase-panels', methods=['POST'])
+def api_meme_composite_rephrase_panels():
+    """
+    Rephrases a list of infographic panel bodies using a specified persona and tone style.
+    Payload: {
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "persona": "tactful_engineer|witty_ai|deadpan_astronomer",
+      "tone_style": "witty|concise|enthusiastic|academic"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    panels = data.get("panels") or []
+    persona = data.get("persona") or CURRENT_PERSONA
+    tone_style = data.get("tone_style") or "witty"
+
+    try:
+        rephrased = joke_generator.rephrase_infographic_panels(
+            panels=panels,
+            persona=persona,
+            tone_style=tone_style
+        )
+        return jsonify({
+            "success": True,
+            "panels": rephrased,
+            "persona": persona,
+            "tone_style": tone_style
+        })
+    except Exception as e:
+        app.logger.error(f"Error rephrasing infographic panels: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/meme/composite/recommend-layout', methods=['POST'])
 def api_meme_composite_recommend_layout():
     """
@@ -444,6 +476,9 @@ def api_meme_composite():
     title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
     theme = str(data.get("theme") or "dark").strip().lower()
     layout = str(data.get("layout") or "grid").strip().lower()
+    rephrase_panels = bool(data.get("rephrase_panels", False))
+    persona = str(data.get("persona") or CURRENT_PERSONA).strip()
+    tone_style = str(data.get("tone_style") or "witty").strip().lower()
 
     # If layout is auto, resolve recommendation metadata
     resolved_layout = layout
@@ -457,7 +492,10 @@ def api_meme_composite():
             panels=panels,
             title=title,
             theme=theme,
-            layout=layout
+            layout=layout,
+            rephrase_panels=rephrase_panels,
+            persona=persona,
+            tone_style=tone_style
         )
         return jsonify({
             "success": True,

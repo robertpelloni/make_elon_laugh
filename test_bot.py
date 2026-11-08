@@ -2267,6 +2267,68 @@ class TestSyndication(unittest.TestCase):
                 except OSError:
                     pass
 
+    def test_panel_rephrasing_pipeline_and_api(self):
+        """Validates multi-panel persona rephrasing in joke_generator and dashboard REST endpoints."""
+        panels = [
+            {"title": "Propulsion", "text": "Liquid oxygen engines maximize payload efficiency."},
+            {"title": "Telemetry", "text": "Deep space signals experience inverse-square attenuation."}
+        ]
+
+        # 1. Direct rephrasing across tone styles
+        rephrased_witty = joke_generator.rephrase_infographic_panels(
+            panels, persona="witty_ai", tone_style="witty"
+        )
+        self.assertEqual(len(rephrased_witty), 2)
+        self.assertEqual(rephrased_witty[0]["title"], "Propulsion")
+        self.assertIn("Liquid oxygen engines", rephrased_witty[0]["text"])
+
+        # 2. String input format normalization
+        str_panels = ["Raw telemetry stream point A", "Raw telemetry stream point B"]
+        rephrased_str = joke_generator.rephrase_infographic_panels(
+            str_panels, persona="deadpan_astronomer", tone_style="concise"
+        )
+        self.assertEqual(len(rephrased_str), 2)
+        self.assertEqual(rephrased_str[0]["title"], "Insight")
+
+        # 3. Composite generation with rephrase_panels=True
+        img_bytes = meme_generator.create_composite_infographic(
+            panels=panels,
+            theme="cyberpunk",
+            layout="side-by-side",
+            rephrase_panels=True,
+            persona="tactful_engineer",
+            tone_style="academic"
+        )
+        self.assertIsInstance(img_bytes, bytes)
+        self.assertTrue(len(img_bytes) > 2000)
+
+        # 4. REST API /api/meme/composite/rephrase-panels
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/meme/composite/rephrase-panels", json={
+                "panels": panels,
+                "persona": "witty_ai",
+                "tone_style": "enthusiastic"
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertEqual(len(data["panels"]), 2)
+            self.assertEqual(data["tone_style"], "enthusiastic")
+
+            # 5. REST API /api/meme/composite with rephrase_panels=True
+            comp_res = client.post("/api/meme/composite", json={
+                "panels": panels,
+                "theme": "solar",
+                "layout": "grid",
+                "rephrase_panels": True,
+                "persona": "tactful_engineer",
+                "tone_style": "witty"
+            })
+            self.assertEqual(comp_res.status_code, 200)
+            comp_data = comp_res.get_json()
+            self.assertTrue(comp_data["success"])
+            self.assertIn("image_b64", comp_data)
+
 
 if __name__ == "__main__":
     unittest.main()

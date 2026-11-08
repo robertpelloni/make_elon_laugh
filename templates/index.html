@@ -643,6 +643,12 @@
                                       <span class="tooltiptext">Evaluates panel counts, character density, and structural symmetry to select between side-by-side and 2x2 quadrant grid layouts.</span>
                                     </div>
                                 </button>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-rephrase-composite" onclick="rephraseCompositePanels()" title="Rephrase all panel texts using active persona and tone style">
+                                    ✨ Tone-Rephrase Panels
+                                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                                      <span class="tooltiptext">Transforms and stylizes panel text according to the selected persona and tone style while preserving panel titles.</span>
+                                    </div>
+                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download PNG</button>
                             </div>
                         </div>
@@ -1298,6 +1304,44 @@
             const text = lastRenderedMemeText || document.getElementById('sample-tweet').value;
             const url = `/api/meme/download?theme=${encodeURIComponent(theme)}&text=${encodeURIComponent(text)}`;
             window.location.href = url;
+        }
+
+        async function rephraseCompositePanels() {
+            const banner = document.getElementById('composite-layout-banner');
+            const persona = document.getElementById('persona-select').value;
+            const toneSelect = document.getElementById('tone-style-select');
+            const tone = toneSelect ? toneSelect.value : 'witty';
+            const compImg = document.getElementById('composite-preview-img');
+            const layoutSelect = document.getElementById('composite-layout-select');
+            const layout = layoutSelect ? layoutSelect.value : 'auto';
+            const theme = document.getElementById('meme-theme-select').value;
+
+            banner.style.display = 'block';
+            banner.textContent = `Rephrasing panels in ${persona} persona with ${tone} tone...`;
+
+            try {
+                const res = await fetch('/api/meme/composite', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        theme: theme,
+                        layout: layout,
+                        title: "Autonomous Cosmic Multi-Panel Briefing",
+                        rephrase_panels: true,
+                        persona: persona,
+                        tone_style: tone
+                    })
+                });
+                const data = await res.json();
+                if (data.success && data.image_b64) {
+                    compImg.src = "data:image/png;base64," + data.image_b64;
+                    banner.innerHTML = `<strong>✨ Panels Rephrased:</strong> Successfully styled multi-panel infographic using <em>${persona}</em> (${tone} tone).`;
+                } else {
+                    banner.textContent = data.error || "Failed to rephrase composite panels.";
+                }
+            } catch (err) {
+                banner.textContent = "Rephrase panels error: " + err.message;
+            }
         }
 
         async function recommendLayout() {
