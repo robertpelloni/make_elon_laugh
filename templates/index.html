@@ -862,6 +862,7 @@
                     <div id="digest-queue-sent" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">0 Dispatched</div>
                     <div id="digest-queue-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
+                    <div id="digest-queue-accounts" style="font-size: 0.75rem; color: var(--primary); margin-top: 0.1rem;">Accounts: -</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
@@ -1423,7 +1424,7 @@
                 const res = await fetch('/api/schedule', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona})
+          body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona, account_handle: accountHandle})
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -1512,6 +1513,13 @@
                         ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
                         : 'None';
                     document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    const accountKeys = Object.keys(d.queue.account_distribution || {});
+                    const accountStr = accountKeys.length > 0
+                        ? accountKeys.map(k => `${k}: ${d.queue.account_distribution[k]}`).join(', ')
+                        : 'None';
+                    const accEl = document.getElementById('digest-queue-accounts');
+                    if (accEl) accEl.textContent = `Accounts: ${accountStr}`;
 
                     const topRep = d.replies.top_reply;
                     const topBox = document.getElementById('digest-top-reply-box');

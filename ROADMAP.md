@@ -42,4 +42,5 @@
 *   [x] Target Audience Segmentation & Dynamic Persona Routing (`db.py`, `bot.py`, `dashboard.py`, `templates/index.html`).
 *   [x] Themed Visual Meme Card Styles & Binary Download Exports (`meme_generator.py`, `/api/meme/download`, Command Center theme controls).
 *   [x] Multi-account Twitter / X scheduling and cross-account coordination (`db.py`, `scheduler.py`, `/api/schedule`, Command Center UI).
+*   [x] Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`, Command Center UI).
 *   [ ] Multi-image meme card attachments support in scheduled tweets.

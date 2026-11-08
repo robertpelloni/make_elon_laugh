@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-11-08
+
+### Added
+- **Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`)**:
+  - Enhanced performance digest engine (`digest.py`) with `account_distribution` aggregation within scheduled queue metrics.
+  - Updated Markdown and HTML digest report generators with visual badge styling and account attribution breakdown.
+  - Extended CLI tool (`generate_digest.py`) with `--account` argument for filtering queue attribution metrics by specific handle.
+  - Updated REST API endpoint `/api/digest` in `dashboard.py` to support optional `account` filtering.
+  - Added dedicated dynamic UI element (`#digest-queue-accounts`) in Command Center Weekly Performance Digest card to display live account attribution distributions.
+  - Verified with 105 automated unit tests, strict flake8 linting, and Playwright visual screenshot verification.
+
 ## [0.31.0] - 2026-11-08
 
 ### Added

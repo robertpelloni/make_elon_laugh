@@ -6,7 +6,10 @@
 - All controls have explicit interactive forms, distinct labels, and tooltip guidance for complete operational clarity.
 - Visual meme card generation is provided via `meme_generator.py` and `joke_generator.py` using Pillow, outputting base64-encoded PNG cards accessible at `/api/test-generate-meme`.
 - The desktop system tray companion is located in `tray.py`, allowing operators on desktop environments to launch the dashboard, run checks, and quit servers, while cleanly detecting headless environments and remaining non-blocking.
-- The global version string is governed centrally by `VERSION.md` (currently `0.22.0`) and dynamically read by the dashboard and documentation.
+- The global version string is governed centrally by `VERSION.md` (currently `v0.32.0`) and dynamically read by the dashboard and documentation.
+- Themed Visual Meme Card Engine (`meme_generator.py`) supports 4 distinct palettes (`dark`, `cyberpunk`, `solar`, `clean`) with direct binary downloads (`/api/meme/download`).
+- Multi-Account Tweet Scheduling (`db.py`, `scheduler.py`) routes tweets to accounts like `@make_elon_laugh` and `@space_astronomy` with profile badges.
+- Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`) aggregates and visualizes `account_distribution` across the queue in the Command Center UI and exported reports.
 - Dual Dark and Light mode theme architecture is managed with CSS custom properties, client-side `localStorage`, and runtime persistence via `/api/theme`.
 - Multi-persona humor engine is supported across `tactful_engineer`, `witty_ai`, and `deadpan_astronomer` with tailored system prompts, static fallbacks, and runtime control via `/api/persona`.
 - Community Joke Rating System allows operators to vote thumbs up (+1) or thumbs down (-1) on generated content via `/api/ratings`, with an approval rate metric card and persistent SQLite storage.

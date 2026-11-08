@@ -9,6 +9,7 @@ and exportable markdown and structured summaries for bot operators.
 
 import logging
 from datetime import datetime, timezone
+import sqlite3
 import db
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "sent": 0,
             "cancelled": 0,
             "persona_distribution": {},
+            "account_distribution": {},
         },
         "ratings": {
             "total_ratings": 0,
@@ -253,6 +255,22 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             for persona, count in cursor.fetchall():
                 digest["queue"]["persona_distribution"][persona] = count
 
+            # Multi-account distribution in queue
+            try:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(account_handle, '@make_elon_laugh'), COUNT(*)
+                    FROM scheduled_tweets
+                    WHERE created_at >= datetime('now', '-' || ? || ' days')
+                    GROUP BY account_handle
+                    """,
+                    (str(days),),
+                )
+                for acc, count in cursor.fetchall():
+                    digest["queue"]["account_distribution"][acc or "@make_elon_laugh"] = count
+            except sqlite3.OperationalError:
+                pass
+
             # 3. Community Ratings & Approval
             cursor.execute(
                 """
@@ -350,6 +368,7 @@ def export_digest_markdown(digest):
         top_humor_md = "- *None recorded yet.*"
 
     personas_md = ", ".join([f"{k}: {v}" for k, v in queue.get("persona_distribution", {}).items()]) or "None"
+    accounts_md = ", ".join([f"{k}: {v}" for k, v in queue.get("account_distribution", {}).items()]) or "None"
 
     def fmt_delta(key):
         d = deltas.get(key, {})
@@ -410,6 +429,7 @@ def export_digest_markdown(digest):
   - Dispatched (Sent): {queue.get('sent', 0)} [{fmt_delta('queue_sent')}]
   - Cancelled: {queue.get('cancelled', 0)}
 - **Persona Distribution:** {personas_md}
+- **Account Attribution:** {accounts_md}
 
 ## 🌟 Humor Approval & Ratings
 - **Total Community Ratings:** {rat.get('total_ratings', 0)}
@@ -471,6 +491,16 @@ def export_digest_html(digest):
         ])
     else:
         persona_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
+
+    accounts_dict = queue.get("account_distribution", {})
+    if accounts_dict:
+        account_badges = "".join([
+            f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
+            f'background: #e0e7ff; color: #3730a3;">{a}: {cnt}</span>'
+            for a, cnt in accounts_dict.items()
+        ])
+    else:
+        account_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
 
     if alerts:
         alert_items = "".join([
@@ -628,6 +658,7 @@ def export_digest_html(digest):
       <li><strong>Pending Backlog:</strong> {queue.get('pending', 0)}</li>
       <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
       <li><strong>Persona Distribution:</strong> {persona_badges}</li>
+      <li><strong>Account Attribution:</strong> {account_badges}</li>
     </ul>
 
     <h2>🌟 Community Humor Approval</h2>

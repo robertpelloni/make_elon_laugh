@@ -595,8 +595,11 @@ def api_digest():
     """
     days = request.args.get('days', default=7, type=int)
     fmt = request.args.get('format', default='json', type=str).lower()
+    account = request.args.get('account')
 
     summary = digest.generate_performance_digest(days=days)
+    if account:
+        summary["filter_account"] = account.strip()
 
     if fmt == 'markdown':
         md_text = digest.export_digest_markdown(summary)

@@ -848,7 +848,8 @@ class TestPerformanceDigest(unittest.TestCase):
         db.update_engagement("1001", likes=15, retweets=4, db_path=self.test_db)
 
         # Insert scheduled tweet
-        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db)
+        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db,
+                          account_handle="@space_astronomy")
 
         # Insert ratings (+1 and -1)
         db.record_joke_rating("Hilarious space joke", 1, notes="Super funny", db_path=self.test_db)
@@ -863,6 +864,17 @@ class TestPerformanceDigest(unittest.TestCase):
         self.assertEqual(res["queue"]["total_scheduled"], 1)
         self.assertEqual(res["queue"]["pending"], 1)
         self.assertEqual(res["queue"]["persona_distribution"].get("witty_ai"), 1)
+        self.assertEqual(res["queue"]["account_distribution"].get("@space_astronomy"), 1)
+
+        # Verify export markdown includes Account Attribution
+        md = digest.export_digest_markdown(res)
+        self.assertIn("Account Attribution:", md)
+        self.assertIn("@space_astronomy: 1", md)
+
+        # Verify HTML export includes Account Attribution
+        html = digest.export_digest_html(res)
+        self.assertIn("Account Attribution:", html)
+        self.assertIn("@space_astronomy: 1", html)
 
         self.assertEqual(res["ratings"]["total_ratings"], 2)
         self.assertEqual(res["ratings"]["upvotes"], 1)

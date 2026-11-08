@@ -55,6 +55,7 @@
 - [x] Expose account handle filtering and breakdown in `/api/schedule` (`dashboard.py`).
 - [x] Wire account profile selector and badge indicators in Scheduled Tweet Queue table (`templates/index.html`).
 - [x] Add automated tests for multi-account scheduling persistence and APIs (`test_bot.py`).
+- [x] Implement multi-account queue breakdown and federation health details in performance digests (`digest.py`, `generate_digest.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
