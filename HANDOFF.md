@@ -1,16 +1,19 @@
-# Session Handoff - Release v0.35.0
+# Session Handoff - Release v0.36.0
 
-## Completed in v0.35.0:
-1. **Dynamic Multi-Platform Syndication Metrics & Windowed Federation Engagement Deltas**:
-   - Enhanced `db.get_syndication_summary_metrics(days, start_days_ago, db_path)` to dynamically discover arbitrary federation platforms (Mastodon, Bluesky, Nostr, etc.) from `syndicated_posts` records rather than relying on hardcoded platform keys.
-   - Added optional window filtering with relative offset boundaries (`start_days_ago` and `days`) enabling rolling window comparisons.
-   - Updated `digest.generate_performance_digest()` to compute multi-window deltas for `syndication_posts` and `syndication_engagement` (total likes + shares across all federated platforms) comparing the current window against the preceding window of identical duration.
-   - Refactored `digest.export_digest_markdown()` and `digest.export_digest_html()` to dynamically iterate and render engagement summaries and average engagement rates for any discovered platform with zero-division protection.
-   - Enhanced Command Center UI in `templates/index.html` to display live federated post deltas (`#syndication-delta-display`).
-   - Added unit test `test_syndication_window_metrics_and_deltas` in `test_bot.py` validating dynamic platform discovery, window filtering, and delta computations (108 passing unit tests, 0 `flake8` warnings).
-   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_35_federation_deltas.png`).
-   - Bumped version to `0.35.0` in `VERSION.md` and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
+## Completed in v0.36.0:
+1. **Multi-Image Composite Infographic Generator & Grid Layout Engine**:
+   - Implemented `create_composite_infographic()` in `meme_generator.py` supporting `side-by-side` (2 panels horizontally, 800x420) and `grid` (4 quadrants in a 2x2 layout, 800x620) with customizable themes (`dark`, `cyberpunk`, `solar`, `clean`).
+   - Added `generate_composite_infographic_b64()` helper returning base64 encoded PNG images for frontend previews.
+   - Added REST API endpoints in `dashboard.py`:
+     - `/api/meme/composite` (POST) returning base64 rendered graphics with custom panel titles, bodies, and themes.
+     - `/api/meme/composite/download` (GET & POST) streaming binary composite PNG graphics with attachment headers.
+   - Integrated Multi-Panel Infographic Studio into the Command Center (`templates/index.html`):
+     - Added `🌌 Composite Infographic` action button with explanatory tooltip marker.
+     - Added layout selector (`2x2 Grid Layout (4 Panels)` vs `Side-by-Side (2 Panels)`), live graphic preview display, and direct one-click `⬇️ Download Infographic PNG` button.
+   - Added comprehensive unit testing `test_composite_infographics_and_api` in `test_bot.py` (109 passing unit tests, 0 `flake8` warnings).
+   - Visually verified via Playwright screenshot (`/home/jules/verification/v0_36_composite_scrolled.png`).
+   - Sourced version from `VERSION.md` (`0.36.0`) and updated `CHANGELOG.md`, `ROADMAP.md`, `TODO.md`, and `MEMORY.md`.
 
 ## Next Autonomous Objectives:
-- Multi-image composite layouts for visual infographics.
+- AI-driven smart layout auto-selection based on text length and topic complexity.
 - Enterprise event-driven Twitter webhook triggers if credentials permit.

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.36.0] - 2026-11-08
+
+### Added
+- **Multi-Image Composite Infographic Generator & Grid Layout Engine (`meme_generator.py`)**:
+  - Implemented `create_composite_infographic()` supporting horizontal `side-by-side` (2 panels, 800x420) and `grid` (4 quadrants, 800x620) composite layouts with theme-aware palettes (`dark`, `cyberpunk`, `solar`, `clean`).
+  - Added `generate_composite_infographic_b64()` helper for base64 web display and instant embedding.
+- **Composite Infographic REST APIs (`dashboard.py`)**:
+  - Added `/api/meme/composite` (POST) returning base64 rendered graphics with customizable panel dictionaries and themes.
+  - Added `/api/meme/composite/download` (GET & POST) streaming binary composite PNG graphics with attachment headers.
+- **Command Center Composite Infographic Studio (`templates/index.html`)**:
+  - Added `🌌 Composite Infographic` studio action button with explanatory tooltip marker.
+  - Added dynamic composite layout selector (`2x2 Grid Layout (4 Panels)` vs `Side-by-Side (2 Panels)`), live graphic preview display, and direct one-click `⬇️ Download Infographic PNG` button.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_composite_infographics_and_api` in `test_bot.py` testing side-by-side, grid layouts, base64 generation, and dashboard REST download endpoints (109 passing unit tests, 0 `flake8` warnings).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_36_composite_scrolled.png`).
+
 ## [0.35.0] - 2026-11-08
 
 ### Added

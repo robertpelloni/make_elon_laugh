@@ -2000,6 +2000,64 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_composite_infographics_and_api(self):
+        """Tests multi-image composite infographic generator and dashboard API endpoints."""
+        # 1. Test side-by-side rendering
+        side_bytes = meme_generator.create_composite_infographic(
+            panels=[
+                {"title": "Custom A", "text": "Details for custom panel A in space telemetry."},
+                {"title": "Custom B", "text": "Details for custom panel B regarding orbital speed."}
+            ],
+            layout="side-by-side",
+            theme="cyberpunk"
+        )
+        self.assertIsInstance(side_bytes, bytes)
+        self.assertTrue(len(side_bytes) > 1000)
+        self.assertEqual(side_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        # 2. Test 4-panel grid rendering and base64 export
+        grid_bytes = meme_generator.create_composite_infographic(
+            layout="grid",
+            theme="clean"
+        )
+        self.assertIsInstance(grid_bytes, bytes)
+        self.assertEqual(grid_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        b64_str = meme_generator.generate_composite_infographic_b64(layout="grid", theme="solar")
+        self.assertIsInstance(b64_str, str)
+        self.assertTrue(len(b64_str) > 1000)
+
+        # 3. Test Dashboard REST API /api/meme/composite (POST)
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/meme/composite", json={
+                "title": "Test Briefing",
+                "theme": "solar",
+                "layout": "side-by-side",
+                "panels": [
+                    {"title": "P1", "text": "First panel test text."},
+                    {"title": "P2", "text": "Second panel test text."}
+                ]
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["layout"], "side-by-side")
+            self.assertEqual(data["theme"], "solar")
+            self.assertIn("image_b64", data)
+
+            # 4. Test Dashboard REST API /api/meme/composite/download (GET and POST)
+            dl_res = client.get("/api/meme/composite/download?theme=dark&layout=grid")
+            self.assertEqual(dl_res.status_code, 200)
+            self.assertEqual(dl_res.mimetype, "image/png")
+            self.assertIn("attachment;", dl_res.headers.get("Content-Disposition", ""))
+
+            dl_post = client.post("/api/meme/composite/download", json={
+                "theme": "cyberpunk",
+                "layout": "side-by-side"
+            })
+            self.assertEqual(dl_post.status_code, 200)
+            self.assertEqual(dl_post.mimetype, "image/png")
+
 
 if __name__ == "__main__":
     unittest.main()

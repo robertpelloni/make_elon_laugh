@@ -404,6 +404,78 @@ def api_meme_download():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/meme/composite', methods=['POST'])
+def api_meme_composite():
+    """
+    Generates a multi-image composite infographic card as base64 PNG image.
+    Payload: {
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "title": "...",
+      "theme": "dark|cyberpunk|solar|clean",
+      "layout": "grid|side-by-side"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    panels = data.get("panels")
+    title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
+    theme = str(data.get("theme") or "dark").strip().lower()
+    layout = str(data.get("layout") or "grid").strip().lower()
+
+    try:
+        b64_img = meme_generator.generate_composite_infographic_b64(
+            panels=panels,
+            title=title,
+            theme=theme,
+            layout=layout
+        )
+        return jsonify({
+            "success": True,
+            "title": title,
+            "theme": theme,
+            "layout": layout,
+            "image_b64": b64_img
+        })
+    except Exception as e:
+        app.logger.error(f"Error generating composite infographic: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/composite/download', methods=['GET', 'POST'])
+def api_meme_composite_download():
+    """
+    Streams a generated multi-image composite infographic card directly as a downloadable PNG binary image.
+    Supports GET (with query parameters) or POST (with JSON payload).
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        panels = data.get("panels")
+        title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
+        theme = str(data.get("theme") or "dark").strip().lower()
+        layout = str(data.get("layout") or "grid").strip().lower()
+    else:
+        title = request.args.get("title", "Cosmic Infographic Dispatch").strip()
+        theme = request.args.get("theme", "dark").strip().lower()
+        layout = request.args.get("layout", "grid").strip().lower()
+        panels = None
+
+    try:
+        raw_bytes = meme_generator.create_composite_infographic(
+            panels=panels,
+            title=title,
+            theme=theme,
+            layout=layout
+        )
+        filename = f"infographic_composite_{layout}_{theme}.png"
+        return Response(
+            raw_bytes,
+            mimetype="image/png",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving composite infographic download: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/config', methods=['GET', 'POST'])
 def api_config():
     """Gets or updates target user IDs in runtime environment."""
