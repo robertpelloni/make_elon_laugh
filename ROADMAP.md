@@ -57,4 +57,5 @@
 *   [x] Automated Syndication Dead-Letter Queue (DLQ) & Retry Console (`db.py`, `syndication.py`, `dashboard.py`, Command Center UI).
 *   [x] Performance Digest Multi-Channel DLQ Deliverability & Webhook Integration (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [x] Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`, `dashboard.py`, Command Center UI).
-*   [ ] Automated Scheduled Tweet Calendar Drag-and-Drop & Rescheduling Engine.
+*   [x] Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`, `templates/index.html`).
+*   [ ] Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.

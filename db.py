@@ -372,6 +372,26 @@ def update_scheduled_tweet_status(tweet_id, new_status, db_path=DB_PATH):
         return False
 
 
+def reschedule_tweet(tweet_id, new_scheduled_time, db_path=DB_PATH):
+    """
+    Updates the scheduled_time for an existing pending scheduled tweet.
+    Returns True if successfully updated, False otherwise.
+    """
+    try:
+        with get_db_connection(db_path) as conn:
+            cursor = conn.cursor()
+            # Only allow rescheduling tweets that are currently pending
+            cursor.execute(
+                "UPDATE scheduled_tweets SET scheduled_time = ? WHERE id = ? AND status = 'pending'",
+                (str(new_scheduled_time).strip(), int(tweet_id))
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error rescheduling tweet {tweet_id}: {e}")
+        return False
+
+
 def record_syndicated_post(platform, content, remote_id=None, status="sent", likes=0, shares=0, db_path=DB_PATH):
     """Records a syndicated broadcast to SQLite."""
     try:

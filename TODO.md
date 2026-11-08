@@ -70,7 +70,8 @@
 - [x] Implement automated syndication dead-letter queue (DLQ) and retry console (`db.py`, `syndication.py`, `dashboard.py`, Command Center UI).
 - [x] Integrate multi-channel syndication DLQ deliverability metrics into digest pipeline and webhook alerts (`digest.py`, `webhook.py`, `templates/index.html`).
 - [x] Implement Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`, `dashboard.py`, Command Center UI).
+- [x] Implement Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`, `templates/index.html`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Implement Automated Scheduled Tweet Calendar Drag-and-Drop & Rescheduling Engine.
+- [ ] Implement Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.

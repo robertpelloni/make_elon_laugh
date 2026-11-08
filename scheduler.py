@@ -61,6 +61,26 @@ def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
     )
 
 
+def reschedule_scheduled_tweet(tweet_id, new_scheduled_time, db_path=db.DB_PATH):
+    """
+    Validates and updates the scheduled_time for an existing pending scheduled tweet.
+    Ensures new_scheduled_time is non-empty and formatted.
+    """
+    if not new_scheduled_time or not str(new_scheduled_time).strip():
+        raise ValueError("New scheduled time cannot be empty.")
+
+    clean_time = str(new_scheduled_time).strip()
+    # Normalize common ISO format (e.g. '2026-11-09T14:30' -> '2026-11-09 14:30:00')
+    clean_time = clean_time.replace("T", " ")
+    if len(clean_time) == 16:  # YYYY-MM-DD HH:MM
+        clean_time += ":00"
+
+    success = db.reschedule_tweet(tweet_id, clean_time, db_path=db_path)
+    if not success:
+        raise ValueError(f"Could not reschedule tweet #{tweet_id}. It may not exist or is not pending.")
+    return clean_time
+
+
 def get_pending_due_tweets(now_dt=None, db_path=db.DB_PATH):
     """
     Finds all pending scheduled tweets whose scheduled_time <= now_dt.

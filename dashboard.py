@@ -781,6 +781,40 @@ def api_schedule():
     })
 
 
+@app.route('/api/schedule/reschedule', methods=['POST'])
+def api_schedule_reschedule():
+    """
+    Reschedules an existing pending tweet to a new datetime.
+    JSON payload:
+        id: int (required)
+        scheduled_time: str (required, e.g. 'YYYY-MM-DD HH:MM' or ISO timestamp)
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        tweet_id = data.get("id")
+        new_time = data.get("scheduled_time")
+
+        if not tweet_id:
+            return jsonify({"success": False, "error": "Tweet ID is required for rescheduling."}), 400
+        if not new_time:
+            return jsonify({"success": False, "error": "New scheduled time is required."}), 400
+
+        normalized_time = scheduler.reschedule_scheduled_tweet(int(tweet_id), str(new_time).strip())
+        logging.info(f"Successfully rescheduled scheduled tweet ID #{tweet_id} to {normalized_time}.")
+
+        return jsonify({
+            "success": True,
+            "id": int(tweet_id),
+            "scheduled_time": normalized_time,
+            "message": f"Tweet #{tweet_id} rescheduled to {normalized_time}."
+        })
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Error rescheduling tweet: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/digest', methods=['GET'])
 def api_digest():
     """

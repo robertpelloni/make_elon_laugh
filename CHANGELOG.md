@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.47.0] - 2026-11-08
+
+### Added
+- **Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`)**:
+  - Implemented database helper `reschedule_tweet(tweet_id, new_scheduled_time)` in `db.py` ensuring that tweets are rescheduled and status reset to `pending` with robust error handling.
+  - Implemented `reschedule_scheduled_tweet(tweet_id, new_scheduled_time)` in `scheduler.py` normalizing ISO timestamps (`YYYY-MM-DD HH:MM:SS`) and validating target timestamps.
+  - Added REST endpoint `POST /api/schedule/reschedule` in `dashboard.py` allowing instant operational rescheduling with ISO timestamp validation.
+- **Command Center Interactive Drag-and-Drop Visual Calendar & Reschedule UI (`templates/index.html`)**:
+  - Upgraded the 7-day visual calendar grid planner (`#weekly-calendar-grid`) with interactive HTML5 drag-and-drop dropzones (`dragover`, `dragleave`, `drop`) mapped to target calendar days.
+  - Made queue table rows draggable (`draggable="true"`) carrying the `tweet_id` and content payload.
+  - Added manual prompt reschedule trigger buttons (`🕒`) alongside cancel buttons in the scheduled queue table.
+  - Added client-side asynchronous reschedule handler (`executeRescheduleTweet()`) with animated visual toast confirmations and automatic queue refresh.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_scheduled_tweet_rescheduling_and_api` in `test_bot.py` testing database rescheduling, timestamp parsing, queue status resets, and `/api/schedule/reschedule` REST API calls (120 passing unit tests, 0 flake8 errors).
+  - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_47_calendar_reschedule.png`).
+
 ## [0.46.0] - 2026-11-08
 
 ### Added

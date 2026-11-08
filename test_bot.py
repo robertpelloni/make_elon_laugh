@@ -2723,6 +2723,68 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_scheduled_tweet_rescheduling_and_api(self):
+        """Tests scheduled tweet rescheduling helpers, validation, and REST API."""
+        import scheduler
+        import dashboard
+        test_db = f"test_resched_{int(time.time() * 1000)}.db"
+        db.init_db(test_db)
+
+        try:
+            # 1. Enqueue a pending scheduled tweet
+            tweet_id = db.schedule_tweet(
+                content="Mission Mars Telemetry Check",
+                scheduled_time="2026-11-20 12:00:00",
+                account_handle="@space_astronomy",
+                persona="deadpan_astronomer",
+                db_path=test_db
+            )
+            self.assertIsNotNone(tweet_id)
+
+            # 2. Reschedule to a new ISO datetime
+            new_time = scheduler.reschedule_scheduled_tweet(tweet_id, "2026-11-22T16:30", db_path=test_db)
+            self.assertEqual(new_time, "2026-11-22 16:30:00")
+
+            # Verify in DB
+            rows = db.get_scheduled_tweets(status="pending", db_path=test_db)
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["scheduled_time"], "2026-11-22 16:30:00")
+
+            # 3. Validation: Rejects empty or invalid time
+            with self.assertRaises(ValueError):
+                scheduler.reschedule_scheduled_tweet(tweet_id, "", db_path=test_db)
+
+            # 4. Cannot reschedule non-pending (sent or cancelled) tweets
+            db.update_scheduled_tweet_status(tweet_id, "cancelled", db_path=test_db)
+            with self.assertRaises(ValueError):
+                scheduler.reschedule_scheduled_tweet(tweet_id, "2026-11-25 10:00:00", db_path=test_db)
+
+            # 5. REST API: test /api/schedule/reschedule with test client
+            client = dashboard.app.test_client()
+            # Enqueue a tweet into the default test db
+            post_res = client.post('/api/schedule', json={
+                "content": "API Reschedule Test Tweet",
+                "scheduled_time": "2099-01-01 10:00:00",
+                "persona": "witty_ai"
+            })
+            self.assertEqual(post_res.status_code, 200)
+            created_id = post_res.get_json()["id"]
+
+            resched_res = client.post('/api/schedule/reschedule', json={
+                "id": created_id,
+                "scheduled_time": "2099-01-02 18:00:00"
+            })
+            self.assertEqual(resched_res.status_code, 200)
+            resched_data = resched_res.get_json()
+            self.assertTrue(resched_data["success"])
+            self.assertEqual(resched_data["scheduled_time"], "2099-01-02 18:00:00")
+
+            # Clean up created tweet
+            client.delete('/api/schedule', json={"id": created_id})
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()
