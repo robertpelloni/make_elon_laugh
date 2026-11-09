@@ -643,32 +643,10 @@
                                       <span class="tooltiptext">Evaluates panel counts, character density, and structural symmetry to select between side-by-side and 2x2 quadrant grid layouts.</span>
                                     </div>
                                 </button>
-                                <button type="button" class="btn btn-outline btn-sm" id="btn-rephrase-composite" onclick="rephraseCompositePanels()" title="Rephrase all panel texts using active persona and tone style">
-                                    ✨ Tone-Rephrase Panels
-                                    <div class="tooltip"><span class="tooltip-icon">?</span>
-                                      <span class="tooltiptext">Transforms and stylizes panel text according to the selected persona and tone style while preserving panel titles.</span>
-                                    </div>
-                                </button>
-                                <button type="button" class="btn btn-outline btn-sm" id="btn-composite-crosspost-preview" onclick="previewCompositeCrossPost()" title="Simulate multi-channel cross-posting partition and layout across Twitter, Mastodon, and Bluesky">
-                                    📡 Cross-Post Preview
-                                    <div class="tooltip"><span class="tooltip-icon">?</span>
-                                      <span class="tooltiptext">Simulates how this composite infographic and accompanying narrative partition across Twitter/X, Mastodon ActivityPub, and Bluesky ATProto.</span>
-                                    </div>
-                                </button>
                                 <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download PNG</button>
                             </div>
                         </div>
                         <div id="composite-layout-banner" style="display: none; font-size: 0.78rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; text-align: left; color: var(--text-color);"></div>
-
-                        <!-- Multi-Channel Composite Cross-Posting Simulation Box -->
-                        <div id="composite-crosspost-preview-box" style="display: none; margin-bottom: 0.75rem; background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 6px; padding: 0.75rem; text-align: left;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-color);">🌐 Multi-Channel Federation Delivery Simulation</span>
-                                <button class="btn btn-secondary btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.7rem;" onclick="document.getElementById('composite-crosspost-preview-box').style.display='none'">✕ Close</button>
-                            </div>
-                            <div id="composite-crosspost-channels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.75rem;"></div>
-                        </div>
-
                         <img id="composite-preview-img" class="meme-preview-img" alt="Composite Infographic Preview" style="margin: 0 auto; display: block; max-width: 100%;">
                     </div>
                     <div id="thread-split-container" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 10px;">
@@ -773,46 +751,40 @@
 
             <!-- Visual 7-day Calendar Strip -->
             <div style="margin-bottom: 1.25rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.4rem;">
-                    <div style="display: flex; align-items: center; gap: 0.4rem;">
-                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Weekly Post Distribution (Mon-Sun):</span>
-                        <div class="tooltip"><span class="tooltip-icon">?</span>
-                            <span class="tooltiptext">Interactive 7-day schedule planner. Drag any pending tweet from the queue table below and drop it onto a day to reschedule to that day, or use the Reschedule button.</span>
-                        </div>
-                    </div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted);">🎯 Drag &amp; Drop Reschedule Enabled</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Weekly Post Distribution (Mon-Sun):</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Active Schedule Planner</span>
                 </div>
                 <div id="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; text-align: center;">
-                    <div class="calendar-day-dropzone" data-day="Mon" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Mon')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Mon</div>
                         <div id="cal-Mon" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Tue" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Tue')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Tue</div>
                         <div id="cal-Tue" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Wed" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Wed')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Wed</div>
                         <div id="cal-Wed" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Thu" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Thu')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Thu</div>
                         <div id="cal-Thu" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Fri" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Fri')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Fri</div>
                         <div id="cal-Fri" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Sat" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Sat')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Sat</div>
                         <div id="cal-Sat" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
-                    <div class="calendar-day-dropzone" data-day="Sun" ondragover="handleCalDragOver(event)" ondragleave="handleCalDragLeave(event)" ondrop="handleCalDrop(event, 'Sun')" style="background: var(--surface-accent); border: 1px dashed var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem; cursor: pointer; transition: all 0.2s ease;">
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.2rem;">
                         <div style="font-size: 0.75rem; color: var(--text-muted);">Sun</div>
                         <div id="cal-Sun" style="font-size: 1.2rem; font-weight: 800; color: var(--primary);">0</div>
                     </div>
                 </div>
-                <div id="calendar-drag-feedback" style="display: none; margin-top: 0.4rem; font-size: 0.75rem; text-align: center; color: var(--accent-success);"></div>
             </div>
 
             <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; align-items: center;">
@@ -828,21 +800,12 @@
                 <div style="display: flex; align-items: center; gap: 0.3rem;">
                     <select id="sched-media-theme" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
                         <option value="" selected>📄 No Card Attachment</option>
-                        <option value="dark">🖼️ Dark Theme</option>
-                        <option value="cyberpunk">🎨 Cyberpunk Theme</option>
-                        <option value="solar">☀️ Solar Flare Theme</option>
-                        <option value="clean">✨ Clean Minimal Theme</option>
+                        <option value="dark">🖼️ Dark Theme Meme</option>
+                        <option value="cyberpunk">🎨 Cyberpunk Meme</option>
+                        <option value="solar">☀️ Solar Flare Meme</option>
+                        <option value="clean">✨ Clean Minimal Meme</option>
                     </select>
-                    <span class="tooltip-marker" data-tooltip="Select visual aesthetic palette for auto-generated meme card or composite infographic.">?</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.3rem;">
-                    <select id="sched-media-type" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
-                        <option value="single" selected>🖼️ Single Card</option>
-                        <option value="composite">🌌 Composite (Auto Layout)</option>
-                        <option value="composite-grid">🌌 Composite (2x2 Grid)</option>
-                        <option value="composite-side">🌌 Composite (Side-by-Side)</option>
-                    </select>
-                    <span class="tooltip-marker" data-tooltip="Format of attached media: Single meme card vs. Multi-panel composite infographic with auto-selected or specified grid layout.">?</span>
+                    <span class="tooltip-marker" data-tooltip="Automatically generates and attaches a stylized Pillow infographic meme card image in the selected aesthetic upon dispatch.">?</span>
                 </div>
                 <button type="button" class="btn btn-secondary" onclick="suggestOptimalSlot()" title="Suggest high-engagement peak audience window" style="white-space: nowrap; font-size: 0.85rem; padding: 0.6rem 0.9rem;">
                     ⚡ Suggest Peak Slot <span class="tooltip-marker" data-tooltip="Calculates optimal UTC window (09:00, 13:00, 17:00, 21:00) based on global space and tech audience engagement patterns.">?</span>
@@ -922,56 +885,12 @@
                       <span class="tooltiptext">Rolling 7-day performance analytics across bot replies, engagement, scheduled operations, and community approval.</span>
                     </div>
                 </span>
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <button class="btn btn-primary btn-sm" id="btn-distribute-report" onclick="distributeDigestReport()" title="Package executive digest and trigger multi-channel distribution" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border-color: #0284c7; font-weight: 700;">🚀 Distribute Report
-                        <div class="tooltip"><span class="tooltip-icon">?</span>
-                          <span class="tooltiptext">One-click automated packaging: archives all formats (.md, .html, .json), synthesizes the executive KPI briefing, and dispatches to configured webhooks.</span>
-                        </div>
-                    </button>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=html" download style="text-decoration: none;" title="Download styled HTML report">Download .HTML</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
-                </div>
-            </div>
-
-            <!-- Executive KPI Briefing Strip -->
-            <div id="digest-executive-kpi-strip" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #334155; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1rem;">📊</span>
-                        <strong style="color: #38bdf8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Executive Performance Briefing</strong>
-                        <div class="tooltip"><span class="tooltip-icon" style="color: #94a3b8; border-color: #475569;">?</span>
-                          <span class="tooltiptext">Global performance synthesized across all networks (Twitter/X, Mastodon, Bluesky) with deliverability resilience & humor approval metrics.</span>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8;">
-                        Window: <span id="exec-kpi-window" style="color: #f1f5f9; font-weight: 600;">7 Days</span> &bull;
-                        Updated: <span id="exec-kpi-updated" style="color: #f1f5f9; font-weight: 600;">Just now</span>
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
-                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Total Dispatches</div>
-                        <div id="exec-kpi-dispatches" style="font-size: 1.4rem; font-weight: 800; color: #38bdf8;">0</div>
-                        <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Cross-Network Posts</div>
-                    </div>
-                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
-                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Engagement Velocity</div>
-                        <div id="exec-kpi-velocity" style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">0.0</div>
-                        <div id="exec-kpi-total-eng" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">0 total engagements</div>
-                    </div>
-                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
-                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Leading Network</div>
-                        <div id="exec-kpi-leading-net" style="font-size: 1.2rem; font-weight: 800; color: #34d399; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
-                        <div id="exec-kpi-leading-detail" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">0.0 eng/post &bull; 0% vol</div>
-                    </div>
-                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
-                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Resilience Score</div>
-                        <div id="exec-kpi-resilience" style="font-size: 1.4rem; font-weight: 800; color: #10b981;">100%</div>
-                        <div id="exec-kpi-humor-label" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Humor: Optimal</div>
-                    </div>
                 </div>
             </div>
 
@@ -1009,84 +928,11 @@
                     <div id="digest-queue-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
                     <div id="digest-queue-accounts" style="font-size: 0.75rem; color: var(--primary); margin-top: 0.1rem;">Accounts: -</div>
-                    <div id="digest-queue-media" style="font-size: 0.75rem; color: var(--accent); margin-top: 0.1rem;" title="Scheduled visual media card & composite infographic ratio">Media: -</div>
-                    <div id="digest-dlq-badge" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;" title="Federation dead-letter queue deliverability metrics">DLQ Deliverability: -</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
                     <div id="digest-approval" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">100%</div>
                     <div id="digest-ratings-breakdown" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 ratings evaluated</div>
-                    <div id="digest-circuit-breaker-badge" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;" title="Federation circuit breaker operational status">Circuits: Nominal</div>
-                </div>
-            </div>
-
-            <!-- Heatmap Peak Window & Strategic AI Insights Section -->
-            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
-                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
-                        ⏱️ Hourly Activity Heatmap & Strategic Timing Recommendations
-                        <div class="tooltip"><span class="tooltip-icon">?</span>
-                          <span class="tooltiptext">Aggregates historical audience engagement patterns across the 24-hour UTC cycle to recommend optimal scheduling slots.</span>
-                        </div>
-                    </span>
-                    <span id="digest-peak-slot-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--accent-primary); font-weight: 700;">Peak Slot: Loading...</span>
-                </div>
-                <div id="digest-recommendations-list" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; display: flex; flex-direction: column; gap: 0.3rem;">
-                    <div style="font-style: italic;">Analyzing telemetry patterns...</div>
-                </div>
-            </div>
-
-            <!-- Per-Platform Velocity & Alert Banners Section -->
-            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
-                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
-                        ⚡ Per-Platform Velocity &amp; Distribution Share
-                        <div class="tooltip"><span class="tooltip-icon">?</span>
-                          <span class="tooltiptext">Tracks real-time post throughput, engagement velocity (likes+shares per post), and platform distribution ratios across decentralized networks.</span>
-                        </div>
-                    </span>
-                    <span id="digest-platform-summary-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--accent-success); font-weight: 600;">3 Networks Monitored</span>
-                </div>
-                <div id="digest-platform-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
-                    <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Loading platform metrics...</div>
-                </div>
-            </div>
-
-            <!-- Automated Digest Snapshots & Archive Explorer -->
-            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
-                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
-                        🗄️ Automated Snapshots &amp; Report Archives
-                        <div class="tooltip"><span class="tooltip-icon">?</span>
-                          <span class="tooltiptext">Autonomous and on-demand report snapshots (.md, .html, .json) preserved in reports/ directory with automated retention policies.</span>
-                        </div>
-                    </span>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span id="digest-archive-count-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600;">0 Archived</span>
-                        <button class="btn btn-secondary btn-sm" id="btn-create-snapshot" onclick="createDigestArchiveSnapshot()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
-                            📸 Archive Snapshot Now
-                        </button>
-                    </div>
-                </div>
-                <div id="digest-archives-table-container" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
-                        <thead>
-                            <tr style="background: var(--surface-accent); color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
-                                <th style="padding: 6px 10px;">Filename</th>
-                                <th style="padding: 6px 10px;">Format</th>
-                                <th style="padding: 6px 10px;">Size</th>
-                                <th style="padding: 6px 10px;">Timestamp</th>
-                                <th style="padding: 6px 10px; text-align: right;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="digest-archives-tbody">
-                            <tr>
-                                <td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted); font-style: italic;">
-                                    Loading archived digest reports...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
@@ -1133,40 +979,6 @@
                     <div id="webhook-last-dispatch" style="font-size: 0.75rem; color: var(--text-muted);">Last Broadcast: None</div>
                 </div>
                 <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
-
-                <!-- Webhook Dispatch History Viewer -->
-                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-color);">
-                            📋 Webhook Dispatch Log &amp; Broadcast History
-                            <div class="tooltip"><span class="tooltip-icon">?</span>
-                              <span class="tooltiptext">Real-time audit log of external webhook dispatches including status codes, recipient platforms, and latency errors.</span>
-                            </div>
-                        </span>
-                        <button class="btn btn-secondary btn-sm" onclick="fetchWebhookHistory()" style="padding: 0.15rem 0.45rem; font-size: 0.7rem;">
-                            🔄 Refresh Log
-                        </button>
-                    </div>
-                    <div id="webhook-history-container" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
-                            <thead>
-                                <tr style="background: var(--surface-accent); color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
-                                    <th style="padding: 4px 8px;">Timestamp</th>
-                                    <th style="padding: 4px 8px;">Target</th>
-                                    <th style="padding: 4px 8px;">Adapter</th>
-                                    <th style="padding: 4px 8px;">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="webhook-history-tbody">
-                                <tr>
-                                    <td colspan="4" style="padding: 8px; text-align: center; color: var(--text-muted); font-style: italic;">
-                                        No webhook dispatches recorded in this session.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
 
             <!-- Social Federation Syndication Section -->
@@ -1190,10 +1002,7 @@
                                 <input type="checkbox" id="mastodon-enable-toggle" onchange="saveSyndicationSettings()">
                                 <span>🐘 Mastodon ActivityPub</span>
                             </label>
-                            <div style="display: flex; gap: 4px; align-items: center;">
-                                <span id="mastodon-latency-tag" style="font-size: 0.68rem; color: var(--accent); font-family: monospace;">⚡ --ms</span>
-                                <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
-                            </div>
+                            <span id="mastodon-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
                         </div>
                         <input type="text" id="mastodon-url-input" placeholder="https://mastodon.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
                         <input type="password" id="mastodon-token-input" placeholder="Bearer Access Token" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
@@ -1204,10 +1013,7 @@
                                 <input type="checkbox" id="bluesky-enable-toggle" onchange="saveSyndicationSettings()">
                                 <span>🦋 Bluesky ATProto</span>
                             </label>
-                            <div style="display: flex; gap: 4px; align-items: center;">
-                                <span id="bluesky-latency-tag" style="font-size: 0.68rem; color: var(--accent); font-family: monospace;">⚡ --ms</span>
-                                <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
-                            </div>
+                            <span id="bluesky-status-tag" style="font-size: 0.7rem; color: var(--text-muted);">Disabled</span>
                         </div>
                         <input type="text" id="bluesky-handle-input" placeholder="handle.bsky.social" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color); margin-bottom: 0.4rem;">
                         <input type="password" id="bluesky-pwd-input" placeholder="App Password (xxxx-xxxx-xxxx-xxxx)" style="width: 100%; font-size: 0.75rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-accent); color: var(--text-color);">
@@ -1235,150 +1041,10 @@
                     </div>
                 </div>
 
-                <!-- Multi-Account Direct Syndication Platform Routing Matrix -->
-                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-color);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-color);">
-                            🧭 Account Syndication Routing Matrix
-                            <div class="tooltip"><span class="tooltip-icon">?</span>
-                              <span class="tooltiptext">Map specific Twitter/X posting accounts to tailored decentralized networks (e.g. primary account to Mastodon + Bluesky, or secondary astrophysics account strictly to Bluesky).</span>
-                            </div>
-                        </span>
-                        <span id="syn-routing-status" class="status-badge info" style="font-size: 0.7rem;">Dynamic Routing Active</span>
-                    </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.8rem;">
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                            <label for="syn-route-account" style="color: var(--text-muted); font-size: 0.75rem; margin: 0;">Account:</label>
-                            <select id="syn-route-account" onchange="onSyndicationAccountSelected()" style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-color); padding: 0.25rem 0.5rem; font-size: 0.75rem;">
-                                <option value="@make_elon_laugh">@make_elon_laugh [Primary]</option>
-                                <option value="@space_astronomy">@space_astronomy [Secondary]</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.8rem;">
-                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
-                                <input type="checkbox" id="syn-route-mastodon" checked>
-                                <span>🐘 Mastodon</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
-                                <input type="checkbox" id="syn-route-bluesky" checked>
-                                <span>🦋 Bluesky</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 0.25rem; margin: 0; cursor: pointer; color: var(--text-color);">
-                                <input type="checkbox" id="syn-route-enabled" checked>
-                                <span>Active</span>
-                            </label>
-                        </div>
-                        <button class="btn btn-secondary btn-sm" onclick="saveSyndicationRoute()" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">
-                            💾 Save Route Rule
-                        </button>
-                        <span id="syn-route-feedback" style="font-size: 0.72rem; color: var(--text-muted);"></span>
-                    </div>
-                    <!-- Live Routing Table / Badges -->
-                    <div id="syn-routes-table" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.4rem;">
-                        <!-- Injected dynamically via loadSyndicationRoutes -->
-                    </div>
-                </div>
-
-                <!-- Syndication Dead-Letter Queue (DLQ) & Retry Console -->
-                <div style="margin-top: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                            <span style="font-weight: 600; font-size: 0.85rem;">🔁 Dead-Letter Queue & Retries</span>
-                            <div class="tooltip"><span class="tooltip-icon">?</span>
-                                <span class="tooltiptext">Autonomous dead-letter queue capturing failed federation broadcasts for Mastodon & Bluesky with exponential retry tracking and manual operator replay.</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span class="status-badge warn" id="dlq-pending-badge" style="font-size: 0.72rem;">0 Pending</span>
-                            <span class="status-badge alert" id="dlq-exhausted-badge" style="font-size: 0.72rem;">0 Exhausted</span>
-                            <span class="status-badge ok" id="dlq-replayed-badge" style="font-size: 0.72rem;">0 Replayed</span>
-                            <button class="btn btn-outline btn-sm" onclick="processAllDlqRetries()" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="Retry all eligible pending broadcasts in the Dead-Letter Queue">
-                                ⚡ Process Retries
-                            </button>
-                        </div>
-                    </div>
-                    <div id="dlq-items-table-container" style="max-height: 160px; overflow-y: auto; font-size: 0.75rem;">
-                        <table style="width: 100%; border-collapse: collapse;">
-                            <thead>
-                                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); text-align: left;">
-                                    <th style="padding: 0.3rem 0.4rem;">ID</th>
-                                    <th style="padding: 0.3rem 0.4rem;">Platform</th>
-                                    <th style="padding: 0.3rem 0.4rem;">Account</th>
-                                    <th style="padding: 0.3rem 0.4rem;">Content Snippet</th>
-                                    <th style="padding: 0.3rem 0.4rem;">Error / Status</th>
-                                    <th style="padding: 0.3rem 0.4rem;">Retries</th>
-                                    <th style="padding: 0.3rem 0.4rem; text-align: right;">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dlq-table-body">
-                                <tr>
-                                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 0.6rem;">No failed syndications recorded in DLQ.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="dlq-feedback" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted);"></div>
-                </div>
-
-                <!-- Federation Circuit Breaker & Health Sentinel -->
-                <div style="margin-top: 0.8rem; background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.8rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <div style="display: flex; align-items: center; gap: 0.4rem;">
-                            <span style="font-weight: 600; font-size: 0.85rem;">🛡️ Federation Circuit Breaker & Sentinel</span>
-                            <div class="tooltip"><span class="tooltip-icon">?</span>
-                                <span class="tooltiptext">Automated tri-state rate-limiting backpressure and fault sentinel (CLOSED, OPEN, HALF-OPEN). Fast-fails requests to prevent cascading node outages and throttles network calls during downtime.</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <button class="btn btn-outline btn-sm" onclick="resetFederationCircuitBreakers('all')" style="font-size: 0.72rem; padding: 0.2rem 0.5rem;" title="Reset all platform circuit breakers to CLOSED nominal state">
-                                🔄 Reset All Circuits
-                            </button>
-                        </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.6rem;">
-                        <!-- Mastodon Circuit Card -->
-                        <div id="cb-mastodon-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.78rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                <span style="font-weight: 600;">🐘 Mastodon Sentinel</span>
-                                <span class="status-badge ok" id="cb-mastodon-state">🟢 CLOSED</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.4rem;">
-                                <span>Failures: <strong id="cb-mastodon-fails" style="color: var(--text-color);">0 / 3</strong></span>
-                                <span>Cooldown: <strong id="cb-mastodon-cooldown" style="color: var(--text-color);">0s</strong></span>
-                            </div>
-                            <div id="cb-mastodon-reason" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                Nominal state.
-                            </div>
-                            <button class="btn btn-secondary btn-sm" onclick="resetFederationCircuitBreakers('mastodon')" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; width: 100%;">
-                                🔄 Force Reset Circuit
-                            </button>
-                        </div>
-                        <!-- Bluesky Circuit Card -->
-                        <div id="cb-bluesky-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; font-size: 0.78rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                <span style="font-weight: 600;">🦋 Bluesky Sentinel</span>
-                                <span class="status-badge ok" id="cb-bluesky-state">🟢 CLOSED</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; color: var(--text-muted); font-size: 0.72rem; margin-bottom: 0.4rem;">
-                                <span>Failures: <strong id="cb-bluesky-fails" style="color: var(--text-color);">0 / 3</strong></span>
-                                <span>Cooldown: <strong id="cb-bluesky-cooldown" style="color: var(--text-color);">0s</strong></span>
-                            </div>
-                            <div id="cb-bluesky-reason" style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                Nominal state.
-                            </div>
-                            <button class="btn btn-secondary btn-sm" onclick="resetFederationCircuitBreakers('bluesky')" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; width: 100%;">
-                                🔄 Force Reset Circuit
-                            </button>
-                        </div>
-                    </div>
-                    <div id="cb-feedback" style="margin-top: 0.3rem; font-size: 0.72rem; color: var(--text-muted);"></div>
-                </div>
-
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 0.5rem;">
-                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <div style="display: flex; gap: 0.5rem;">
                         <button class="btn btn-secondary btn-sm" onclick="saveSyndicationSettings()">Save Federation Config</button>
                         <button class="btn btn-primary btn-sm" onclick="triggerSyndicationTest()">Test Broadcast (Dry Run)</button>
-                        <button class="btn btn-outline btn-sm" onclick="probeFederationLatency()" style="font-size: 0.75rem;" title="Probe round-trip HTTP response latency for Mastodon & Bluesky nodes">⚡ Ping Nodes</button>
                     </div>
                     <div id="syndication-feedback" style="font-size: 0.75rem; color: var(--text-muted);"></div>
                 </div>
@@ -1624,44 +1290,6 @@
             window.location.href = url;
         }
 
-        async function rephraseCompositePanels() {
-            const banner = document.getElementById('composite-layout-banner');
-            const persona = document.getElementById('persona-select').value;
-            const toneSelect = document.getElementById('tone-style-select');
-            const tone = toneSelect ? toneSelect.value : 'witty';
-            const compImg = document.getElementById('composite-preview-img');
-            const layoutSelect = document.getElementById('composite-layout-select');
-            const layout = layoutSelect ? layoutSelect.value : 'auto';
-            const theme = document.getElementById('meme-theme-select').value;
-
-            banner.style.display = 'block';
-            banner.textContent = `Rephrasing panels in ${persona} persona with ${tone} tone...`;
-
-            try {
-                const res = await fetch('/api/meme/composite', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        theme: theme,
-                        layout: layout,
-                        title: "Autonomous Cosmic Multi-Panel Briefing",
-                        rephrase_panels: true,
-                        persona: persona,
-                        tone_style: tone
-                    })
-                });
-                const data = await res.json();
-                if (data.success && data.image_b64) {
-                    compImg.src = "data:image/png;base64," + data.image_b64;
-                    banner.innerHTML = `<strong>✨ Panels Rephrased:</strong> Successfully styled multi-panel infographic using <em>${persona}</em> (${tone} tone).`;
-                } else {
-                    banner.textContent = data.error || "Failed to rephrase composite panels.";
-                }
-            } catch (err) {
-                banner.textContent = "Rephrase panels error: " + err.message;
-            }
-        }
-
         async function recommendLayout() {
             const banner = document.getElementById('composite-layout-banner');
             const sampleText = document.getElementById('sample-tweet').value.trim();
@@ -1736,62 +1364,6 @@
             const layout = layoutSelect ? layoutSelect.value : 'grid';
             const url = `/api/meme/composite/download?theme=${encodeURIComponent(theme)}&layout=${encodeURIComponent(layout)}&title=${encodeURIComponent("Cosmic Infographic Dispatch")}`;
             window.location.href = url;
-        }
-
-        async function previewCompositeCrossPost() {
-            const box = document.getElementById('composite-crosspost-preview-box');
-            const channelsContainer = document.getElementById('composite-crosspost-channels');
-            const theme = document.getElementById('meme-theme-select').value;
-            const layoutSelect = document.getElementById('composite-layout-select');
-            const layout = layoutSelect ? layoutSelect.value : 'grid';
-            const sampleInput = document.getElementById('sample-tweet').value.trim();
-            const previewText = document.getElementById('gen-preview').textContent.trim();
-            const textToUse = sampleInput || (previewText.startsWith('Click') || previewText.startsWith('Generating') ? "Space exploration requires high specific impulse engines and multi-layer thermal shielding." : previewText);
-
-            try {
-                const res = await fetch('/api/syndication/composite-preview', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        content: textToUse,
-                        theme: theme,
-                        layout: layout
-                    })
-                });
-                const data = await res.json();
-                if (data.success && data.preview) {
-                    const p = data.preview;
-                    const chans = p.channels;
-                    const attach = p.attachment;
-
-                    channelsContainer.innerHTML = Object.entries(chans).map(([k, c]) => {
-                        const statusBadge = c.ready
-                            ? '<span class="status-badge ok" style="font-size: 0.68rem;">Ready</span>'
-                            : '<span class="status-badge warn" style="font-size: 0.68rem;">Unconfigured</span>';
-                        return `
-                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                    <strong>${c.platform}</strong>
-                                    ${statusBadge}
-                                </div>
-                                <div style="color: var(--text-muted); font-size: 0.7rem; margin-bottom: 0.3rem;">
-                                    Limit: <strong>${c.char_limit} chars</strong> | Parts: <strong>${c.parts_count}</strong>
-                                </div>
-                                <div style="font-size: 0.72rem; background: var(--surface-accent); padding: 0.3rem 0.4rem; border-radius: 4px; margin-bottom: 0.3rem; max-height: 60px; overflow-y: auto;">
-                                    ${c.thread_chunks.length > 0 ? c.thread_chunks[0] : '<em>No text</em>'}
-                                </div>
-                                <div style="font-size: 0.68rem; color: var(--accent);">
-                                    🖼️ Attachment: ${attach.dimensions.width}x${attach.dimensions.height} (${attach.layout})
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-
-                    box.style.display = 'block';
-                }
-            } catch (err) {
-                console.error("Failed to load composite cross-post preview:", err);
-            }
         }
 
         async function testSplitPreview() {
@@ -1994,14 +1566,12 @@
                     return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
                 }
                 tbody.innerHTML = list.map(t => `
-                    <tr ${t.status === 'pending' ? `draggable="true" ondragstart="handleTweetDragStart(event, ${escapeHtml(String(t.id))})" style="cursor: grab;" title="Drag onto a calendar day cell to reschedule"` : ''}>
-                        <td style="font-family: monospace;">
-                            ${t.status === 'pending' ? '⋮⋮ ' : ''}#${escapeHtml(String(t.id))}
-                        </td>
+                    <tr>
+                        <td style="font-family: monospace;">#${escapeHtml(String(t.id))}</td>
                         <td><span class="status-badge ${t.account_handle === '@make_elon_laugh' ? 'ok' : 'info'}" style="font-size: 0.75rem;">${escapeHtml(t.account_handle || '@make_elon_laugh')}</span></td>
                         <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
                         <td>
-                            ${t.media_theme ? (t.media_type === 'composite' ? `<span class="status-badge info" style="font-size: 0.75rem; background: rgba(147, 51, 234, 0.2); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.4);" title="Multi-panel composite infographic attached [${escapeHtml(t.composite_layout || 'auto')}]">🌌 ${escapeHtml(t.media_theme)} (${escapeHtml(t.composite_layout || 'auto')})</span>` : `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>`) : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
+                            ${t.media_theme ? `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>` : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
                         </td>
                         <td>${escapeHtml(String(t.scheduled_time))}</td>
                         <td><span class="status-badge ok" style="font-size: 0.75rem;">${escapeHtml(t.persona)}</span></td>
@@ -2011,12 +1581,7 @@
                             </span>
                         </td>
                         <td>
-                            ${t.status === 'pending' ? `
-                                <div style="display: flex; gap: 0.3rem; align-items: center;">
-                                    <button class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.72rem;" onclick="promptRescheduleTweet(${escapeHtml(String(t.id))}, '${escapeHtml(String(t.scheduled_time))}')" title="Reschedule target time">🕒</button>
-                                    <button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.4rem; font-size: 0.72rem;" onclick="cancelScheduledTweet(${escapeHtml(String(t.id))})">Cancel</button>
-                                </div>
-                            ` : '-'}
+                            ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="cancelScheduledTweet(${escapeHtml(String(t.id))})">Cancel</button>` : '-'}
                         </td>
                     </tr>
                 `).join('');
@@ -2060,20 +1625,6 @@
             const accountHandle = (document.getElementById('sched-account') ? document.getElementById('sched-account').value : '@make_elon_laugh');
             const mediaThemeEl = document.getElementById('sched-media-theme');
             const mediaTheme = (mediaThemeEl && mediaThemeEl.value) ? mediaThemeEl.value : null;
-            const mediaTypeRaw = (document.getElementById('sched-media-type') ? document.getElementById('sched-media-type').value : 'single');
-
-            let mediaType = "single";
-            let compositeLayout = "auto";
-            if (mediaTypeRaw === 'composite') {
-                mediaType = "composite";
-                compositeLayout = "auto";
-            } else if (mediaTypeRaw === 'composite-grid') {
-                mediaType = "composite";
-                compositeLayout = "grid";
-            } else if (mediaTypeRaw === 'composite-side') {
-                mediaType = "composite";
-                compositeLayout = "side-by-side";
-            }
 
             try {
                 const res = await fetch('/api/schedule', {
@@ -2084,9 +1635,7 @@
                         scheduled_time: formattedTime,
                         persona: persona,
                         account_handle: accountHandle,
-                        media_theme: mediaTheme,
-                        media_type: mediaType,
-                        composite_layout: compositeLayout
+                        media_theme: mediaTheme
                     })
                 });
                 const data = await res.json();
@@ -2118,80 +1667,6 @@
                 }
             } catch (err) {
                 alert("Error cancelling tweet: " + err.message);
-            }
-        }
-
-        let draggedTweetId = null;
-
-        function handleTweetDragStart(event, tweetId) {
-            draggedTweetId = tweetId;
-            event.dataTransfer.setData("text/plain", String(tweetId));
-            event.dataTransfer.effectAllowed = "move";
-        }
-
-        function handleCalDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            event.currentTarget.style.borderColor = "var(--primary)";
-            event.currentTarget.style.background = "rgba(59, 130, 246, 0.15)";
-        }
-
-        function handleCalDragLeave(event) {
-            event.currentTarget.style.borderColor = "var(--border-color)";
-            event.currentTarget.style.background = "var(--surface-accent)";
-        }
-
-        async function handleCalDrop(event, targetDay) {
-            event.preventDefault();
-            event.currentTarget.style.borderColor = "var(--border-color)";
-            event.currentTarget.style.background = "var(--surface-accent)";
-
-            const tweetId = draggedTweetId || event.dataTransfer.getData("text/plain");
-            if (!tweetId) return;
-
-            // Map targetDay (Mon-Sun) to date offset in current or upcoming week
-            const dayMap = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6};
-            const targetDayIdx = dayMap[targetDay];
-            const now = new Date();
-            // JS getDay(): Sun=0, Mon=1, ..., Sat=6 -> convert to Mon=0
-            const currentDayIdx = (now.getDay() + 6) % 7;
-            let diffDays = targetDayIdx - currentDayIdx;
-            if (diffDays <= 0) diffDays += 7; // schedule for upcoming instance
-
-            const targetDate = new Date(now.getTime() + diffDays * 86400000);
-            targetDate.setHours(14, 0, 0, 0); // Default to 14:00 UTC
-            const targetIso = targetDate.toISOString().slice(0, 19).replace('T', ' ');
-
-            await executeRescheduleTweet(tweetId, targetIso, `Rescheduled #${tweetId} to upcoming ${targetDay} at 14:00 UTC`);
-        }
-
-        async function promptRescheduleTweet(id, currentScheduledTime) {
-            const newTime = prompt(`Reschedule Tweet #${id} (YYYY-MM-DD HH:MM:SS):`, currentScheduledTime);
-            if (!newTime || newTime.trim() === currentScheduledTime.trim()) return;
-            await executeRescheduleTweet(id, newTime.trim(), `Rescheduled #${id} to ${newTime.trim()}`);
-        }
-
-        async function executeRescheduleTweet(id, scheduledTime, successMsg) {
-            const feedbackEl = document.getElementById('calendar-drag-feedback');
-            try {
-                const res = await fetch('/api/schedule/reschedule', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id: parseInt(id), scheduled_time: scheduledTime })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (feedbackEl) {
-                        feedbackEl.textContent = `✅ ${successMsg || data.message}`;
-                        feedbackEl.style.display = 'block';
-                        setTimeout(() => { feedbackEl.style.display = 'none'; }, 4000);
-                    }
-                    await fetchScheduledTweets();
-                } else {
-                    alert(`Reschedule failed: ${data.error || 'Unknown error'}`);
-                }
-            } catch (err) {
-                alert(`Error rescheduling tweet: ${err.message}`);
             }
         }
 
@@ -2267,34 +1742,6 @@
                     const accEl = document.getElementById('digest-queue-accounts');
                     if (accEl) accEl.textContent = `Accounts: ${accountStr}`;
 
-                    const mediaDist = d.queue && d.queue.media_distribution ? d.queue.media_distribution : { single: 0, composite: 0 };
-                    const mediaEl = document.getElementById('digest-queue-media');
-                    if (mediaEl) mediaEl.textContent = `Media: Single (${mediaDist.single || 0}), Composite (${mediaDist.composite || 0})`;
-
-                    const dlqData = d.dlq || { pending: 0, exhausted: 0, replayed: 0 };
-                    const dlqEl = document.getElementById('digest-dlq-badge');
-                    if (dlqEl) {
-                        dlqEl.textContent = `DLQ: ${dlqData.pending || 0} Pend, ${dlqData.exhausted || 0} Exh, ${dlqData.replayed || 0} Repl`;
-                        dlqEl.style.color = (dlqData.exhausted > 0) ? 'var(--accent-alert)' : ((dlqData.pending > 0) ? 'var(--accent-warn)' : 'var(--accent-success)');
-                    }
-
-                    const cbEl = document.getElementById('digest-circuit-breaker-badge');
-                    if (cbEl && d.circuit_breakers) {
-                const cbList = Array.isArray(d.circuit_breakers) ? d.circuit_breakers : Object.values(d.circuit_breakers || {});
-                const openCbs = cbList.filter(c => (c.state || '').toUpperCase() === 'OPEN');
-                const halfCbs = cbList.filter(c => (c.state || '').toUpperCase() === 'HALF-OPEN');
-                        if (openCbs.length > 0) {
-                            cbEl.textContent = `Circuits: 🔴 ${openCbs.length} OPEN (${openCbs.map(c => c.platform).join(', ')})`;
-                            cbEl.style.color = 'var(--danger)';
-                        } else if (halfCbs.length > 0) {
-                            cbEl.textContent = `Circuits: 🟡 ${halfCbs.length} HALF-OPEN (${halfCbs.map(c => c.platform).join(', ')})`;
-                            cbEl.style.color = 'var(--accent-warning)';
-                        } else {
-                            cbEl.textContent = `Circuits: 🟢 Nominal (All Closed)`;
-                            cbEl.style.color = 'var(--accent-success)';
-                        }
-                    }
-
                     const topRep = d.replies.top_reply;
                     const topBox = document.getElementById('digest-top-reply-box');
                     if (topBox) {
@@ -2309,251 +1756,9 @@
 
                     document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
                     document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;
-
-                    // Hydrate Peak Window & Strategic Recommendations
-                    const peakBadge = document.getElementById('digest-peak-slot-badge');
-                    if (peakBadge && d.heatmap) {
-                        const winLabel = d.heatmap.peak_window_label || '17:00 - 18:00 UTC';
-                        const eng = d.heatmap.peak_engagement || 0;
-                        const posts = d.heatmap.peak_posts || 0;
-                        peakBadge.textContent = `Peak Slot: ⏱️ ${winLabel} (${eng} eng / ${posts} posts)`;
-                    }
-                    const recsListEl = document.getElementById('digest-recommendations-list');
-                    if (recsListEl) {
-                        const recs = d.recommendations || [];
-                        if (recs.length > 0) {
-                            recsListEl.innerHTML = recs.map(r => `<div style="display: flex; gap: 0.4rem; align-items: flex-start;"><span style="color: var(--accent-primary);">•</span><span>${r}</span></div>`).join('');
-                        } else {
-                            recsListEl.innerHTML = '<div style="font-style: italic;">All channels operating nominally. No strategic calibrations required.</div>';
-                        }
-                    }
-
-                    // Hydrate Per-Platform Velocity Cards Grid
-                    const pbGrid = document.getElementById('digest-platform-cards-grid');
-                    if (pbGrid && d.platform_breakdowns) {
-                        const pbEntries = Object.entries(d.platform_breakdowns);
-                        if (pbEntries.length > 0) {
-                            pbGrid.innerHTML = pbEntries.map(([k, p]) => {
-                                const tierColor = p.velocity_tier === 'High' ? 'var(--accent-success)' : (p.velocity_tier === 'Moderate' ? 'var(--accent-primary)' : (p.velocity_tier === 'Stalled' ? 'var(--danger)' : 'var(--text-muted)'));
-                                return `
-                                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.8rem;">
-                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                                            <strong style="font-size: 0.85rem; color: var(--text-color);">${p.display_name}</strong>
-                                            <span style="font-size: 0.7rem; font-weight: 700; color: ${tierColor};">${p.velocity_tier} Velocity</span>
-                                        </div>
-                                        <div style="font-size: 1.1rem; font-weight: 800; color: var(--text-color);">${p.avg_engagement_per_post} <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">eng/post</span></div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
-                                            ${p.posts} posts (${p.share_of_total_posts_pct}% total volume)
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-                        }
-                    }
-
-                    // Hydrate Executive KPI Briefing
-                    fetchExecutiveKpiBriefing();
                 }
             } catch (err) {
                 console.error("Performance digest fetch error:", err);
-            }
-        }
-
-        async function fetchExecutiveKpiBriefing() {
-            try {
-                const res = await fetch('/api/digest/executive-summary?days=7');
-                const data = await res.json();
-                if (data.success && data.executive_kpi) {
-                    const kpi = data.executive_kpi;
-                    const dispEl = document.getElementById('exec-kpi-dispatches');
-                    if (dispEl) dispEl.textContent = kpi.total_dispatches || 0;
-
-                    const velEl = document.getElementById('exec-kpi-velocity');
-                    if (velEl) velEl.textContent = kpi.global_velocity || 0.0;
-
-                    const engEl = document.getElementById('exec-kpi-total-eng');
-                    if (engEl) engEl.textContent = `${kpi.total_engagement || 0} total engagements`;
-
-                    const leadNet = kpi.leading_network || {};
-                    const leadNetEl = document.getElementById('exec-kpi-leading-net');
-                    if (leadNetEl) leadNetEl.textContent = leadNet.display_name || 'None';
-
-                    const leadDetailEl = document.getElementById('exec-kpi-leading-detail');
-                    if (leadDetailEl) {
-                        leadDetailEl.textContent = `${leadNet.velocity || 0.0} eng/post • ${leadNet.share_pct || 0}% vol`;
-                    }
-
-                    const resEl = document.getElementById('exec-kpi-resilience');
-                    if (resEl) {
-                        resEl.textContent = `${kpi.resilience_score || 100}%`;
-                        resEl.style.color = (kpi.resilience_score >= 80) ? '#10b981' : ((kpi.resilience_score >= 50) ? '#eab308' : '#ef4444');
-                    }
-
-                    const humorLabelEl = document.getElementById('exec-kpi-humor-label');
-                    if (humorLabelEl && kpi.humor_status) {
-                        humorLabelEl.textContent = `Humor: ${kpi.humor_status.label} (${kpi.humor_status.approval_pct}%)`;
-                    }
-
-                    const updatedEl = document.getElementById('exec-kpi-updated');
-                    if (updatedEl && data.generated_at) {
-                        updatedEl.textContent = data.generated_at.split(' ')[1] || 'Just now';
-                    }
-                }
-            } catch (err) {
-                console.error("Error fetching executive KPI summary:", err);
-            }
-        }
-
-        function showToast(message) {
-            let toast = document.getElementById('dashboard-global-toast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'dashboard-global-toast';
-                toast.style.position = 'fixed';
-                toast.style.bottom = '20px';
-                toast.style.right = '20px';
-                toast.style.background = '#0f172a';
-                toast.style.color = '#38bdf8';
-                toast.style.border = '1px solid #38bdf8';
-                toast.style.borderRadius = '8px';
-                toast.style.padding = '10px 16px';
-                toast.style.fontSize = '0.85rem';
-                toast.style.fontWeight = '600';
-                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-                toast.style.zIndex = '9999';
-                toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                document.body.appendChild(toast);
-            }
-            toast.textContent = message;
-            toast.style.opacity = '1';
-            toast.style.transform = 'translateY(0)';
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(10px)';
-            }, 3500);
-        }
-
-        async function distributeDigestReport() {
-            const btn = document.getElementById('btn-distribute-report');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = "⏳ Packaging...";
-            }
-            try {
-                const res = await fetch('/api/digest/distribute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ days: 7, broadcast_webhook: true })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast("🚀 Report packaged and broadcasted to active channels!");
-                    fetchExecutiveKpiBriefing();
-                    loadDigestArchives();
-                    if (typeof fetchWebhookHistory === 'function') {
-                        fetchWebhookHistory();
-                    }
-                } else {
-                    alert("Distribution failed: " + (data.error || "Unknown error"));
-                }
-            } catch (err) {
-                alert("Error during report distribution: " + err.message);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = "🚀 Distribute Report";
-                }
-            }
-        }
-
-        async function loadDigestArchives() {
-            try {
-                const res = await fetch('/api/digest/archives');
-                const data = await res.json();
-                const badge = document.getElementById('digest-archive-count-badge');
-                const tbody = document.getElementById('digest-archives-tbody');
-                if (!tbody) return;
-
-                if (data.success && Array.isArray(data.archives)) {
-                    if (badge) {
-                        badge.textContent = `${data.total_archived || data.archives.length} Archived`;
-                    }
-                    if (data.archives.length === 0) {
-                        tbody.innerHTML = `
-                            <tr>
-                                <td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted); font-style: italic;">
-                                    No archived digest snapshots found. Click 'Archive Snapshot Now' to create one.
-                                </td>
-                            </tr>
-                        `;
-                        return;
-                    }
-                    tbody.innerHTML = data.archives.map(item => {
-                        const fmtColor = item.format === 'html' ? '#0284c7' : (item.format === 'json' ? '#eab308' : '#10b981');
-                        const kbSize = (item.size_bytes / 1024).toFixed(1);
-                        return `
-                            <tr style="border-bottom: 1px solid var(--border-color);">
-                                <td style="padding: 6px 10px; font-family: monospace; font-size: 0.72rem; color: var(--text-color);">
-                                    ${item.filename}
-                                </td>
-                                <td style="padding: 6px 10px;">
-                                    <span class="badge" style="background: rgba(2, 132, 199, 0.1); color: ${fmtColor}; font-weight: 700; text-transform: uppercase;">
-                                        ${item.format}
-                                    </span>
-                                </td>
-                                <td style="padding: 6px 10px; color: var(--text-muted);">${kbSize} KB</td>
-                                <td style="padding: 6px 10px; color: var(--text-muted);">${item.modified_at}</td>
-                                <td style="padding: 6px 10px; text-align: right;">
-                                    <a href="/api/digest/archives/download?filename=${encodeURIComponent(item.filename)}"
-                                       class="btn btn-secondary btn-sm"
-                                       style="padding: 0.15rem 0.45rem; font-size: 0.7rem;"
-                                       title="Download ${item.filename}">
-                                        ⬇️ Download
-                                    </a>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
-                } else {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="5" style="padding: 12px; text-align: center; color: var(--danger);">
-                                Failed to load archives: ${data.error || 'Unknown error'}
-                            </td>
-                        </tr>
-                    `;
-                }
-            } catch (err) {
-                console.error("Error loading digest archives:", err);
-            }
-        }
-
-        async function createDigestArchiveSnapshot() {
-            const btn = document.getElementById('btn-create-snapshot');
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = "📸 Archiving...";
-            }
-            try {
-                const res = await fetch('/api/digest/archives', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ formats: ['md', 'html', 'json'], max_retained: 30 })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    showToast(`Snapshot created: ${Object.keys(data.saved).length} formats archived.`);
-                    loadDigestArchives();
-                } else {
-                    alert("Failed to archive snapshot: " + (data.error || "Unknown error"));
-                }
-            } catch (err) {
-                alert("Error archiving snapshot: " + err.message);
-            } finally {
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = "📸 Archive Snapshot Now";
-                }
             }
         }
 
@@ -2612,58 +1817,9 @@
                     badge.textContent = 'Not Configured';
                     badge.className = 'status-badge warn';
                 }
-
-                if (Array.isArray(data.history)) {
-                    renderWebhookHistory(data.history);
-                }
             } catch (err) {
                 console.error("Error loading webhook config:", err);
             }
-        }
-
-        async function fetchWebhookHistory() {
-            try {
-                const res = await fetch('/api/webhook/history');
-                const data = await res.json();
-                if (data.success && Array.isArray(data.history)) {
-                    renderWebhookHistory(data.history);
-                }
-            } catch (err) {
-                console.error("Error fetching webhook history:", err);
-            }
-        }
-
-        function renderWebhookHistory(historyItems) {
-            const tbody = document.getElementById('webhook-history-tbody');
-            if (!tbody) return;
-
-            if (!historyItems || historyItems.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="4" style="padding: 8px; text-align: center; color: var(--text-muted); font-style: italic;">
-                            No webhook dispatches recorded in this session.
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            tbody.innerHTML = historyItems.map(item => {
-                const isSuccess = item.success;
-                const statusColor = isSuccess ? 'var(--accent-success)' : 'var(--danger)';
-                const statusBadge = isSuccess
-                    ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">HTTP ${item.status_code || 200}</span>`
-                    : `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;" title="${item.error || 'Failed'}">Error</span>`;
-
-                return `
-                    <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 4px 8px; color: var(--text-muted);">${item.timestamp}</td>
-                        <td style="padding: 4px 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-color);">${item.target_url}</td>
-                        <td style="padding: 4px 8px; text-transform: uppercase; font-weight: 600; color: var(--text-muted);">${item.adapter}</td>
-                        <td style="padding: 4px 8px;">${statusBadge}</td>
-                    </tr>
-                `;
-            }).join('');
         }
 
         async function saveWebhookSettings() {
@@ -2722,109 +1878,12 @@
                 if (data.success) {
                     feedback.textContent = "🚀 " + data.message;
                     feedback.style.color = "var(--accent-success)";
-                    fetchWebhookHistory();
                 } else {
                     feedback.textContent = "❌ " + (data.error || "Webhook dispatch failed.");
                     feedback.style.color = "var(--accent-alert)";
-                    fetchWebhookHistory();
                 }
             } catch (err) {
                 feedback.textContent = "❌ Error triggering webhook: " + err.message;
-                feedback.style.color = "var(--accent-alert)";
-            }
-        }
-
-        let currentSyndicationRoutes = [];
-
-        async function loadSyndicationRoutes() {
-            try {
-                const res = await fetch('/api/syndication/routing');
-                const data = await res.json();
-                if (data.success) {
-                    currentSyndicationRoutes = data.routes || [];
-                    renderSyndicationRoutes();
-                    syncSyndicationFormWithCurrentAccount();
-                }
-            } catch (err) {
-                console.error("Error loading syndication routes:", err);
-            }
-        }
-
-        function renderSyndicationRoutes() {
-            const container = document.getElementById('syn-routes-table');
-            if (!container) return;
-            if (!currentSyndicationRoutes || currentSyndicationRoutes.length === 0) {
-                container.innerHTML = '<span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">No account-specific overrides configured (using system defaults).</span>';
-                return;
-            }
-
-            container.innerHTML = currentSyndicationRoutes.map(r => {
-                const plats = r.platforms && r.platforms.length > 0 ? r.platforms.map(p => p === 'mastodon' ? '🐘 Mastodon' : (p === 'bluesky' ? '🦋 Bluesky' : p)).join(', ') : 'None';
-                const statusColor = r.enabled ? 'var(--accent-success)' : 'var(--accent-alert)';
-                return `
-                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.25rem 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.72rem;">
-                        <strong>${r.account_handle}</strong>: <span>${plats}</span>
-                        <span style="color: ${statusColor}; font-weight: 600;">[${r.enabled ? 'Active' : 'Disabled'}]</span>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function onSyndicationAccountSelected() {
-            syncSyndicationFormWithCurrentAccount();
-        }
-
-        function syncSyndicationFormWithCurrentAccount() {
-            const acc = document.getElementById('syn-route-account').value;
-            const existing = currentSyndicationRoutes.find(r => r.account_handle === acc);
-            if (existing) {
-                document.getElementById('syn-route-mastodon').checked = existing.platforms.includes('mastodon');
-                document.getElementById('syn-route-bluesky').checked = existing.platforms.includes('bluesky');
-                document.getElementById('syn-route-enabled').checked = !!existing.enabled;
-            } else {
-                // Defaults
-                document.getElementById('syn-route-mastodon').checked = true;
-                document.getElementById('syn-route-bluesky').checked = true;
-                document.getElementById('syn-route-enabled').checked = true;
-            }
-        }
-
-        async function saveSyndicationRoute() {
-            const acc = document.getElementById('syn-route-account').value;
-            const mastodonChecked = document.getElementById('syn-route-mastodon').checked;
-            const blueskyChecked = document.getElementById('syn-route-bluesky').checked;
-            const enabled = document.getElementById('syn-route-enabled').checked;
-            const feedback = document.getElementById('syn-route-feedback');
-
-            const platforms = [];
-            if (mastodonChecked) platforms.push('mastodon');
-            if (blueskyChecked) platforms.push('bluesky');
-
-            feedback.textContent = "⏳ Saving...";
-            feedback.style.color = "var(--text-muted)";
-
-            try {
-                const res = await fetch('/api/syndication/routing', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        account_handle: acc,
-                        platforms: platforms,
-                        enabled: enabled
-                    })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    feedback.textContent = `✅ Saved for ${acc}`;
-                    feedback.style.color = "var(--accent-success)";
-                    await loadSyndicationRoutes();
-                    setTimeout(() => { feedback.textContent = ""; }, 3000);
-                } else {
-                    feedback.textContent = "❌ " + (data.error || "Save failed.");
-                    feedback.style.color = "var(--accent-alert)";
-                }
-            } catch (err) {
-                feedback.textContent = "❌ Error: " + err.message;
                 feedback.style.color = "var(--accent-alert)";
             }
         }
@@ -2857,255 +1916,8 @@
                     bskyTag.textContent = data.bluesky.enabled ? "Active" : "Disabled";
                     bskyTag.style.color = data.bluesky.enabled ? "var(--accent-success)" : "var(--text-muted)";
                 }
-                await loadSyndicationRoutes();
-                await probeFederationLatency();
-                await loadSyndicationDlq();
-                await loadSyndicationCircuitBreakers();
             } catch (err) {
                 console.error("Error loading syndication settings:", err);
-            }
-        }
-
-        async function loadSyndicationCircuitBreakers() {
-            try {
-                const res = await fetch('/api/syndication/circuit-breakers');
-                const data = await res.json();
-                if (!data.success || !data.circuit_breakers) return;
-
-                const cbs = data.circuit_breakers;
-                const updateCbCard = (platform, cb) => {
-                    const stateBadge = document.getElementById(`cb-${platform}-state`);
-                    const failsEl = document.getElementById(`cb-${platform}-fails`);
-                    const cdEl = document.getElementById(`cb-${platform}-cooldown`);
-                    const reasonEl = document.getElementById(`cb-${platform}-reason`);
-
-                    if (stateBadge && cb) {
-                        stateBadge.className = `status-badge ${cb.state === 'CLOSED' ? 'ok' : (cb.state === 'OPEN' ? 'alert' : 'warn')}`;
-                        stateBadge.textContent = cb.state === 'CLOSED' ? '🟢 CLOSED' : (cb.state === 'OPEN' ? '🔴 OPEN' : '🟡 HALF-OPEN');
-                    }
-                    if (failsEl && cb) {
-                        failsEl.textContent = `${cb.consecutive_failures || 0} / ${cb.failure_threshold || 3}`;
-                    }
-                    if (cdEl && cb) {
-                        cdEl.textContent = `${cb.cooldown_remaining || 0}s`;
-                    }
-                    if (reasonEl && cb) {
-                        reasonEl.textContent = cb.last_failure_reason || (cb.state === 'CLOSED' ? 'Nominal state (healthy).' : 'Active backpressure.');
-                        reasonEl.title = cb.last_failure_reason || '';
-                    }
-                };
-
-                updateCbCard('mastodon', cbs.mastodon);
-                updateCbCard('bluesky', cbs.bluesky);
-            } catch (err) {
-                console.error("Error loading circuit breakers:", err);
-            }
-        }
-
-        async function resetFederationCircuitBreakers(platform) {
-            const feedback = document.getElementById('cb-feedback');
-            if (feedback) feedback.textContent = `⏳ Resetting circuit breaker for ${platform}...`;
-            try {
-                const res = await fetch('/api/syndication/circuit-breakers/reset', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ platform: platform })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (feedback) {
-                        feedback.textContent = `✅ ${data.message}`;
-                        feedback.style.color = "var(--accent-success)";
-                    }
-                    await loadSyndicationCircuitBreakers();
-                } else {
-                    if (feedback) {
-                        feedback.textContent = `❌ ${data.error || 'Reset failed.'}`;
-                        feedback.style.color = "var(--accent-alert)";
-                    }
-                }
-                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
-            } catch (err) {
-                if (feedback) {
-                    feedback.textContent = `❌ Error: ${err.message}`;
-                    feedback.style.color = "var(--accent-alert)";
-                }
-            }
-        }
-
-        async function loadSyndicationDlq() {
-            try {
-                const res = await fetch('/api/syndication/dlq?limit=20');
-                const data = await res.json();
-                if (!data.success) return;
-
-                const m = data.metrics || {};
-                const pendBadge = document.getElementById('dlq-pending-badge');
-                const exhBadge = document.getElementById('dlq-exhausted-badge');
-                const repBadge = document.getElementById('dlq-replayed-badge');
-
-                if (pendBadge) pendBadge.textContent = `${m.pending || 0} Pending`;
-                if (exhBadge) exhBadge.textContent = `${m.exhausted || 0} Exhausted`;
-                if (repBadge) repBadge.textContent = `${m.replayed || 0} Replayed`;
-
-                const tbody = document.getElementById('dlq-table-body');
-                if (!tbody) return;
-
-                if (!data.items || data.items.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 0.6rem;">No failed syndications recorded in DLQ.</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = data.items.map(item => `
-                    <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 0.3rem 0.4rem; font-family: monospace;">#${item.id}</td>
-                        <td style="padding: 0.3rem 0.4rem;">
-                            <span class="status-badge ${item.platform === 'mastodon' ? 'info' : 'ok'}" style="font-size: 0.7rem;">
-                                ${escapeHtml(item.platform)}
-                            </span>
-                        </td>
-                        <td style="padding: 0.3rem 0.4rem; color: var(--text-muted);">${escapeHtml(item.account_handle || '@make_elon_laugh')}</td>
-                        <td style="padding: 0.3rem 0.4rem; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(item.content)}">
-                            ${escapeHtml(item.content)}
-                        </td>
-                        <td style="padding: 0.3rem 0.4rem;">
-                            <span class="status-badge ${item.status === 'replayed' ? 'ok' : (item.status === 'exhausted' ? 'alert' : 'warn')}" style="font-size: 0.7rem;" title="${escapeHtml(item.error_message || '')}">
-                                ${escapeHtml(item.status)}
-                            </span>
-                        </td>
-                        <td style="padding: 0.3rem 0.4rem; color: var(--text-muted);">${item.retry_count}/${item.max_retries}</td>
-                        <td style="padding: 0.3rem 0.4rem; text-align: right; white-space: nowrap;">
-                            ${item.status !== 'replayed' && item.status !== 'discarded' ? `
-                                <button class="btn btn-secondary btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.4rem; margin-right: 0.2rem;" onclick="replayDlqItem(${item.id})">🔁 Replay</button>
-                                <button class="btn btn-danger btn-sm" style="font-size: 0.68rem; padding: 0.15rem 0.4rem;" onclick="discardDlqItem(${item.id})">🗑️</button>
-                            ` : `<span style="color: var(--text-muted); font-size: 0.68rem;">Resolved</span>`}
-                        </td>
-                    </tr>
-                `).join('');
-            } catch (err) {
-                console.error("Error loading DLQ items:", err);
-            }
-        }
-
-        async function replayDlqItem(id) {
-            const feedback = document.getElementById('dlq-feedback');
-            if (feedback) feedback.textContent = `⏳ Replaying DLQ item #${id}...`;
-            try {
-                const res = await fetch('/api/syndication/dlq/replay', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id: id, dry_run: true })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (feedback) {
-                        feedback.textContent = `✅ DLQ #${id} replayed successfully (dry run).`;
-                        feedback.style.color = "var(--accent-success)";
-                    }
-                } else {
-                    if (feedback) {
-                        feedback.textContent = `❌ Replay failed: ${data.result ? data.result.error : data.error}`;
-                        feedback.style.color = "var(--accent-alert)";
-                    }
-                }
-                await loadSyndicationDlq();
-                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
-            } catch (e) {
-                if (feedback) {
-                    feedback.textContent = `❌ Error: ${e.message}`;
-                    feedback.style.color = "var(--accent-alert)";
-                }
-            }
-        }
-
-        async function discardDlqItem(id) {
-            const feedback = document.getElementById('dlq-feedback');
-            if (feedback) feedback.textContent = `⏳ Discarding DLQ item #${id}...`;
-            try {
-                const res = await fetch('/api/syndication/dlq/discard', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ id: id })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    if (feedback) {
-                        feedback.textContent = `🗑️ DLQ #${id} marked discarded.`;
-                        feedback.style.color = "var(--text-muted)";
-                    }
-                } else {
-                    if (feedback) {
-                        feedback.textContent = `❌ Discard failed: ${data.error}`;
-                        feedback.style.color = "var(--accent-alert)";
-                    }
-                }
-                await loadSyndicationDlq();
-                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 4000);
-            } catch (e) {
-                if (feedback) {
-                    feedback.textContent = `❌ Error: ${e.message}`;
-                    feedback.style.color = "var(--accent-alert)";
-                }
-            }
-        }
-
-        async function processAllDlqRetries() {
-            const feedback = document.getElementById('dlq-feedback');
-            if (feedback) feedback.textContent = "⏳ Batch-processing pending DLQ retries...";
-            try {
-                const res = await fetch('/api/syndication/dlq/replay', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ all: true, dry_run: true })
-                });
-                const data = await res.json();
-                if (data.success && data.summary) {
-                    const s = data.summary;
-                    if (feedback) {
-                        feedback.textContent = `✅ Processed ${s.processed} items (${s.replayed} replayed, ${s.still_pending} pending, ${s.exhausted} exhausted).`;
-                        feedback.style.color = "var(--accent-success)";
-                    }
-                } else {
-                    if (feedback) {
-                        feedback.textContent = `❌ Batch retry failed: ${data.error}`;
-                        feedback.style.color = "var(--accent-alert)";
-                    }
-                }
-                await loadSyndicationDlq();
-                setTimeout(() => { if (feedback) feedback.textContent = ""; }, 5000);
-            } catch (e) {
-                if (feedback) {
-                    feedback.textContent = `❌ Error: ${e.message}`;
-                    feedback.style.color = "var(--accent-alert)";
-                }
-            }
-        }
-
-        async function probeFederationLatency() {
-            try {
-                const res = await fetch('/api/syndication/latency');
-                const data = await res.json();
-                if (data.success && data.latencies) {
-                    const mast = data.latencies.mastodon;
-                    const bsky = data.latencies.bluesky;
-
-                    if (mast) {
-                        const mTag = document.getElementById('mastodon-latency-tag');
-                        if (mTag) {
-                            mTag.textContent = `⚡ ${mast.latency_ms}ms`;
-                            mTag.style.color = mast.status === 'online' ? 'var(--accent-success)' : 'var(--text-muted)';
-                        }
-                    }
-                    if (bsky) {
-                        const bTag = document.getElementById('bluesky-latency-tag');
-                        if (bTag) {
-                            bTag.textContent = `⚡ ${bsky.latency_ms}ms`;
-                            bTag.style.color = bsky.status === 'online' ? 'var(--accent-success)' : 'var(--text-muted)';
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to probe federation latency:", e);
             }
         }
 
@@ -3256,7 +2068,6 @@
             fetchLogs();
             fetchScheduledTweets();
             fetchPerformanceDigest();
-            loadDigestArchives();
             fetchSyndicationMetrics();
             fetchTargetProfiles();
         }
@@ -3267,7 +2078,6 @@
         fetchLogs();
         fetchScheduledTweets();
         fetchPerformanceDigest();
-        loadDigestArchives();
         fetchWebhookConfig();
         fetchSyndicationSettings();
         fetchSyndicationMetrics();

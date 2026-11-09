@@ -7,11 +7,8 @@ directly on the dashboard.
 """
 
 import io
-import logging
 import textwrap
 from PIL import Image, ImageDraw, ImageFont
-
-logger = logging.getLogger(__name__)
 
 
 THEME_PALETTES = {
@@ -179,9 +176,7 @@ def recommend_infographic_layout(panels=None, content_text=None):
 
 
 def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch",
-                                 theme="dark", layout="grid", subtitle=None,
-                                 rephrase_panels=False, persona="tactful_engineer",
-                                 tone_style="witty"):
+                                 theme="dark", layout="grid", subtitle=None):
     """
     Renders multi-image composite layout for visual infographics and educational briefs.
     Supported layouts:
@@ -189,7 +184,6 @@ def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch
       - 'grid': 4 quadrant panels arranged in a 2x2 grid (800x620)
       - 'auto': Automatically select layout using recommend_infographic_layout()
     Each item in `panels` can be a string or a dict with {'title': ..., 'text': ...}.
-    If `rephrase_panels` is True, panels will be passed through `joke_generator.rephrase_infographic_panels()`.
     Returns the raw PNG image bytes.
     """
     theme_key = (theme or "dark").lower().strip()
@@ -235,17 +229,6 @@ def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch
 
     if not normalized_panels:
         normalized_panels = default_panels
-
-    if rephrase_panels:
-        try:
-            import joke_generator
-            normalized_panels = joke_generator.rephrase_infographic_panels(
-                normalized_panels,
-                persona=persona,
-                tone_style=tone_style
-            )
-        except Exception as e:
-            logger.warning(f"Failed to rephrase infographic panels: {e}")
 
     # Calculate dimensions
     if layout_mode == "side-by-side":
@@ -348,9 +331,7 @@ def create_composite_infographic(panels=None, title="Cosmic Infographic Dispatch
 
 
 def generate_composite_infographic_b64(panels=None, title="Cosmic Infographic Dispatch",
-                                       theme="dark", layout="grid", subtitle=None,
-                                       rephrase_panels=False, persona="tactful_engineer",
-                                       tone_style="witty"):
+                                       theme="dark", layout="grid", subtitle=None):
     """
     Helper function generating base64 encoded composite infographic for web preview.
     """
@@ -360,9 +341,6 @@ def generate_composite_infographic_b64(panels=None, title="Cosmic Infographic Di
         title=title,
         theme=theme,
         layout=layout,
-        subtitle=subtitle,
-        rephrase_panels=rephrase_panels,
-        persona=persona,
-        tone_style=tone_style
+        subtitle=subtitle
     )
     return base64.b64encode(raw_bytes).decode('utf-8')

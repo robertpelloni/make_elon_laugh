@@ -15,16 +15,13 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_ACCOUNTS = ["@make_elon_laugh", "@space_astronomy"]
 SUPPORTED_MEDIA_THEMES = ["dark", "cyberpunk", "solar", "clean"]
-SUPPORTED_MEDIA_TYPES = ["single", "composite"]
-SUPPORTED_COMPOSITE_LAYOUTS = ["auto", "grid", "side-by-side"]
 
 
 def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
-                            account_handle="@make_elon_laugh", media_theme=None,
-                            media_type="single", composite_layout="auto", db_path=db.DB_PATH):
+                            account_handle="@make_elon_laugh", media_theme=None, db_path=db.DB_PATH):
     """
     Enqueues a new tweet to be posted at scheduled_time (ISO 8601 string or YYYY-MM-DD HH:MM:SS)
-    attributed to a specific account profile and optional visual meme card or composite infographic.
+    attributed to a specific account profile and optional visual meme card theme.
     """
     if not content or not str(content).strip():
         raise ValueError("Content cannot be empty.")
@@ -47,38 +44,8 @@ def enqueue_scheduled_tweet(content, scheduled_time, persona="tactful_engineer",
         else:
             raise ValueError(f"Invalid media_theme '{media_theme}'. Choose from: {SUPPORTED_MEDIA_THEMES}")
 
-    # Validate media_type and composite_layout
-    clean_type = "composite" if str(media_type).strip().lower() == "composite" else "single"
-    clean_layout = str(composite_layout).strip().lower() if composite_layout else "auto"
-    if clean_layout not in SUPPORTED_COMPOSITE_LAYOUTS:
-        clean_layout = "auto"
-
-    return db.schedule_tweet(
-        content, scheduled_time, persona=persona,
-        account_handle=account_handle, media_theme=clean_media,
-        media_type=clean_type, composite_layout=clean_layout,
-        db_path=db_path
-    )
-
-
-def reschedule_scheduled_tweet(tweet_id, new_scheduled_time, db_path=db.DB_PATH):
-    """
-    Validates and updates the scheduled_time for an existing pending scheduled tweet.
-    Ensures new_scheduled_time is non-empty and formatted.
-    """
-    if not new_scheduled_time or not str(new_scheduled_time).strip():
-        raise ValueError("New scheduled time cannot be empty.")
-
-    clean_time = str(new_scheduled_time).strip()
-    # Normalize common ISO format (e.g. '2026-11-09T14:30' -> '2026-11-09 14:30:00')
-    clean_time = clean_time.replace("T", " ")
-    if len(clean_time) == 16:  # YYYY-MM-DD HH:MM
-        clean_time += ":00"
-
-    success = db.reschedule_tweet(tweet_id, clean_time, db_path=db_path)
-    if not success:
-        raise ValueError(f"Could not reschedule tweet #{tweet_id}. It may not exist or is not pending.")
-    return clean_time
+    return db.schedule_tweet(content, scheduled_time, persona=persona,
+                             account_handle=account_handle, media_theme=clean_media, db_path=db_path)
 
 
 def get_pending_due_tweets(now_dt=None, db_path=db.DB_PATH):
@@ -116,56 +83,29 @@ def process_due_tweets(dry_run=True, db_path=db.DB_PATH):
         mode_label = "DRY-RUN" if dry_run else "LIVE"
         acc = tweet.get("account_handle", "@make_elon_laugh")
         media_theme = tweet.get("media_theme")
-        media_type = tweet.get("media_type", "single")
-        composite_layout = tweet.get("composite_layout", "auto")
-
-        media_info = ""
-        if media_theme:
-            if media_type == "composite":
-                media_info = f" [Attached Composite Infographic: {media_theme} (layout: {composite_layout})]"
-            else:
-                media_info = f" [Attached Meme: {media_theme}]"
-
+        media_info = f" [Attached Meme: {media_theme}]" if media_theme else ""
         logger.info(
             f"[{mode_label}][Account: {acc}]{media_info} "
             f"Triggering scheduled tweet ID {tweet['id']}: {tweet['content']}"
         )
 
-        # Generate attached media binary if media_theme is configured
+        # Generate attached meme card binary if media_theme is configured
         if media_theme:
             try:
-                if media_type == "composite":
-                    img_bytes = meme_generator.create_composite_infographic(
-                        panels=None,
-                        theme=media_theme,
-                        layout=composite_layout or "auto",
-                        title=f"{acc} Autonomous Briefing",
-                        subtitle=f"Scheduled Broadcast | {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
-                    )
-                    logger.info(
-                        f"Generated {len(img_bytes)} bytes composite infographic "
-                        f"({media_theme}, {composite_layout}) for tweet ID {tweet['id']}."
-                    )
-                else:
-                    card_bytes = meme_generator.create_meme_card(tweet["content"], theme=media_theme)
-                    logger.info(
-                        f"Generated {len(card_bytes)} bytes meme card image "
-                        f"({media_theme}) for tweet ID {tweet['id']}."
-                    )
+                card_bytes = meme_generator.create_meme_card(tweet["content"], theme=media_theme)
+                logger.info(
+                    f"Generated {len(card_bytes)} bytes meme card card image "
+                    f"({media_theme}) for tweet ID {tweet['id']}."
+                )
             except Exception as meme_err:
-                logger.warning(f"Failed to generate media for scheduled tweet {tweet['id']}: {meme_err}")
+                logger.warning(f"Failed to generate meme card for scheduled tweet {tweet['id']}: {meme_err}")
 
         # In a real environment, this sends through Tweepy or mocks it
         db.update_scheduled_tweet_status(tweet["id"], "sent", db_path=db_path)
 
-        # Trigger syndication to federated platforms resolved per account profile
+        # Trigger syndication to federated platforms if enabled
         try:
-            from syndication import resolve_platforms_for_account
-            target_platforms = resolve_platforms_for_account(acc, fallback_to_defaults=True, db_path=db_path)
-            if target_platforms:
-                dispatch_syndicated_post(tweet["content"], platforms=target_platforms, dry_run=dry_run)
-            else:
-                logger.info(f"Syndication bypassed for account {acc} (no active routing rules).")
+            dispatch_syndicated_post(tweet["content"], dry_run=dry_run)
         except Exception as e:
             logger.warning(f"Federated syndication failed for scheduled tweet {tweet['id']}: {e}")
 

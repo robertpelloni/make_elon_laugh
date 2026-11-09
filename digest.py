@@ -7,270 +7,12 @@ Provides previous-period delta trend comparisons, operational health scorecards,
 and exportable markdown and structured summaries for bot operators.
 """
 
-import json
 import logging
-import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import sqlite3
 import db
 
 logger = logging.getLogger(__name__)
-
-
-def purge_expired_digest_archives(output_dir="reports", max_retained=30):
-    """
-    Enforces retention limits on archived digest files in output_dir to prevent
-    unbounded disk consumption. Retains the newest `max_retained` files per format extension
-    (.md, .html, .json) or overall if mixed, removing older obsolete files.
-
-    Returns list of deleted file paths.
-    """
-    if not os.path.exists(output_dir) or max_retained <= 0:
-        return []
-
-    deleted_paths = []
-    try:
-        entries = []
-        for fname in os.listdir(output_dir):
-            if fname.startswith("digest_") and any(fname.endswith(ext) for ext in (".md", ".html", ".json")):
-                full_p = os.path.join(output_dir, fname)
-                if os.path.isfile(full_p):
-                    try:
-                        mtime = os.path.getmtime(full_p)
-                        entries.append((mtime, full_p))
-                    except OSError:
-                        continue
-
-        # Sort newest first
-        entries.sort(key=lambda x: x[0], reverse=True)
-        if len(entries) > max_retained:
-            excess = entries[max_retained:]
-            for _, fpath in excess:
-                try:
-                    os.remove(fpath)
-                    deleted_paths.append(fpath)
-                    logger.info(f"Purged expired digest archive: {fpath}")
-                except OSError as e:
-                    logger.warning(f"Failed to remove expired archive {fpath}: {e}")
-    except Exception as e:
-        logger.warning(f"Error purging expired digest archives in {output_dir}: {e}")
-
-    return deleted_paths
-
-
-def list_archived_digest_reports(output_dir="reports"):
-    """
-    Scans output_dir and returns structured metadata for all archived digest snapshot files,
-    ordered by modification time descending (newest first).
-
-    Returns list of dicts:
-      - 'filename': base filename
-      - 'format': 'md' | 'html' | 'json'
-      - 'size_bytes': file size
-      - 'modified_at': ISO-8601 UTC timestamp string
-      - 'timestamp_epoch': epoch float
-    """
-    if not os.path.exists(output_dir):
-        return []
-
-    reports = []
-    try:
-        for fname in os.listdir(output_dir):
-            if fname.startswith("digest_") and any(fname.endswith(ext) for ext in (".md", ".html", ".json")):
-                fpath = os.path.join(output_dir, fname)
-                if not os.path.isfile(fpath):
-                    continue
-                try:
-                    stat = os.stat(fpath)
-                    ext = fname.rsplit(".", 1)[-1].lower()
-                    mod_dt = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-                    reports.append({
-                        "filename": fname,
-                        "format": ext,
-                        "size_bytes": stat.st_size,
-                        "modified_at": mod_dt.strftime("%Y-%m-%d %H:%M:%S UTC"),
-                        "timestamp_epoch": stat.st_mtime
-                    })
-                except OSError:
-                    continue
-    except Exception as e:
-        logger.warning(f"Error scanning archived reports in {output_dir}: {e}")
-
-    reports.sort(key=lambda r: r["timestamp_epoch"], reverse=True)
-    return reports
-
-
-def archive_performance_digest_snapshots(
-    formats=None, output_dir="reports", max_retained=30, db_path=db.DB_PATH, days=7
-):
-    """
-    Generates a performance digest snapshot and persists it in `reports/` across
-    the requested formats ('md', 'html', 'json'). Enforces automatic retention policy
-    by calling `purge_expired_digest_archives`.
-
-    Returns dict mapping format to generated file path:
-      {"md": "reports/digest_YYYYMMDD_HHMMSS.md", ...}
-    """
-    if formats is None:
-        formats = ["md", "html", "json"]
-
-    os.makedirs(output_dir, exist_ok=True)
-    digest_data = generate_performance_digest(db_path=db_path, days=days)
-    timestamp_slug = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    saved = {}
-
-    for fmt in formats:
-        clean_fmt = fmt.lower().strip().replace(".", "")
-        if clean_fmt in ("md", "markdown"):
-            content = export_digest_markdown(digest_data)
-            fname = f"digest_{timestamp_slug}.md"
-            fpath = os.path.join(output_dir, fname)
-            with open(fpath, "w", encoding="utf-8") as f:
-                f.write(content)
-            saved["md"] = fpath
-        elif clean_fmt == "html":
-            content = export_digest_html(digest_data)
-            fname = f"digest_{timestamp_slug}.html"
-            fpath = os.path.join(output_dir, fname)
-            with open(fpath, "w", encoding="utf-8") as f:
-                f.write(content)
-            saved["html"] = fpath
-        elif clean_fmt == "json":
-            fname = f"digest_{timestamp_slug}.json"
-            fpath = os.path.join(output_dir, fname)
-            with open(fpath, "w", encoding="utf-8") as f:
-                json.dump(digest_data, f, indent=2)
-            saved["json"] = fpath
-
-    # Apply retention limits
-    purge_expired_digest_archives(output_dir=output_dir, max_retained=max_retained)
-    return saved
-
-
-def generate_executive_kpi_summary(digest_data):
-    """
-    Synthesizes high-level Executive Key Performance Indicators (KPIs) from full digest metrics.
-    Computes global reach across all channels (Replies + Federation + Queue Dispatches),
-    overall engagement velocity (total engagements / total posts), the leading platform by
-    velocity and volume, and deliverability/circuit breaker resilience score.
-
-    Returns dict:
-      - total_dispatches: total posts/replies broadcasted across all networks
-      - total_engagement: aggregate likes, retweets, and shares
-      - global_velocity: average engagements per dispatch
-      - leading_network: { platform, display_name, velocity, share_pct }
-      - resilience_score: percentage (0-100%) reflecting circuits CLOSED and DLQ health
-      - humor_status: approval percentage and health assessment
-    """
-    rep = digest_data.get("replies", {})
-    queue = digest_data.get("queue", {})
-    syn = digest_data.get("syndication", {})
-    rat = digest_data.get("ratings", {})
-    pb = digest_data.get("platform_breakdowns", {})
-    dlq = digest_data.get("dlq", {})
-    cbs = digest_data.get("circuit_breakers", {})
-
-    total_replies = rep.get("total_replies", 0)
-    syn_posts = syn.get("total_posts", 0)
-    queue_sent = queue.get("sent", 0)
-    # Total broadcasts across all channels (public replies + federated posts)
-    # Fallback to queue_sent if total_replies is 0
-    total_dispatches = max(total_replies + syn_posts, queue_sent)
-
-    rep_likes = rep.get("total_likes", 0)
-    rep_rts = rep.get("total_retweets", 0)
-    syn_plats = syn.get("platforms", {})
-    syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
-    total_engagement = rep_likes + rep_rts + syn_eng
-
-    global_velocity = round(total_engagement / total_dispatches, 2) if total_dispatches > 0 else 0.0
-
-    # Determine leading network from platform breakdowns
-    leading_network = {
-        "platform": "none",
-        "display_name": "None",
-        "velocity": 0.0,
-        "posts": 0,
-        "share_pct": 0.0,
-    }
-    if pb:
-        # Platform with highest total engagement (and velocity as tie-breaker)
-        best_p = max(pb.values(), key=lambda x: (x.get("total_engagement", 0), x.get("avg_engagement_per_post", 0.0)))
-        leading_network = {
-            "platform": best_p.get("platform", "none"),
-            "display_name": best_p.get("display_name", best_p.get("platform", "").capitalize()),
-            "velocity": best_p.get("avg_engagement_per_post", 0.0),
-            "posts": best_p.get("posts", 0),
-            "share_pct": best_p.get("share_of_total_posts_pct", 0.0),
-        }
-
-    # Calculate resilience score: starts at 100, penalties for open circuits (-25 each) and exhausted DLQ (-15 each)
-    resilience = 100
-    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
-    for cb in cb_list:
-        if isinstance(cb, dict):
-            st = str(cb.get("state", "CLOSED")).upper()
-            if st == "OPEN":
-                resilience -= 25
-            elif st == "HALF-OPEN":
-                resilience -= 10
-
-    exhausted_dlq = dlq.get("exhausted", 0)
-    if exhausted_dlq > 0:
-        resilience -= min(30, exhausted_dlq * 10)
-
-    pending_dlq = dlq.get("pending", 0)
-    if pending_dlq > 10:
-        resilience -= 10
-
-    resilience = max(0, min(100, resilience))
-
-    approval_pct = rat.get("approval_rate", 100.0)
-    total_rat = rat.get("total_ratings", 0)
-    humor_label = "Optimal" if approval_pct >= 80.0 else ("Moderate" if approval_pct >= 60.0 else "Needs Tuning")
-    if total_rat == 0:
-        humor_label = "No Feedback"
-
-    return {
-        "total_dispatches": total_dispatches,
-        "total_engagement": total_engagement,
-        "global_velocity": global_velocity,
-        "leading_network": leading_network,
-        "resilience_score": resilience,
-        "humor_status": {
-            "approval_pct": approval_pct,
-            "total_ratings": total_rat,
-            "label": humor_label,
-        },
-    }
-
-
-def generate_and_package_distribution_report(db_path=db.DB_PATH, days=7, output_dir="reports"):
-    """
-    One-click packaging function that generates digest metrics, snapshots across all formats
-    (markdown, html, json), extracts the executive KPI briefing, and prepares distribution links.
-
-    Returns dict:
-      - digest: raw performance digest dict
-      - executive_kpi: executive KPI summary dict
-      - files: mapping format to file path (e.g. {'md': '...', 'html': '...', 'json': '...'})
-      - generated_at: UTC timestamp string
-    """
-    digest_data = generate_performance_digest(db_path=db_path, days=days)
-    exec_kpi = generate_executive_kpi_summary(digest_data)
-    saved_files = archive_performance_digest_snapshots(
-        formats=["md", "html", "json"],
-        output_dir=output_dir,
-        max_retained=30,
-        db_path=db_path,
-        days=days
-    )
-    return {
-        "digest": digest_data,
-        "executive_kpi": exec_kpi,
-        "files": saved_files,
-        "generated_at": digest_data.get("generated_at"),
-    }
 
 
 def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_threshold=50):
@@ -327,131 +69,7 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
             )
         })
 
-    dlq = digest_data.get("dlq", {})
-    dlq_exhausted = dlq.get("exhausted", 0)
-    dlq_pending = dlq.get("pending", 0)
-
-    if dlq_exhausted > 0:
-        alerts.append({
-            "level": "critical",
-            "type": "syndication_dlq_exhausted_failures",
-            "message": f"Syndication DLQ has {dlq_exhausted} exhausted broadcast failures requiring manual review."
-        })
-    elif dlq_pending > 5:
-        alerts.append({
-            "level": "warning",
-            "type": "syndication_dlq_pending_high",
-            "message": f"Syndication DLQ pending retries elevated ({dlq_pending} pending retries)."
-        })
-
-    cb_data = digest_data.get("circuit_breakers", {})
-    cb_list = list(cb_data.values()) if isinstance(cb_data, dict) else (cb_data or [])
-    for cb in cb_list:
-        if not isinstance(cb, dict):
-            continue
-        plat = cb.get("platform", "unknown").capitalize()
-        state = cb.get("state", "CLOSED").upper()
-        if state == "OPEN":
-            reason = cb.get("last_failure_reason", "Outage")
-            alerts.append({
-                "level": "critical",
-                "type": f"circuit_breaker_{cb.get('platform')}_open",
-                "message": f"Federation circuit breaker for {plat} is OPEN ({reason}). Broadcasts are failing fast."
-            })
-        elif state == "HALF-OPEN":
-            alerts.append({
-                "level": "warning",
-                "type": f"circuit_breaker_{cb.get('platform')}_half_open",
-                "message": f"Federation circuit breaker for {plat} is HALF-OPEN. Probing for network recovery."
-            })
-
-    # Per-platform divergence alerts
-    platform_breakdowns = extract_per_platform_metric_breakdowns(digest_data)
-    for p_name, p_data in platform_breakdowns.items():
-        if p_data.get("posts", 0) >= 3 and p_data.get("total_engagement", 0) == 0:
-            alerts.append({
-                "level": "warning",
-                "type": f"platform_divergence_{p_name}",
-                "message": (
-                    f"Platform divergence on {p_name.capitalize()}: {p_data.get('posts')} posts published "
-                    "with 0 engagement recorded."
-                )
-            })
-
     return alerts
-
-
-def extract_per_platform_metric_breakdowns(digest_data):
-    """
-    Extracts structured per-network engagement velocities and distribution shares
-    for Twitter/X, Mastodon, Bluesky, and any dynamically discovered federation network.
-
-    Returns dict mapping platform name to:
-      - 'posts': post count
-      - 'likes': total likes
-      - 'shares': total shares/retweets
-      - 'total_engagement': likes + shares
-      - 'avg_engagement_per_post': engagement velocity
-      - 'velocity_tier': 'High' | 'Moderate' | 'Low' | 'Stalled'
-      - 'share_of_total_posts_pct': percentage of total bot dispatches across all networks
-    """
-    platforms = {}
-    rep = digest_data.get("replies", {})
-    tw_posts = rep.get("total_replies", 0)
-    tw_likes = rep.get("total_likes", 0)
-    tw_shares = rep.get("total_retweets", 0)
-    tw_eng = tw_likes + tw_shares
-    tw_avg = round(tw_eng / tw_posts, 2) if tw_posts > 0 else 0.0
-
-    def _calc_tier(avg_val, post_cnt, eng_cnt):
-        if avg_val >= 5.0:
-            return "High"
-        if avg_val >= 1.0:
-            return "Moderate"
-        if post_cnt >= 3 and eng_cnt == 0:
-            return "Stalled"
-        return "Low"
-
-    platforms["twitter"] = {
-        "platform": "twitter",
-        "display_name": "Twitter / X",
-        "posts": tw_posts,
-        "likes": tw_likes,
-        "shares": tw_shares,
-        "total_engagement": tw_eng,
-        "avg_engagement_per_post": tw_avg,
-        "velocity_tier": _calc_tier(tw_avg, tw_posts, tw_eng),
-        "share_of_total_posts_pct": 0.0,
-    }
-
-    syn = digest_data.get("syndication", {})
-    syn_plats = syn.get("platforms", {})
-    for plat_name, p_stats in syn_plats.items():
-        p_posts = p_stats.get("posts", 0)
-        p_likes = p_stats.get("likes", 0)
-        p_shares = p_stats.get("shares", 0)
-        p_eng = p_likes + p_shares
-        p_avg = round(p_eng / p_posts, 2) if p_posts > 0 else 0.0
-        v_tier = _calc_tier(p_avg, p_posts, p_eng)
-
-        platforms[plat_name] = {
-            "platform": plat_name,
-            "display_name": plat_name.capitalize(),
-            "posts": p_posts,
-            "likes": p_likes,
-            "shares": p_shares,
-            "total_engagement": p_eng,
-            "avg_engagement_per_post": p_avg,
-            "velocity_tier": v_tier,
-            "share_of_total_posts_pct": 0.0,
-        }
-
-    total_all_posts = sum(p["posts"] for p in platforms.values())
-    if total_all_posts > 0:
-        for p in platforms.values():
-            p["share_of_total_posts_pct"] = round((p["posts"] / total_all_posts) * 100.0, 1)
-
-    return platforms
 
 
 def _compute_delta(current, previous):
@@ -462,171 +80,6 @@ def _compute_delta(current, previous):
     else:
         pct = 100.0 if current > 0 else 0.0
     return {"current": current, "previous": previous, "diff": diff, "pct": pct}
-
-
-def compute_hourly_engagement_heatmap(days=30, db_path=db.DB_PATH):
-    """
-    Computes hourly engagement distribution (0-23 UTC) across public replies and
-    syndicated federation posts over the specified historical window (default 30 days).
-
-    Returns dictionary with:
-      - 'hours': list of 24 hourly dicts (hour, posts, likes, shares, total_engagement)
-      - 'peak_hour': the hour with maximum total engagement (or post density)
-      - 'peak_window_label': e.g. '14:00 - 15:00 UTC'
-      - 'total_tracked_events': total posts/replies sampled across the window
-    """
-    db.init_db(db_path)
-    heatmap = {
-        h: {"hour": h, "posts": 0, "likes": 0, "shares": 0, "total_engagement": 0}
-        for h in range(24)
-    }
-    total_events = 0
-
-    try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
-
-        # Sample replied_tweets within window
-        cursor.execute("""
-            SELECT replied_at, likes, retweets
-            FROM replied_tweets
-            WHERE replied_at >= ?
-        """, (cutoff,))
-        for replied_at, l, rt in cursor.fetchall():
-            if not replied_at:
-                continue
-            try:
-                clean_ts = str(replied_at).replace("Z", "").split("+")[0].strip()
-                if " " in clean_ts:
-                    hr = int(clean_ts.split(" ")[1].split(":")[0])
-                elif "T" in clean_ts:
-                    hr = int(clean_ts.split("T")[1].split(":")[0])
-                else:
-                    continue
-                if 0 <= hr < 24:
-                    heatmap[hr]["posts"] += 1
-                    heatmap[hr]["likes"] += (l or 0)
-                    heatmap[hr]["shares"] += (rt or 0)
-                    heatmap[hr]["total_engagement"] += (l or 0) + (rt or 0)
-                    total_events += 1
-            except Exception:
-                continue
-
-        # Sample syndicated_posts within window
-        cursor.execute("""
-            SELECT created_at, likes, shares
-            FROM syndicated_posts
-            WHERE created_at >= ?
-        """, (cutoff,))
-        for created_at, l, sh in cursor.fetchall():
-            if not created_at:
-                continue
-            try:
-                clean_ts = str(created_at).replace("Z", "").split("+")[0].strip()
-                if " " in clean_ts:
-                    hr = int(clean_ts.split(" ")[1].split(":")[0])
-                elif "T" in clean_ts:
-                    hr = int(clean_ts.split("T")[1].split(":")[0])
-                else:
-                    continue
-                if 0 <= hr < 24:
-                    heatmap[hr]["posts"] += 1
-                    heatmap[hr]["likes"] += (l or 0)
-                    heatmap[hr]["shares"] += (sh or 0)
-                    heatmap[hr]["total_engagement"] += (l or 0) + (sh or 0)
-                    total_events += 1
-            except Exception:
-                continue
-
-        conn.close()
-    except Exception as e:
-        logger.warning(f"Error computing hourly engagement heatmap: {e}")
-
-    hours_list = [heatmap[h] for h in range(24)]
-    if total_events > 0:
-        peak_entry = max(hours_list, key=lambda x: (x["total_engagement"], x["posts"]))
-        peak_h = peak_entry["hour"]
-    else:
-        # Fallback to industry peak 17:00 UTC
-        peak_h = 17
-        peak_entry = heatmap[peak_h]
-
-    return {
-        "hours": hours_list,
-        "peak_hour": peak_h,
-        "peak_window_label": f"{peak_h:02d}:00 - {(peak_h + 1) % 24:02d}:00 UTC",
-        "peak_engagement": peak_entry["total_engagement"],
-        "peak_posts": peak_entry["posts"],
-        "total_tracked_events": total_events,
-    }
-
-
-def generate_digest_engagement_recommendations(digest_data):
-    """
-    Synthesizes actionable audience engagement recommendations from digest performance metrics,
-    heatmap peak windows, persona distribution, and federation health.
-    """
-    recs = []
-    heatmap = digest_data.get("heatmap", {})
-    peak_label = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
-    total_events = heatmap.get("total_tracked_events", 0)
-
-    if total_events > 0:
-        recs.append(
-            f"🎯 Optimal Post Timing: Highest historical audience engagement converges at "
-            f"{peak_label} ({heatmap.get('peak_engagement', 0)} engagements across "
-            f"{heatmap.get('peak_posts', 0)} posts). Schedule high-priority announcements in this slot."
-        )
-    else:
-        recs.append(
-            f"🎯 Recommended Post Timing: Defaulting to high-traffic aerospace window {peak_label}. "
-            "Queue posts across this timeframe to seed historical telemetry."
-        )
-
-    queue = digest_data.get("queue", {})
-    persona_dist = queue.get("persona_distribution", {})
-    if persona_dist:
-        top_persona = max(persona_dist.items(), key=lambda kv: kv[1])[0]
-        recs.append(
-            f"🎭 Content Persona Allocation: '{top_persona}' leads queue volume ({persona_dist[top_persona]} posts). "
-            "Consider rotating with secondary personas to preserve audience freshness."
-        )
-
-    media_dist = queue.get("media_distribution", {})
-    comp_count = media_dist.get("composite", 0)
-    single_count = media_dist.get("single", 0)
-    if single_count > 0 and comp_count == 0:
-        recs.append(
-            "🌌 Media Diversity: 100% of queued media are single cards. Integrate multi-panel composite infographics "
-            "to lift deep-space narrative engagement across Mastodon and Bluesky."
-        )
-
-    cbs = digest_data.get("circuit_breakers", [])
-    cb_vals = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
-    open_cbs = [c for c in cb_vals if isinstance(c, dict) and c.get("state") == "OPEN"]
-    if open_cbs:
-        c_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
-        recs.append(
-            f"⚠️ Operational Resilience: Outage detected on {c_names} (Circuit OPEN). "
-            "Wait for automatic canary recovery or verify upstream node connectivity."
-        )
-
-    rat = digest_data.get("ratings", {})
-    approval = rat.get("approval_rate", 0.0)
-    total_ratings = rat.get("total_ratings", 0)
-    if total_ratings >= 5 and approval < 60.0:
-        recs.append(
-            f"📉 Humor Calibration: Approval rating at {approval:.1f}%. "
-            "Refine LLM tone styling or switch persona presets in Command Center."
-        )
-    elif approval >= 80.0 and total_ratings >= 5:
-        recs.append(
-            f"🌟 Strong Audience Alignment: High community approval ({approval:.1f}%). "
-            "Maintain current humor prompt parameters."
-        )
-
-    return recs
 
 
 def generate_performance_digest(db_path=db.DB_PATH, days=7):
@@ -661,10 +114,6 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "cancelled": 0,
             "persona_distribution": {},
             "account_distribution": {},
-            "media_distribution": {
-                "single": 0,
-                "composite": 0,
-            },
         },
         "ratings": {
             "total_ratings": 0,
@@ -680,17 +129,6 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
                 "bluesky": {"posts": 0, "likes": 0, "shares": 0}
             }
         },
-        "dlq": {
-            "total": 0,
-            "pending": 0,
-            "exhausted": 0,
-            "replayed": 0,
-            "discarded": 0
-        },
-        "circuit_breakers": [],
-        "platform_breakdowns": {},
-        "heatmap": {},
-        "recommendations": [],
         "deltas": {
             "replies": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "likes": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
@@ -835,23 +273,6 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             except sqlite3.OperationalError:
                 pass
 
-            # Media distribution in queue (single card vs composite infographic)
-            try:
-                cursor.execute(
-                    """
-                    SELECT COALESCE(media_type, 'single'), COUNT(*)
-                    FROM scheduled_tweets
-                    WHERE created_at >= datetime('now', '-' || ? || ' days')
-                    GROUP BY media_type
-                    """,
-                    (str(days),),
-                )
-                for m_type, count in cursor.fetchall():
-                    norm_type = m_type if m_type in ("single", "composite") else "single"
-                    digest["queue"]["media_distribution"][norm_type] = count
-            except sqlite3.OperationalError:
-                pass
-
             # 3. Community Ratings & Approval
             cursor.execute(
                 """
@@ -924,45 +345,19 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             syn_plats = digest["syndication"].get("platforms", {})
             syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
 
-            # 6. Dead-Letter Queue & Circuit Breakers Telemetry Aggregation
-            digest["dlq"] = db.get_syndication_dlq_metrics(db_path=db_path)
-            digest["circuit_breakers"] = db.get_all_circuit_breakers(db_path=db_path)
-            raw_cbs = digest["circuit_breakers"]
-            cb_vals = list(raw_cbs.values()) if isinstance(raw_cbs, dict) else raw_cbs
-
-            open_cbs = [cb for cb in cb_vals if isinstance(cb, dict) and cb.get("state") == "OPEN"]
-            half_open_cbs = [cb for cb in cb_vals if isinstance(cb, dict) and cb.get("state") == "HALF-OPEN"]
-
-            if open_cbs:
-                open_plats = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
-                digest["health_scorecard"]["federation_health"] = f"Outage ({open_plats} Circuit OPEN)"
-            elif half_open_cbs:
-                half_plats = ", ".join([c.get("platform", "").capitalize() for c in half_open_cbs])
-                digest["health_scorecard"]["federation_health"] = f"Canary Recovery ({half_plats} HALF-OPEN)"
-            elif syn_posts >= 5 and syn_eng == 0:
+            if syn_posts >= 5 and syn_eng == 0:
                 digest["health_scorecard"]["federation_health"] = "Stalled (No Engagement)"
             elif syn_posts > 0:
                 digest["health_scorecard"]["federation_health"] = "Active"
             else:
                 digest["health_scorecard"]["federation_health"] = "Idle"
 
-            if open_cbs:
-                digest["health_scorecard"]["overall_health"] = "Critical (Federation Outage / Circuit OPEN)"
-            elif backlog > 50:
+            if backlog > 50:
                 digest["health_scorecard"]["overall_health"] = "Degraded (High Queue Backlog)"
-            elif digest["dlq"].get("exhausted", 0) > 0:
-                digest["health_scorecard"]["overall_health"] = "Attention (Syndication Failures in DLQ)"
             elif digest["health_scorecard"]["federation_health"] == "Stalled (No Engagement)":
                 digest["health_scorecard"]["overall_health"] = "Attention (Federation Stalled)"
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
-
-            # 7. Hourly Heatmap & AI Engagement Recommendations
-            digest["heatmap"] = compute_hourly_engagement_heatmap(days=max(days, 30), db_path=db_path)
-            digest["recommendations"] = generate_digest_engagement_recommendations(digest)
-
-            # 8. Per-Platform Metric Breakdowns
-            digest["platform_breakdowns"] = extract_per_platform_metric_breakdowns(digest)
 
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
@@ -991,8 +386,6 @@ def export_digest_markdown(digest):
 
     personas_md = ", ".join([f"{k}: {v}" for k, v in queue.get("persona_distribution", {}).items()]) or "None"
     accounts_md = ", ".join([f"{k}: {v}" for k, v in queue.get("account_distribution", {}).items()]) or "None"
-    media_dict = queue.get("media_distribution", {})
-    media_md = f"Single: {media_dict.get('single', 0)}, Composite: {media_dict.get('composite', 0)}"
 
     def fmt_delta(key):
         d = deltas.get(key, {})
@@ -1010,21 +403,6 @@ def export_digest_markdown(digest):
                      f"({top_rep['likes']} likes, {top_rep['retweets']} retweets, posted {top_rep['replied_at']})"
     else:
         top_rep_md = "- **Top Performing Reply:** None recorded in this period."
-
-    recs = digest.get("recommendations", [])
-    if recs:
-        recs_md = "## 💡 Strategic Engagement Recommendations\n" + "\n".join(
-            [f"- {r}" for r in recs]
-        ) + "\n\n"
-    else:
-        recs_md = ""
-
-    heatmap = digest.get("heatmap", {})
-    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
-    heatmap_md = f"## ⏱️ Hourly Activity & Optimal Engagement Windows\n" \
-                 f"- **Peak Historical Window:** `{peak_win}` " \
-                 f"({heatmap.get('peak_engagement', 0)} engagements, {heatmap.get('peak_posts', 0)} posts sampled)\n" \
-                 f"- **Total Tracked Historical Dispatches:** {heatmap.get('total_tracked_events', 0)}\n\n"
 
     if alerts:
         alerts_md = "## ⚠️ Active System Anomaly Alerts\n" + "\n".join(
@@ -1050,67 +428,10 @@ def export_digest_markdown(digest):
 
     federation_reach_md = "\n".join(platform_reach_lines)
 
-    pb = digest.get("platform_breakdowns", {})
-    if pb:
-        pb_lines = []
-        for p_key, p_info in sorted(pb.items()):
-            p_name = p_info.get("display_name", p_key.capitalize())
-            p_velocity = p_info.get("avg_engagement_per_post", 0.0)
-            p_tier = p_info.get("velocity_tier", "Low")
-            p_share = p_info.get("share_of_total_posts_pct", 0.0)
-            pb_lines.append(
-                f"- **{p_name}:** Velocity: `{p_velocity}` eng/post (Tier: **{p_tier}**), "
-                f"Share of Broadcasts: **{p_share}%**"
-            )
-        platform_breakdowns_md = "## ⚡ Per-Platform Engagement Velocity & Distribution Share\n" + \
-                                 "\n".join(pb_lines) + "\n\n"
-    else:
-        platform_breakdowns_md = ""
-
-    cbs = digest.get("circuit_breakers", {})
-    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
-    if cb_list:
-        cb_lines = []
-        for cb in cb_list:
-            if not isinstance(cb, dict):
-                continue
-            p = cb.get("platform", "unknown").capitalize()
-            st = cb.get("state", "CLOSED").upper()
-            fails = cb.get("consecutive_failures", 0)
-            thresh = cb.get("failure_threshold", 3)
-            icon = "🟢" if st == "CLOSED" else ("🔴" if st == "OPEN" else "🟡")
-            reason_str = ""
-            if cb.get('last_failure_reason') and st != "CLOSED":
-                reason_str = f" - Reason: {cb.get('last_failure_reason')}"
-            cb_lines.append(f"- **{icon} {p}:** State `{st}` (Failures: {fails}/{thresh}){reason_str}")
-        circuit_breakers_md = "\n".join(cb_lines)
-    else:
-        circuit_breakers_md = "- *No circuit breaker records found (all nominal).*"
-
-    exec_kpi = generate_executive_kpi_summary(digest)
-    lead_net = exec_kpi.get("leading_network", {})
-    lead_name = lead_net.get("display_name", "None")
-    lead_vel = lead_net.get("velocity", 0.0)
-    lead_share = lead_net.get("share_pct", 0.0)
-    lead_desc = f"{lead_name} ({lead_vel} eng/post, {lead_share}% volume)"
-    humor_info = exec_kpi.get("humor_status", {})
-    appr_pct = humor_info.get("approval_pct", 0.0)
-    appr_lbl = humor_info.get("label", "Optimal")
-
-    executive_briefing_md = f"""## 📊 Executive KPI Briefing
-- **Total Cross-Network Dispatches:** {exec_kpi.get('total_dispatches', 0)} posts/replies
-- **Total Cross-Network Engagement:** {exec_kpi.get('total_engagement', 0)} likes, shares & retweets
-- **Global Engagement Velocity:** `{exec_kpi.get('global_velocity', 0.0)}` engagements / post
-- **Leading Network by Volume & Impact:** **{lead_desc}**
-- **Infrastructure Resilience Score:** **{exec_kpi.get('resilience_score', 100)}%** (Circuits & DLQ deliverability)
-- **Community Humor Sentiment:** **{appr_pct}%** approval ({appr_lbl})
-
-"""
-
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
-{alerts_md}{executive_briefing_md}## 🩺 System Operational Health Scorecard
+{alerts_md}## 🩺 System Operational Health Scorecard
 - **Overall Status:** {scorecard.get('overall_health', 'Unknown')}
 - **Database Connection:** {"Operational" if scorecard.get('db_connected') else "Disconnected"}
 - **Pending Queue Backlog:** {scorecard.get('queue_backlog', 0)} items
@@ -1131,7 +452,6 @@ def export_digest_markdown(digest):
   - Cancelled: {queue.get('cancelled', 0)}
 - **Persona Distribution:** {personas_md}
 - **Account Attribution:** {accounts_md}
-- **Media Distribution:** {media_md}
 
 ## 🌟 Humor Approval & Ratings
 - **Total Community Ratings:** {rat.get('total_ratings', 0)}
@@ -1145,16 +465,7 @@ def export_digest_markdown(digest):
 - **Federated Engagement Delta:** [{fmt_delta('syndication_engagement')}]
 {federation_reach_md}
 
-## 🔁 Federation Deliverability & Dead-Letter Queue
-- **DLQ Pending Retries:** {digest.get('dlq', {}).get('pending', 0)}
-- **DLQ Exhausted Failures:** {digest.get('dlq', {}).get('exhausted', 0)}
-- **DLQ Successfully Replayed:** {digest.get('dlq', {}).get('replayed', 0)}
-- **DLQ Discarded:** {digest.get('dlq', {}).get('discarded', 0)}
-
-## 🛡️ Federation Circuit Breaker Telemetry
-{circuit_breakers_md}
-
-{platform_breakdowns_md}{heatmap_md}{recs_md}---
+---
 *Autonomous Tactful Humor Operations Console*
 """
     return md
@@ -1211,16 +522,6 @@ def export_digest_html(digest):
     else:
         account_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
 
-    media_dist = queue.get("media_distribution", {})
-    single_cnt = media_dist.get("single", 0)
-    comp_cnt = media_dist.get("composite", 0)
-    media_badges = (
-        f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
-        f'background: #fef3c7; color: #92400e;">Single: {single_cnt}</span>'
-        f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
-        f'background: #ede9fe; color: #5b21b6;">Composite: {comp_cnt}</span>'
-    )
-
     if alerts:
         alert_items = "".join([
             f'<li style="margin-bottom: 4px;"><strong>[{a.get("level", "warning").upper()}]</strong> '
@@ -1266,103 +567,6 @@ def export_digest_html(digest):
             f"{p_likes} likes/favs &bull; {p_shares} shares &bull; avg {p_avg}/post</li>"
         )
     federation_html_items = "".join(html_platform_list) or "<li><em>No federated activity recorded.</em></li>"
-
-    cbs = digest.get("circuit_breakers", {})
-    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
-    if cb_list:
-        cb_html_list = []
-        for cb in cb_list:
-            if not isinstance(cb, dict):
-                continue
-            p = cb.get("platform", "unknown").capitalize()
-            st = cb.get("state", "CLOSED").upper()
-            fails = cb.get("consecutive_failures", 0)
-            thresh = cb.get("failure_threshold", 3)
-            bg = "#dcfce7" if st == "CLOSED" else ("#fee2e2" if st == "OPEN" else "#fef3c7")
-            fg = "#166534" if st == "CLOSED" else ("#991b1b" if st == "OPEN" else "#92400e")
-            reason_info = ""
-            if cb.get('last_failure_reason') and st != "CLOSED":
-                reason_info = f" &bull; <em>{cb.get('last_failure_reason')}</em>"
-            cb_html_list.append(
-                f'<li><strong>{p}:</strong> <span class="badge" style="background: {bg}; color: {fg};">{st}</span> '
-                f'({fails}/{thresh} failures){reason_info}</li>'
-            )
-        cb_html_items = "".join(cb_html_list)
-    else:
-        cb_html_items = "<li><em>All circuits nominal (no faults logged).</em></li>"
-
-    recs = digest.get("recommendations", [])
-    if recs:
-        recs_html_items = "".join([f"<li>{r}</li>" for r in recs])
-        recs_section_html = f"""
-    <h2>💡 Strategic Engagement Recommendations</h2>
-    <div class="card" style="border-left: 4px solid #0284c7; background: #f0f9ff;">
-      <ul style="margin: 0; padding-left: 20px;">
-        {recs_html_items}
-      </ul>
-    </div>
-"""
-    else:
-        recs_section_html = ""
-
-    heatmap = digest.get("heatmap", {})
-    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
-    heatmap_section_html = f"""
-    <h2>⏱️ Hourly Engagement & Optimal Windows</h2>
-    <div class="card">
-      <div style="font-size: 0.95rem; margin-bottom: 8px;">
-        <strong>Peak Historical Window:</strong>
-        <span class="badge" style="background: #e0f2fe; color: #0369a1;">{peak_win}</span>
-        ({heatmap.get('peak_engagement', 0)} engagements sampled across {heatmap.get('peak_posts', 0)} posts)
-      </div>
-      <div style="font-size: 0.85rem; color: #64748b;">
-        Total historical dispatches tracked: <strong>{heatmap.get('total_tracked_events', 0)}</strong>
-      </div>
-    </div>
-"""
-
-    pb = digest.get("platform_breakdowns", {})
-    if pb:
-        pb_html_rows = []
-        for p_key, p_info in sorted(pb.items()):
-            p_name = p_info.get("display_name", p_key.capitalize())
-            p_vel = p_info.get("avg_engagement_per_post", 0.0)
-            p_tier = p_info.get("velocity_tier", "Low")
-            p_share = p_info.get("share_of_total_posts_pct", 0.0)
-            tier_badge = f'<span class="badge" style="background: #e0e7ff; color: #4338ca;">{p_tier}</span>'
-            pb_html_rows.append(f"""
-        <tr>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;"><strong>{p_name}</strong></td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_info.get('posts', 0)}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_vel} / post</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{tier_badge}</td>
-          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_share}%</td>
-        </tr>
-""")
-        pb_section_html = f"""
-    <h2>⚡ Per-Platform Velocity &amp; Distribution</h2>
-    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 10px;">
-      <thead>
-        <tr style="background: #f1f5f9; text-align: left; color: #475569;">
-          <th style="padding: 8px 12px;">Platform</th>
-          <th style="padding: 8px 12px;">Posts</th>
-          <th style="padding: 8px 12px;">Velocity</th>
-          <th style="padding: 8px 12px;">Tier</th>
-          <th style="padding: 8px 12px;">Share</th>
-        </tr>
-      </thead>
-      <tbody>
-        {"".join(pb_html_rows)}
-      </tbody>
-    </table>
-"""
-    else:
-        pb_section_html = ""
-
-    exec_kpi = generate_executive_kpi_summary(digest)
-    lead_net = exec_kpi.get("leading_network", {})
-    lead_name = lead_net.get("display_name", "None")
-    lead_vel = lead_net.get("velocity", 0.0)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1418,27 +622,6 @@ def export_digest_html(digest):
     }}
     .card-title {{ font-size: 0.85rem; color: #64748b; margin-bottom: 4px; }}
     .card-val {{ font-size: 1.5rem; font-weight: bold; color: #0f172a; }}
-    .exec-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 12px;
-      margin: 16px 0;
-    }}
-    .exec-card {{
-      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-      border: 1px solid #bae6fd;
-      border-radius: 8px;
-      padding: 14px;
-      text-align: center;
-    }}
-    .exec-card-title {{
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      color: #0369a1;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }}
-    .exec-card-val {{ font-size: 1.4rem; font-weight: 800; color: #0c4a6e; }}
     ul {{ padding-left: 20px; }}
     li {{ margin-bottom: 6px; }}
     footer {{ margin-top: 32px; font-size: 0.8rem; color: #94a3b8; text-align: center; }}
@@ -1453,30 +636,6 @@ def export_digest_html(digest):
     </p>
 
     {alerts_banner}
-
-    <h2>📊 Executive KPI Briefing</h2>
-    <div class="exec-grid">
-      <div class="exec-card">
-        <div class="exec-card-title">Dispatches</div>
-        <div class="exec-card-val">{exec_kpi.get('total_dispatches', 0)}</div>
-        <div style="font-size: 0.75rem; color: #0284c7;">Cross-Network</div>
-      </div>
-      <div class="exec-card">
-        <div class="exec-card-title">Velocity</div>
-        <div class="exec-card-val">{exec_kpi.get('global_velocity', 0.0)}</div>
-        <div style="font-size: 0.75rem; color: #0284c7;">Eng / Post</div>
-      </div>
-      <div class="exec-card">
-        <div class="exec-card-title">Leading Network</div>
-        <div class="exec-card-val" style="font-size: 1.15rem;">{lead_name}</div>
-        <div style="font-size: 0.75rem; color: #0284c7;">{lead_vel} avg/post</div>
-      </div>
-      <div class="exec-card">
-        <div class="exec-card-title">Resilience</div>
-        <div class="exec-card-val">{exec_kpi.get('resilience_score', 100)}%</div>
-        <div style="font-size: 0.75rem; color: #0284c7;">Circuits &amp; DLQ</div>
-      </div>
-    </div>
 
     <h2>🩺 System Operational Health</h2>
     <div class="grid">
@@ -1522,7 +681,6 @@ def export_digest_html(digest):
       <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
       <li><strong>Persona Distribution:</strong> {persona_badges}</li>
       <li><strong>Account Attribution:</strong> {account_badges}</li>
-      <li><strong>Media Distribution:</strong> {media_badges}</li>
     </ul>
 
     <h2>🌟 Community Humor Approval</h2>
@@ -1540,30 +698,6 @@ def export_digest_html(digest):
     <ul>
       {federation_html_items}
     </ul>
-
-    <h2>🔁 Federation Deliverability &amp; Dead-Letter Queue</h2>
-    <div class="grid">
-      <div class="card">
-        <div class="card-title">Pending Retries</div>
-        <div class="card-val">{digest.get('dlq', {}).get('pending', 0)}</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Exhausted Failures</div>
-        <div class="card-val">{digest.get('dlq', {}).get('exhausted', 0)}</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Successfully Replayed</div>
-        <div class="card-val">{digest.get('dlq', {}).get('replayed', 0)}</div>
-      </div>
-    </div>
-
-    <h2>🛡️ Federation Circuit Breaker Sentinel</h2>
-    <ul>
-      {cb_html_items}
-    </ul>{pb_section_html}
-
-    {heatmap_section_html}
-    {recs_section_html}
 
     <footer>
       Autonomous Tactful Humor Operations Console &bull; Confidential Digest Report

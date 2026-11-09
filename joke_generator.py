@@ -257,34 +257,6 @@ def rephrase_content(content, persona="tactful_engineer", tone_style="witty"):
     return rephrased_candidate
 
 
-def rephrase_infographic_panels(panels, persona="tactful_engineer", tone_style="witty"):
-    """
-    Rephrases a collection of infographic panels according to a persona and tone style.
-    Accepts a list of dictionaries with {'title': ..., 'text': ...} or strings.
-    Returns a list of dicts with updated, styled text while preserving structure.
-    """
-    if not panels:
-        return []
-
-    rephrased_list = []
-    for p in panels:
-        if isinstance(p, dict):
-            title = p.get("title", "Insight")
-            body = p.get("text", "")
-            rephrased_text = rephrase_content(body, persona=persona, tone_style=tone_style)
-            rephrased_list.append({
-                "title": title,
-                "text": rephrased_text or body
-            })
-        elif isinstance(p, str):
-            rephrased_text = rephrase_content(p, persona=persona, tone_style=tone_style)
-            rephrased_list.append({
-                "title": "Insight",
-                "text": rephrased_text or p
-            })
-    return rephrased_list
-
-
 def generate_meme_card_b64(text, title="Emperor Musk Bot", theme="dark"):
     """
     Renders text to a visual meme card and returns a base64-encoded PNG string.

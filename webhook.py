@@ -25,36 +25,6 @@ DEFAULT_ADAPTER = os.environ.get("DIGEST_WEBHOOK_ADAPTER", "generic").lower()
 AUTO_DISPATCH_ENABLED = os.environ.get("DIGEST_AUTO_DISPATCH", "false").lower() in ["true", "1", "yes"]
 DISPATCH_INTERVAL_HOURS = int(os.environ.get("DIGEST_INTERVAL_HOURS", "168"))  # default 7 days (168 hours)
 LAST_DISPATCH_TIMESTAMP = 0.0
-DISPATCH_HISTORY = []
-MAX_HISTORY_ITEMS = 50
-
-
-def record_dispatch_history(target_url, adapter, status_code, success, error_msg="", is_multi=False):
-    """Records an entry in the in-memory dispatch history log."""
-    masked_url = target_url
-    if target_url and "://" in target_url:
-        parts = target_url.split("://", 1)
-        domain = parts[1].split("/", 1)[0]
-        masked_url = f"{parts[0]}://{domain}/..."
-
-    entry = {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        "target_url": masked_url,
-        "adapter": adapter,
-        "status_code": status_code,
-        "success": success,
-        "error": str(error_msg) if error_msg else None,
-        "multi_channel": is_multi,
-    }
-    DISPATCH_HISTORY.insert(0, entry)
-    if len(DISPATCH_HISTORY) > MAX_HISTORY_ITEMS:
-        DISPATCH_HISTORY.pop()
-    return entry
-
-
-def get_webhook_dispatch_history():
-    """Returns the recorded webhook dispatch history."""
-    return list(DISPATCH_HISTORY)
 
 
 def compute_webhook_signature(payload_bytes, secret):
@@ -124,27 +94,6 @@ def format_slack_payload(digest_data):
 
     alerts = digest_data.get("alerts", [])
 
-    media_dist = queue.get("media_distribution", {})
-    single_cnt = media_dist.get("single", 0)
-    comp_cnt = media_dist.get("composite", 0)
-
-    dlq = digest_data.get("dlq", {})
-    dlq_pend = dlq.get("pending", 0)
-    dlq_exh = dlq.get("exhausted", 0)
-    dlq_rep = dlq.get("replayed", 0)
-
-    cbs = digest_data.get("circuit_breakers", {})
-    cb_vals = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
-    open_cbs = [c for c in cb_vals if isinstance(c, dict) and c.get("state") == "OPEN"]
-    cb_summary = "Nominal"
-    if open_cbs:
-        open_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
-        cb_summary = f"⚠️ {len(open_cbs)} OPEN ({open_names})"
-
-    heatmap = digest_data.get("heatmap", {})
-    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
-    recs = digest_data.get("recommendations", [])
-
     blocks = [
         {
             "type": "header",
@@ -167,47 +116,13 @@ def format_slack_payload(digest_data):
                         f"*Queue Dispatched:* {queue.get('sent', 0)}\n"
                         f"*Humor Approval:* {rat.get('approval_rate', 0)}%"
                     )
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Media Queue:*\nSingle: {single_cnt} | Composite: {comp_cnt}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*DLQ Deliverability:*\nPend: {dlq_pend} | Exh: {dlq_exh} | Repl: {dlq_rep}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Circuit Breakers:*\n{cb_summary}"
-                },
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Peak Engagement Slot:*\n⏱️ {peak_win}"
                 }
             ]
         }
     ]
 
-    pb = digest_data.get("platform_breakdowns", {})
-    if pb:
-        pb_parts = [
-            f"{info.get('display_name', k)}: {info.get('avg_engagement_per_post', 0.0)}/post "
-            f"({info.get('velocity_tier', 'Low')})"
-            for k, info in sorted(pb.items())
-        ]
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": "*⚡ Platform Velocities:* " + " | ".join(pb_parts)
-            }
-        })
-
     if alerts:
-        alert_text = "\n".join([
-            f"• *[{a.get('level', 'warning').upper()}]* {a.get('message')}"
-            for a in alerts
-        ])
+        alert_text = "\n".join([f"• {a.get('message')}" for a in alerts])
         blocks.append({
             "type": "section",
             "text": {
@@ -239,16 +154,6 @@ def format_slack_payload(digest_data):
             }
         })
 
-    if recs:
-        recs_text = "\n".join([f"• {r}" for r in recs[:2]])
-        blocks.append({
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"*💡 Engagement Insights:*\n{recs_text}"
-            }
-        })
-
     return {"text": "Weekly Performance Digest", "blocks": blocks}
 
 
@@ -262,57 +167,16 @@ def format_discord_payload(digest_data):
     alerts = digest_data.get("alerts", [])
     color = 0xef4444 if any(a.get("level") == "critical" for a in alerts) else (0xf59e0b if alerts else 0x1DA1F2)
 
-    media_dist = queue.get("media_distribution", {})
-    single_cnt = media_dist.get("single", 0)
-    comp_cnt = media_dist.get("composite", 0)
-
-    dlq = digest_data.get("dlq", {})
-    dlq_pend = dlq.get("pending", 0)
-    dlq_exh = dlq.get("exhausted", 0)
-    dlq_rep = dlq.get("replayed", 0)
-
-    cbs_discord = digest_data.get("circuit_breakers", {})
-    cb_vals_discord = list(cbs_discord.values()) if isinstance(cbs_discord, dict) else (cbs_discord or [])
-    open_cbs_discord = [c for c in cb_vals_discord if isinstance(c, dict) and c.get("state") == "OPEN"]
-    cb_summary = "Nominal (All Closed)"
-    if open_cbs_discord:
-        open_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs_discord])
-        cb_summary = f"⚠️ {len(open_cbs_discord)} OPEN ({open_names})"
-
-    heatmap = digest_data.get("heatmap", {})
-    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
-    recs = digest_data.get("recommendations", [])
-
     fields = [
         {"name": "Replies Sent", "value": str(rep.get("total_replies", 0)), "inline": True},
         {"name": "Likes / RTs", "value": likes_rts, "inline": True},
         {"name": "Humor Approval", "value": f"{rat.get('approval_rate', 0)}%", "inline": True},
         {"name": "Queue Dispatches", "value": str(queue.get("sent", 0)), "inline": True},
         {"name": "Pending in Queue", "value": str(queue.get("pending", 0)), "inline": True},
-        {"name": "Media Distribution", "value": f"Single: {single_cnt} | Composite: {comp_cnt}", "inline": True},
-        {"name": "DLQ Deliverability", "value": f"Pend: {dlq_pend} | Exh: {dlq_exh} | Repl: {dlq_rep}", "inline": True},
-        {"name": "Circuit Breakers", "value": cb_summary, "inline": True},
-        {"name": "Peak Engagement", "value": f"⏱️ {peak_win}", "inline": True},
     ]
 
-    if recs:
-        recs_desc = "\n".join([f"• {r}" for r in recs[:2]])
-        fields.append({"name": "💡 Strategic Insights", "value": recs_desc, "inline": False})
-
-    pb_discord = digest_data.get("platform_breakdowns", {})
-    if pb_discord:
-        pb_disc_desc = "\n".join([
-            f"• **{info.get('display_name', k)}**: {info.get('avg_engagement_per_post', 0.0)} eng/post "
-            f"({info.get('velocity_tier', 'Low')} tier, {info.get('share_of_total_posts_pct', 0.0)}% share)"
-            for k, info in sorted(pb_discord.items())
-        ])
-        fields.append({"name": "⚡ Platform Velocities", "value": pb_disc_desc, "inline": False})
-
     if alerts:
-        alert_msgs = "\n".join([
-            f"• **[{a.get('level', 'warning').upper()}]** {a.get('message')}"
-            for a in alerts
-        ])
+        alert_msgs = "\n".join([f"• {a.get('message')}" for a in alerts])
         fields.append({"name": "⚠️ Active Alerts", "value": alert_msgs, "inline": False})
 
     top_humor = rat.get("top_humor", [])
@@ -405,60 +269,3 @@ def dispatch_webhook(webhook_url, payload, max_retries=2, timeout=5, secret=None
 
     logger.error(f"Failed to dispatch webhook after retries: {last_error}")
     return False, str(last_error)
-
-
-def dispatch_digest_to_all_channels(digest_data, channels=None):
-    """
-    Dispatches formatted digest to multiple webhook channels.
-    `channels`: list of dicts, e.g.:
-      [{"url": "https://hooks.slack.com/...", "adapter": "slack", "secret": "..."}]
-    If channels is None or empty, falls back to DEFAULT_WEBHOOK_URL and DEFAULT_ADAPTER.
-
-    Returns dict mapping channel index to result dict:
-      {"channel_0": {"success": True, "status": 200, "url": "...", "adapter": "..."}, ...}
-    """
-    if channels is None or len(channels) == 0:
-        if not DEFAULT_WEBHOOK_URL:
-            return {"default": {"success": False, "error": "No default webhook URL configured."}}
-        channels = [{
-            "url": DEFAULT_WEBHOOK_URL,
-            "adapter": DEFAULT_ADAPTER,
-            "secret": DEFAULT_WEBHOOK_SECRET
-        }]
-
-    results = {}
-    is_multi = len(channels) > 1
-
-    for idx, ch in enumerate(channels):
-        url = ch.get("url")
-        adapter = ch.get("adapter", "generic").lower()
-        secret = ch.get("secret", None)
-        ch_key = ch.get("name") or f"channel_{idx}"
-
-        if not url:
-            record_dispatch_history(url or "None", adapter, None, False, "Missing URL", is_multi=is_multi)
-            results[ch_key] = {"success": False, "error": "Missing webhook URL", "adapter": adapter}
-            continue
-
-        try:
-            payload = format_webhook_payload(digest_data, adapter=adapter)
-            ok, status_or_err = dispatch_webhook(url, payload, secret=secret)
-            record_dispatch_history(
-                url, adapter,
-                status_or_err if ok else None,
-                ok,
-                "" if ok else str(status_or_err),
-                is_multi=is_multi
-            )
-            results[ch_key] = {
-                "success": ok,
-                "status": status_or_err if ok else None,
-                "error": None if ok else str(status_or_err),
-                "adapter": adapter,
-                "url": url[:30] + "..." if len(url) > 30 else url
-            }
-        except Exception as e:
-            record_dispatch_history(url, adapter, None, False, str(e), is_multi=is_multi)
-            results[ch_key] = {"success": False, "error": str(e), "adapter": adapter}
-
-    return results

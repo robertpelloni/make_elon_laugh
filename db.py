@@ -1,6 +1,5 @@
 import sqlite3
 import logging
-from datetime import datetime, timezone
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -62,23 +61,17 @@ def init_db(db_path=DB_PATH):
                     persona TEXT DEFAULT 'tactful_engineer',
                     status TEXT DEFAULT 'pending', -- pending, sent, cancelled
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    media_theme TEXT DEFAULT NULL,
-                    media_type TEXT DEFAULT 'single', -- 'single' (meme card) or 'composite' (infographic)
-                    composite_layout TEXT DEFAULT 'auto' -- 'auto', 'grid', 'side-by-side'
+                    media_theme TEXT DEFAULT NULL
                 )
             ''')
 
-            # Migration: Ensure account_handle, media_theme, media_type, composite_layout exist on scheduled_tweets
+            # Migration: Ensure account_handle and media_theme columns exist on scheduled_tweets
             cursor.execute("PRAGMA table_info(scheduled_tweets)")
             sched_cols = [row[1] for row in cursor.fetchall()]
             if 'account_handle' not in sched_cols:
                 cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN account_handle TEXT DEFAULT '@make_elon_laugh'")
             if 'media_theme' not in sched_cols:
                 cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN media_theme TEXT DEFAULT NULL")
-            if 'media_type' not in sched_cols:
-                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN media_type TEXT DEFAULT 'single'")
-            if 'composite_layout' not in sched_cols:
-                cursor.execute("ALTER TABLE scheduled_tweets ADD COLUMN composite_layout TEXT DEFAULT 'auto'")
 
             # Table for cross-platform syndicated posts (Mastodon, Bluesky)
             cursor.execute('''
@@ -104,48 +97,6 @@ def init_db(db_path=DB_PATH):
                     auto_reply_enabled INTEGER DEFAULT 1,
                     tags TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Table for account syndication routing rules
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS account_syndication_routes (
-                    account_handle TEXT PRIMARY KEY,
-                    platforms TEXT NOT NULL, -- comma-separated platforms e.g. "mastodon,bluesky"
-                    enabled INTEGER DEFAULT 1,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Table for Dead-Letter Queue (DLQ) tracking failed syndication broadcasts
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS syndication_dlq (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    platform TEXT NOT NULL, -- 'mastodon', 'bluesky'
-                    account_handle TEXT DEFAULT '@make_elon_laugh',
-                    content TEXT NOT NULL,
-                    error_message TEXT,
-                    retry_count INTEGER DEFAULT 0,
-                    max_retries INTEGER DEFAULT 3,
-                    status TEXT DEFAULT 'pending', -- 'pending', 'replayed', 'exhausted', 'discarded'
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Table for Federation Circuit Breaker states per platform
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS federation_circuit_breakers (
-                    platform TEXT PRIMARY KEY,
-                    state TEXT NOT NULL DEFAULT 'CLOSED', -- 'CLOSED', 'OPEN', 'HALF-OPEN'
-                    consecutive_failures INTEGER DEFAULT 0,
-                    failure_threshold INTEGER DEFAULT 3,
-                    cooldown_seconds INTEGER DEFAULT 60,
-                    tripped_at TIMESTAMP,
-                    last_success_at TIMESTAMP,
-                    last_failure_reason TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -263,37 +214,25 @@ def get_joke_ratings(limit=10, db_path=DB_PATH):
 
 
 def schedule_tweet(content, scheduled_time, persona="tactful_engineer", db_path=DB_PATH,
-                   account_handle="@make_elon_laugh", media_theme=None,
-                   media_type="single", composite_layout="auto"):
+                   account_handle="@make_elon_laugh", media_theme=None):
     """
-    Enqueues a tweet/joke for automated future posting with optional target account routing,
-    visual meme card or composite infographic media theme and layout format.
+    Enqueues a tweet/joke for automated future posting with optional target account routing
+    and visual meme card media theme.
     """
     try:
         clean_media = media_theme.strip().lower() if (media_theme and str(media_theme).strip()) else None
-        clean_type = "composite" if str(media_type).strip().lower() == "composite" else "single"
-        clean_layout = str(composite_layout).strip().lower() if composite_layout else "auto"
-        if clean_layout not in ("auto", "grid", "side-by-side"):
-            clean_layout = "auto"
-
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             sql = (
                 "INSERT INTO scheduled_tweets "
-                "(content, scheduled_time, persona, status, account_handle, media_theme, media_type, composite_layout) "
-                "VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)"
+                "(content, scheduled_time, persona, status, account_handle, media_theme) "
+                "VALUES (?, ?, ?, 'pending', ?, ?)"
             )
             try:
-                cursor.execute(sql, (
-                    content.strip(), scheduled_time, persona, account_handle.strip(),
-                    clean_media, clean_type, clean_layout
-                ))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
             except sqlite3.OperationalError:
                 init_db(db_path)
-                cursor.execute(sql, (
-                    content.strip(), scheduled_time, persona, account_handle.strip(),
-                    clean_media, clean_type, clean_layout
-                ))
+                cursor.execute(sql, (content.strip(), scheduled_time, persona, account_handle.strip(), clean_media))
             conn.commit()
             return cursor.lastrowid
     except sqlite3.Error as e:
@@ -307,11 +246,8 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
         with get_db_connection(db_path) as conn:
             cursor = conn.cursor()
             try:
-                query = (
-                    "SELECT id, content, scheduled_time, persona, status, created_at, "
-                    "account_handle, media_theme, media_type, composite_layout "
-                    "FROM scheduled_tweets"
-                )
+                query = ("SELECT id, content, scheduled_time, persona, status, created_at, account_handle, media_theme "
+                         "FROM scheduled_tweets")
                 params = []
                 conditions = []
 
@@ -345,9 +281,7 @@ def get_scheduled_tweets(status=None, account_handle=None, limit=20, db_path=DB_
                     "status": r[4],
                     "created_at": r[5],
                     "account_handle": r[6] if len(r) > 6 and r[6] else "@make_elon_laugh",
-                    "media_theme": r[7] if len(r) > 7 and r[7] else None,
-                    "media_type": r[8] if len(r) > 8 and r[8] else "single",
-                    "composite_layout": r[9] if len(r) > 9 and r[9] else "auto"
+                    "media_theme": r[7] if len(r) > 7 and r[7] else None
                 }
                 for r in cursor.fetchall()
             ]
@@ -369,26 +303,6 @@ def update_scheduled_tweet_status(tweet_id, new_status, db_path=DB_PATH):
             return cursor.rowcount > 0
     except sqlite3.Error as e:
         logger.error(f"Database error updating scheduled tweet {tweet_id}: {e}")
-        return False
-
-
-def reschedule_tweet(tweet_id, new_scheduled_time, db_path=DB_PATH):
-    """
-    Updates the scheduled_time for an existing pending scheduled tweet.
-    Returns True if successfully updated, False otherwise.
-    """
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            # Only allow rescheduling tweets that are currently pending
-            cursor.execute(
-                "UPDATE scheduled_tweets SET scheduled_time = ? WHERE id = ? AND status = 'pending'",
-                (str(new_scheduled_time).strip(), int(tweet_id))
-            )
-            conn.commit()
-            return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error rescheduling tweet {tweet_id}: {e}")
         return False
 
 
@@ -651,428 +565,3 @@ def get_target_persona_override(target_id, db_path=DB_PATH):
         logger.error(f"Database error checking persona override for {target_id}: {e}")
 
     return None, True
-
-
-def get_account_syndication_routes(db_path=DB_PATH):
-    """
-    Retrieves all configured account-level syndication routing configurations.
-    Returns list of dicts: [{'account_handle': str, 'platforms': list, 'enabled': bool, 'updated_at': str}].
-    """
-    routes = []
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    "SELECT account_handle, platforms, enabled, updated_at "
-                    "FROM account_syndication_routes ORDER BY account_handle ASC"
-                )
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                return routes
-
-            for row in cursor.fetchall():
-                raw_plats = row[1] or ""
-                platforms_list = [p.strip().lower() for p in raw_plats.split(",") if p.strip()]
-                routes.append({
-                    "account_handle": str(row[0]),
-                    "platforms": platforms_list,
-                    "enabled": bool(row[2]),
-                    "updated_at": str(row[3])
-                })
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching account syndication routes: {e}")
-    return routes
-
-
-def get_syndication_platforms_for_account(account_handle, db_path=DB_PATH):
-    """
-    Returns (platforms: list, enabled: bool) for a specific account handle.
-    If no record exists, returns (None, None).
-    """
-    if not account_handle:
-        return None, None
-    handle_norm = str(account_handle).strip()
-    if not handle_norm.startswith("@"):
-        handle_norm = f"@{handle_norm}"
-
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(
-                    "SELECT platforms, enabled FROM account_syndication_routes WHERE account_handle = ?",
-                    (handle_norm,)
-                )
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                return None, None
-
-            row = cursor.fetchone()
-            if row:
-                raw_plats = row[0] or ""
-                platforms_list = [p.strip().lower() for p in raw_plats.split(",") if p.strip()]
-                return platforms_list, bool(row[1])
-    except sqlite3.Error as e:
-        logger.error(f"Database error checking syndication route for {handle_norm}: {e}")
-
-    return None, None
-
-
-def set_account_syndication_routes(account_handle, platforms, enabled=1, db_path=DB_PATH):
-    """
-    Upserts an account's syndication routing configuration.
-    platforms can be a list of strings or a comma-separated string.
-    """
-    if not account_handle or not str(account_handle).strip():
-        raise ValueError("Account handle cannot be empty.")
-
-    handle_norm = str(account_handle).strip()
-    if not handle_norm.startswith("@"):
-        handle_norm = f"@{handle_norm}"
-
-    if isinstance(platforms, (list, tuple)):
-        clean_plats = ",".join(sorted(list({str(p).strip().lower() for p in platforms if str(p).strip()})))
-    else:
-        raw_items = [str(p).strip().lower() for p in str(platforms).split(",") if str(p).strip()]
-        clean_plats = ",".join(sorted(list(set(raw_items))))
-
-    is_enabled = 1 if enabled else 0
-
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            sql = '''
-                INSERT INTO account_syndication_routes (account_handle, platforms, enabled, updated_at)
-                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(account_handle) DO UPDATE SET
-                    platforms=excluded.platforms,
-                    enabled=excluded.enabled,
-                    updated_at=CURRENT_TIMESTAMP
-            '''
-            try:
-                cursor.execute(sql, (handle_norm, clean_plats, is_enabled))
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql, (handle_norm, clean_plats, is_enabled))
-            conn.commit()
-            logger.info(
-                f"Account syndication route set for {handle_norm}: platforms='{clean_plats}', enabled={is_enabled}"
-            )
-            return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error setting syndication route for {handle_norm}: {e}")
-        return False
-
-
-def enqueue_syndication_dlq(platform, content, error_message, account_handle="@make_elon_laugh",
-                            max_retries=3, db_path=DB_PATH):
-    """
-    Persists a failed syndication broadcast into the Dead-Letter Queue (DLQ).
-    """
-    if not platform or not content:
-        return None
-    plat_norm = str(platform).strip().lower()
-    handle_norm = str(account_handle).strip() if account_handle else "@make_elon_laugh"
-    if not handle_norm.startswith("@"):
-        handle_norm = f"@{handle_norm}"
-
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            sql = '''
-                INSERT INTO syndication_dlq
-                (platform, account_handle, content, error_message, retry_count, max_retries, status)
-                VALUES (?, ?, ?, ?, 0, ?, 'pending')
-            '''
-            try:
-                cursor.execute(sql, (plat_norm, handle_norm, str(content), str(error_message or ""), max_retries))
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql, (plat_norm, handle_norm, str(content), str(error_message or ""), max_retries))
-            conn.commit()
-            dlq_id = cursor.lastrowid
-            logger.warning(
-                f"[DLQ] Enqueued failed {plat_norm} broadcast ID {dlq_id} for {handle_norm}: {error_message}"
-            )
-            return dlq_id
-    except sqlite3.Error as e:
-        logger.error(f"Database error enqueueing into syndication DLQ: {e}")
-        return None
-
-
-def get_syndication_dlq(status=None, limit=20, db_path=DB_PATH):
-    """
-    Retrieves records from the syndication DLQ, optionally filtered by status ('pending', 'replayed', etc.).
-    """
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            base_sql = (
-                "SELECT id, platform, account_handle, content, error_message, "
-                "retry_count, max_retries, status, created_at, updated_at FROM syndication_dlq"
-            )
-            params = []
-            if status:
-                base_sql += " WHERE status = ?"
-                params.append(str(status).strip().lower())
-            base_sql += " ORDER BY id DESC LIMIT ?"
-            params.append(int(limit))
-
-            try:
-                cursor.execute(base_sql, tuple(params))
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(base_sql, tuple(params))
-
-            rows = cursor.fetchall()
-            return [
-                {
-                    "id": r[0],
-                    "platform": r[1],
-                    "account_handle": r[2],
-                    "content": r[3],
-                    "error_message": r[4],
-                    "retry_count": r[5],
-                    "max_retries": r[6],
-                    "status": r[7],
-                    "created_at": r[8],
-                    "updated_at": r[9]
-                }
-                for r in rows
-            ]
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching syndication DLQ items: {e}")
-        return []
-
-
-def update_syndication_dlq_status(dlq_id, status, error_message=None, increment_retry=False, db_path=DB_PATH):
-    """
-    Updates the status and optional error message of a syndication DLQ item,
-    optionally incrementing retry_count.
-    """
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            if increment_retry:
-                if error_message is not None:
-                    sql = '''
-                        UPDATE syndication_dlq
-                        SET status = ?, error_message = ?, retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                    '''
-                    params = (status, str(error_message), dlq_id)
-                else:
-                    sql = '''
-                        UPDATE syndication_dlq
-                        SET status = ?, retry_count = retry_count + 1, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                    '''
-                    params = (status, dlq_id)
-            else:
-                if error_message is not None:
-                    sql = '''
-                        UPDATE syndication_dlq
-                        SET status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                    '''
-                    params = (status, str(error_message), dlq_id)
-                else:
-                    sql = '''
-                        UPDATE syndication_dlq
-                        SET status = ?, updated_at = CURRENT_TIMESTAMP
-                        WHERE id = ?
-                    '''
-                    params = (status, dlq_id)
-
-            try:
-                cursor.execute(sql, params)
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql, params)
-
-            conn.commit()
-            return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating syndication DLQ item {dlq_id}: {e}")
-        return False
-
-
-def get_syndication_dlq_metrics(db_path=DB_PATH):
-    """
-    Computes summary metrics for syndication DLQ (pending, exhausted, replayed, discarded, total).
-    """
-    counts = {
-        "total": 0,
-        "pending": 0,
-        "exhausted": 0,
-        "replayed": 0,
-        "discarded": 0
-    }
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            sql = "SELECT status, COUNT(*) FROM syndication_dlq GROUP BY status"
-            try:
-                cursor.execute(sql)
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql)
-
-            for status, count in cursor.fetchall():
-                st_key = str(status).lower()
-                if st_key in counts:
-                    counts[st_key] = count
-                counts["total"] += count
-            return counts
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching syndication DLQ metrics: {e}")
-        return counts
-
-
-def get_circuit_breaker_state(platform, db_path=DB_PATH):
-    """
-    Retrieves the persisted circuit breaker state for a specific platform.
-    Returns dict with keys: platform, state, consecutive_failures, failure_threshold,
-    cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at.
-    """
-    platform = str(platform).lower().strip()
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            sql = '''
-                SELECT platform, state, consecutive_failures, failure_threshold,
-                       cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
-                FROM federation_circuit_breakers WHERE platform = ?
-            '''
-            try:
-                cursor.execute(sql, (platform,))
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql, (platform,))
-
-            row = cursor.fetchone()
-            if row:
-                return {
-                    "platform": row[0],
-                    "state": row[1],
-                    "consecutive_failures": row[2],
-                    "failure_threshold": row[3],
-                    "cooldown_seconds": row[4],
-                    "tripped_at": row[5],
-                    "last_success_at": row[6],
-                    "last_failure_reason": row[7],
-                    "updated_at": row[8]
-                }
-            return None
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching circuit breaker for {platform}: {e}")
-        return None
-
-
-def update_circuit_breaker_state(platform, state, consecutive_failures=None,
-                                 failure_threshold=3, cooldown_seconds=60,
-                                 tripped_at=None, last_success_at=None,
-                                 last_failure_reason=None, db_path=DB_PATH):
-    """
-    Persists or updates the circuit breaker state and telemetry for a specific federation platform.
-    """
-    platform = str(platform).lower().strip()
-    state = str(state).upper().strip()
-    now_str = datetime.now(timezone.utc).isoformat()
-
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            existing = get_circuit_breaker_state(platform, db_path=db_path)
-            if existing is None:
-                cursor.execute('''
-                    INSERT INTO federation_circuit_breakers (
-                        platform, state, consecutive_failures, failure_threshold,
-                        cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    platform, state,
-                    consecutive_failures if consecutive_failures is not None else 0,
-                    failure_threshold, cooldown_seconds,
-                    tripped_at, last_success_at, last_failure_reason, now_str
-                ))
-            else:
-                new_fails = (consecutive_failures if consecutive_failures is not None
-                             else existing["consecutive_failures"])
-                new_tripped = (tripped_at if tripped_at is not None
-                               else (existing["tripped_at"] if state == "OPEN" else None))
-                new_success = (last_success_at if last_success_at is not None
-                               else existing["last_success_at"])
-                new_reason = (last_failure_reason if last_failure_reason is not None
-                              else existing["last_failure_reason"])
-
-                cursor.execute('''
-                    UPDATE federation_circuit_breakers
-                    SET state = ?, consecutive_failures = ?, failure_threshold = ?,
-                        cooldown_seconds = ?, tripped_at = ?, last_success_at = ?,
-                        last_failure_reason = ?, updated_at = ?
-                    WHERE platform = ?
-                ''', (
-                    state, new_fails, failure_threshold, cooldown_seconds,
-                    new_tripped, new_success, new_reason, now_str, platform
-                ))
-            conn.commit()
-            return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating circuit breaker for {platform}: {e}")
-        return False
-
-
-def get_all_circuit_breakers(db_path=DB_PATH):
-    """
-    Returns a dictionary mapping platform name -> circuit breaker state dict.
-    Ensures default entries exist for known platforms ('mastodon', 'bluesky').
-    """
-    defaults = ["mastodon", "bluesky"]
-    results = {}
-    try:
-        with get_db_connection(db_path) as conn:
-            cursor = conn.cursor()
-            sql = '''
-                SELECT platform, state, consecutive_failures, failure_threshold,
-                       cooldown_seconds, tripped_at, last_success_at, last_failure_reason, updated_at
-                FROM federation_circuit_breakers
-            '''
-            try:
-                cursor.execute(sql)
-            except sqlite3.OperationalError:
-                init_db(db_path)
-                cursor.execute(sql)
-
-            for row in cursor.fetchall():
-                p_name = row[0]
-                results[p_name] = {
-                    "platform": p_name,
-                    "state": row[1],
-                    "consecutive_failures": row[2],
-                    "failure_threshold": row[3],
-                    "cooldown_seconds": row[4],
-                    "tripped_at": row[5],
-                    "last_success_at": row[6],
-                    "last_failure_reason": row[7],
-                    "updated_at": row[8]
-                }
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching all circuit breakers: {e}")
-
-    # Ensure defaults exist
-    for p in defaults:
-        if p not in results:
-            results[p] = {
-                "platform": p,
-                "state": "CLOSED",
-                "consecutive_failures": 0,
-                "failure_threshold": 3,
-                "cooldown_seconds": 60,
-                "tripped_at": None,
-                "last_success_at": None,
-                "last_failure_reason": None,
-                "updated_at": None
-            }
-    return results

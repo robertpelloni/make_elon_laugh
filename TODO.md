@@ -61,23 +61,8 @@
 - [x] Implement dynamic multi-platform syndication metrics discovery and windowed federation engagement deltas (`db.py`, `digest.py`, `templates/index.html`).
 - [x] Implement multi-image composite infographic generator and grid layouts (`meme_generator.py`, `dashboard.py`, Command Center UI).
 - [x] Implement AI-driven smart layout auto-selection and heuristic reasoning engine (`meme_generator.py`, `dashboard.py`, Command Center UI).
-- [x] Implement autonomous multi-panel infographic queue scheduling with auto-selected layouts (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
-- [x] Implement digest pipeline visual media distribution and multi-platform webhook analytics (`digest.py`, `webhook.py`, `generate_digest.py`, Command Center UI).
-- [x] Implement multi-panel panel-level custom persona & rephrasing pipeline for infographics (`joke_generator.py`, `meme_generator.py`, `dashboard.py`, Command Center UI).
-- [x] Implement multi-account direct syndication platform routing matrix (`db.py`, `syndication.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
-- [x] Implement federation instance connection latency prober and status ping worker (`syndication.py`, `dashboard.py`, Command Center UI).
-- [x] Implement multi-channel cross-posting preview simulation for composite graphics across Twitter, Mastodon, and Bluesky (`syndication.py`, `dashboard.py`, Command Center UI).
-- [x] Implement automated syndication dead-letter queue (DLQ) and retry console (`db.py`, `syndication.py`, `dashboard.py`, Command Center UI).
-- [x] Integrate multi-channel syndication DLQ deliverability metrics into digest pipeline and webhook alerts (`digest.py`, `webhook.py`, `templates/index.html`).
-- [x] Implement Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`, `dashboard.py`, Command Center UI).
-- [x] Implement Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`, `templates/index.html`).
-- [x] Integrate Federation Circuit Breaker Telemetry & Outage Alerts into Weekly Performance Digest & Webhooks (`digest.py`, `webhook.py`, `templates/index.html`).
-- [x] Implement Hourly Engagement Heatmap & AI Strategic Recommendations in Performance Digest (`digest.py`, `webhook.py`, `templates/index.html`).
-- [x] Implement Per-Platform Metric Extraction, Velocity Tiers, Distribution Shares & Alert Banner Expansion (`digest.py`, `webhook.py`, `templates/index.html`).
-- [x] Implement Automated Digest Report Archiver, Retention Manager & Snapshot Explorer (`digest.py`, `dashboard.py`, `templates/index.html`).
-- [x] Implement Multi-Channel Webhook Dispatch Router & Audit History Log (`webhook.py`, `dashboard.py`, `templates/index.html`).
-- [x] Implement Executive KPI Summary Header & One-Click Distribution Report (`digest.py`, `dashboard.py`, `templates/index.html`).
+- [x] Refine scheduled queue and digest pipeline visibility scaling for multi-week queues (`dashboard.py`, Command Center UI).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Implement Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.
+- [ ] Autonomous multi-panel infographic scheduling with auto-selected visual layouts.

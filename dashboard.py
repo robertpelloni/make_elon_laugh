@@ -404,38 +404,6 @@ def api_meme_download():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route('/api/meme/composite/rephrase-panels', methods=['POST'])
-def api_meme_composite_rephrase_panels():
-    """
-    Rephrases a list of infographic panel bodies using a specified persona and tone style.
-    Payload: {
-      "panels": [{"title": "...", "text": "..."}, ...],
-      "persona": "tactful_engineer|witty_ai|deadpan_astronomer",
-      "tone_style": "witty|concise|enthusiastic|academic"
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    panels = data.get("panels") or []
-    persona = data.get("persona") or CURRENT_PERSONA
-    tone_style = data.get("tone_style") or "witty"
-
-    try:
-        rephrased = joke_generator.rephrase_infographic_panels(
-            panels=panels,
-            persona=persona,
-            tone_style=tone_style
-        )
-        return jsonify({
-            "success": True,
-            "panels": rephrased,
-            "persona": persona,
-            "tone_style": tone_style
-        })
-    except Exception as e:
-        app.logger.error(f"Error rephrasing infographic panels: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route('/api/meme/composite/recommend-layout', methods=['POST'])
 def api_meme_composite_recommend_layout():
     """
@@ -476,9 +444,6 @@ def api_meme_composite():
     title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
     theme = str(data.get("theme") or "dark").strip().lower()
     layout = str(data.get("layout") or "grid").strip().lower()
-    rephrase_panels = bool(data.get("rephrase_panels", False))
-    persona = str(data.get("persona") or CURRENT_PERSONA).strip()
-    tone_style = str(data.get("tone_style") or "witty").strip().lower()
 
     # If layout is auto, resolve recommendation metadata
     resolved_layout = layout
@@ -492,10 +457,7 @@ def api_meme_composite():
             panels=panels,
             title=title,
             theme=theme,
-            layout=layout,
-            rephrase_panels=rephrase_panels,
-            persona=persona,
-            tone_style=tone_style
+            layout=layout
         )
         return jsonify({
             "success": True,
@@ -689,8 +651,6 @@ def api_schedule():
         persona = data.get("persona", CURRENT_PERSONA).strip()
         account_handle = data.get("account_handle", "@make_elon_laugh").strip() or "@make_elon_laugh"
         media_theme = data.get("media_theme")
-        media_type = data.get("media_type", "single")
-        composite_layout = data.get("composite_layout", "auto")
 
         if not content:
             return jsonify({"success": False, "error": "Content cannot be empty."}), 400
@@ -700,20 +660,18 @@ def api_schedule():
         try:
             tweet_id = scheduler.enqueue_scheduled_tweet(
                 content, scheduled_time, persona=persona, account_handle=account_handle,
-                media_theme=media_theme, media_type=media_type, composite_layout=composite_layout
+                media_theme=media_theme
             )
             if tweet_id:
                 logging.info(
                     f"Enqueued scheduled tweet ID {tweet_id} [{account_handle}] "
-                    f"for {scheduled_time} (theme: {media_theme}, type: {media_type}, layout: {composite_layout})."
+                    f"for {scheduled_time} (theme: {media_theme})."
                 )
                 return jsonify({
                     "success": True,
                     "id": tweet_id,
                     "account_handle": account_handle,
                     "media_theme": media_theme,
-                    "media_type": media_type,
-                    "composite_layout": composite_layout,
                     "message": f"Tweet scheduled successfully for {account_handle}.",
                     "scheduled_tweets": db.get_scheduled_tweets(limit=10)
                 })
@@ -748,18 +706,7 @@ def api_schedule():
     total_cancelled = 0
     account_counts = {}
 
-    # Sample up to 500 recent scheduled items and all pending items to compute accurate calendar distributions
-    all_pending = db.get_scheduled_tweets(status="pending", limit=200)
-    for t in all_pending:
-        try:
-            date_str = t.get("scheduled_time", "").split(" ")[0]
-            dt = time.strptime(date_str, "%Y-%m-%d")
-            weekday = day_abbrs[dt.tm_wday]
-            calendar_breakdown[weekday] += 1
-        except Exception:
-            pass
-
-    all_recent = db.get_scheduled_tweets(limit=200)
+    all_recent = db.get_scheduled_tweets(limit=500)
     for t in all_recent:
         st = t.get("status", "pending")
         acc = t.get("account_handle", "@make_elon_laugh") or "@make_elon_laugh"
@@ -772,6 +719,17 @@ def api_schedule():
         elif st == "cancelled":
             total_cancelled += 1
 
+    # Populate weekly calendar breakdown across all pending scheduled tweets
+    all_pending = db.get_scheduled_tweets(status="pending", limit=500)
+    for t in all_pending:
+        try:
+            date_str = t.get("scheduled_time", "").split(" ")[0]
+            dt = time.strptime(date_str, "%Y-%m-%d")
+            weekday = day_abbrs[dt.tm_wday]
+            calendar_breakdown[weekday] += 1
+        except Exception:
+            pass
+
     return jsonify({
         "scheduled_tweets": tweets,
         "metrics": {
@@ -782,40 +740,6 @@ def api_schedule():
         "account_counts": account_counts,
         "weekly_calendar": calendar_breakdown
     })
-
-
-@app.route('/api/schedule/reschedule', methods=['POST'])
-def api_schedule_reschedule():
-    """
-    Reschedules an existing pending tweet to a new datetime.
-    JSON payload:
-        id: int (required)
-        scheduled_time: str (required, e.g. 'YYYY-MM-DD HH:MM' or ISO timestamp)
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-        tweet_id = data.get("id")
-        new_time = data.get("scheduled_time")
-
-        if not tweet_id:
-            return jsonify({"success": False, "error": "Tweet ID is required for rescheduling."}), 400
-        if not new_time:
-            return jsonify({"success": False, "error": "New scheduled time is required."}), 400
-
-        normalized_time = scheduler.reschedule_scheduled_tweet(int(tweet_id), str(new_time).strip())
-        logging.info(f"Successfully rescheduled scheduled tweet ID #{tweet_id} to {normalized_time}.")
-
-        return jsonify({
-            "success": True,
-            "id": int(tweet_id),
-            "scheduled_time": normalized_time,
-            "message": f"Tweet #{tweet_id} rescheduled to {normalized_time}."
-        })
-    except ValueError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
-    except Exception as e:
-        app.logger.error(f"Error rescheduling tweet: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/digest', methods=['GET'])
@@ -912,221 +836,6 @@ def api_digest_download():
         }), 500
 
 
-@app.route('/api/digest/archives', methods=['GET', 'POST'])
-def api_digest_archives():
-    """
-    Manages automated digest report snapshots and archives.
-    GET: Returns a list of all archived digest reports stored on disk.
-    POST: Triggers an on-demand snapshot generation in reports/ with configurable formats.
-    """
-    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
-
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or {}
-        formats = data.get('formats', ['md', 'html', 'json'])
-        if not isinstance(formats, list) or not formats:
-            formats = ['md', 'html', 'json']
-        max_retained = data.get('max_retained', 30)
-        try:
-            max_retained = int(max_retained)
-            if max_retained < 1:
-                max_retained = 30
-        except (TypeError, ValueError):
-            max_retained = 30
-
-        try:
-            saved = digest.archive_performance_digest_snapshots(
-                formats=formats,
-                output_dir=reports_dir,
-                max_retained=max_retained
-            )
-            archives = digest.list_archived_digest_reports(output_dir=reports_dir)
-            return jsonify({
-                "success": True,
-                "saved": saved,
-                "total_archived": len(archives),
-                "archives": archives[:15]
-            })
-        except Exception as e:
-            app.logger.error(f"Error creating digest archive snapshot: {e}")
-            return jsonify({
-                "success": False,
-                "error": f"Failed to archive digest snapshots: {str(e)}"
-            }), 500
-
-    # GET: list archived reports
-    try:
-        archives = digest.list_archived_digest_reports(output_dir=reports_dir)
-        total_size = sum(item.get("size_bytes", 0) for item in archives)
-        return jsonify({
-            "success": True,
-            "total_archived": len(archives),
-            "total_size_bytes": total_size,
-            "archives": archives
-        })
-    except Exception as e:
-        app.logger.error(f"Error listing digest archives: {e}")
-        return jsonify({
-            "success": False,
-            "error": f"Failed to list digest archives: {str(e)}"
-        }), 500
-
-
-@app.route('/api/digest/archives/download', methods=['GET'])
-def api_digest_archive_download():
-    """
-    Downloads an individual archived digest file by filename.
-    Strictly validates and sanitizes filename against path traversal attacks.
-    """
-    filename = request.args.get('filename', '').strip()
-    if not filename:
-        return jsonify({"success": False, "error": "Filename parameter is required"}), 400
-
-    # Sanitize to base filename only
-    safe_filename = os.path.basename(filename)
-    if safe_filename != filename or ".." in filename or "/" in filename or "\\" in filename:
-        return jsonify({"success": False, "error": "Invalid filename syntax or directory traversal detected"}), 400
-
-    valid_exts = (".md", ".html", ".json")
-    if not safe_filename.startswith("digest_") or not any(safe_filename.endswith(ext) for ext in valid_exts):
-        return jsonify({"success": False, "error": "Unrecognized or unauthorized archive file format"}), 400
-
-    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
-    file_path = os.path.join(reports_dir, safe_filename)
-
-    # Resolve realpath to ensure within reports_dir
-    real_reports = os.path.realpath(reports_dir)
-    real_target = os.path.realpath(file_path)
-    if not real_target.startswith(real_reports + os.sep) and real_target != real_reports:
-        return jsonify({"success": False, "error": "Access denied: file path outside archive directory"}), 403
-
-    if not os.path.exists(real_target) or not os.path.isfile(real_target):
-        return jsonify({"success": False, "error": "Requested archive file does not exist"}), 404
-
-    try:
-        ext = safe_filename.rsplit(".", 1)[-1].lower()
-        if ext == 'json':
-            mimetype = 'application/json'
-        elif ext == 'html':
-            mimetype = 'text/html'
-        else:
-            mimetype = 'text/markdown'
-
-        with open(real_target, "rb") as f:
-            file_bytes = f.read()
-
-        response = app.response_class(
-            response=file_bytes,
-            status=200,
-            mimetype=mimetype
-        )
-        response.headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
-        return response
-    except Exception as e:
-        app.logger.error(f"Error serving archived digest file {safe_filename}: {e}")
-        return jsonify({"success": False, "error": f"Failed to download archive: {str(e)}"}), 500
-
-
-@app.route('/api/digest/executive-summary', methods=['GET'])
-def api_digest_executive_summary():
-    """
-    Returns high-level Executive KPI Briefing and platform distribution performance.
-    Query params:
-      days: integer window length (default 7, bounded 1-365)
-    """
-    days = request.args.get('days', default=7, type=int)
-    if days < 1 or days > 365:
-        days = 7
-
-    try:
-        digest_data = digest.generate_performance_digest(days=days)
-        kpi_summary = digest.generate_executive_kpi_summary(digest_data)
-        return jsonify({
-            "success": True,
-            "window_days": days,
-            "generated_at": digest_data.get("generated_at"),
-            "executive_kpi": kpi_summary,
-            "platform_breakdowns": digest_data.get("platform_breakdowns", {}),
-            "recommendations": digest_data.get("recommendations", [])[:2],
-        })
-    except Exception as e:
-        app.logger.error(f"Error computing executive KPI summary: {e}")
-        return jsonify({
-            "success": False,
-            "error": f"Failed to compute executive summary: {str(e)}"
-        }), 500
-
-
-@app.route('/api/digest/distribute', methods=['POST'])
-def api_digest_distribute():
-    """
-    Packages a complete performance digest report bundle (Markdown, HTML, JSON)
-    and optionally distributes it to configured webhook channels in a single operation.
-    JSON payload:
-      days: integer (default 7)
-      broadcast_webhook: boolean (default False)
-      channels: optional list of webhook channel dicts [{'url': ..., 'secret': ...}]
-    """
-    data = request.get_json(silent=True) or {}
-    days = data.get('days', 7)
-    try:
-        days = int(days)
-    except (ValueError, TypeError):
-        days = 7
-    if days < 1 or days > 365:
-        days = 7
-
-    broadcast_webhook = bool(data.get('broadcast_webhook', False))
-    channels = data.get('channels')
-
-    try:
-        reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
-        bundle = digest.generate_and_package_distribution_report(
-            db_path=db.DB_PATH,
-            days=days,
-            output_dir=reports_dir
-        )
-
-        dispatch_result = None
-        if broadcast_webhook:
-            # Dispatch to channels if provided, else default webhook
-            if channels and isinstance(channels, list):
-                dispatch_result = webhook.dispatch_digest_to_all_channels(bundle["digest"], channels)
-            else:
-                success = webhook.send_digest_webhook(bundle["digest"])
-                dispatch_result = {
-                    "total_channels": 1,
-                    "success_count": 1 if success else 0,
-                    "failure_count": 0 if success else 1,
-                    "results": [{"channel": webhook.WEBHOOK_URL or "default", "success": success}],
-                }
-
-        # Convert local absolute paths into relative filenames for client downloads
-        client_files = {}
-        for fmt, fpath in bundle.get("files", {}).items():
-            client_files[fmt] = {
-                "filename": os.path.basename(fpath),
-                "download_url": f"/api/digest/archives/download?filename={os.path.basename(fpath)}"
-            }
-
-        return jsonify({
-            "success": True,
-            "message": "Performance digest report successfully packaged and ready for distribution.",
-            "generated_at": bundle.get("generated_at"),
-            "window_days": days,
-            "executive_kpi": bundle.get("executive_kpi"),
-            "files": client_files,
-            "broadcast_dispatched": broadcast_webhook,
-            "dispatch_result": dispatch_result,
-        })
-    except Exception as e:
-        app.logger.error(f"Error packaging distribution report: {e}")
-        return jsonify({
-            "success": False,
-            "error": f"Failed to generate distribution report: {str(e)}"
-        }), 500
-
-
 @app.route('/api/syndication', methods=['GET', 'POST'])
 def api_syndication():
     """
@@ -1201,65 +910,6 @@ def api_syndication():
     })
 
 
-@app.route('/api/syndication/routing', methods=['GET', 'POST'])
-def api_syndication_routing():
-    """
-    Manages account-level syndication routing matrix rules.
-    GET: Returns current per-account routing rules and list of supported accounts/platforms.
-    POST: Upserts routing rules for a given account.
-          Body: {
-            "account_handle": "@make_elon_laugh",
-            "platforms": ["mastodon", "bluesky"],
-            "enabled": true
-          }
-    """
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or {}
-        account_handle = str(data.get("account_handle", "")).strip()
-        if not account_handle:
-            return jsonify({"success": False, "error": "Account handle is required."}), 400
-
-        platforms = data.get("platforms", [])
-        if isinstance(platforms, str):
-            platforms = [p.strip().lower() for p in platforms.split(",") if p.strip()]
-        elif isinstance(platforms, (list, tuple)):
-            platforms = [str(p).strip().lower() for p in platforms if str(p).strip()]
-        else:
-            platforms = []
-
-        enabled = data.get("enabled", True)
-
-        ok = db.set_account_syndication_routes(
-            account_handle=account_handle,
-            platforms=platforms,
-            enabled=1 if enabled else 0
-        )
-        if ok:
-            logging.info(
-                f"Updated syndication routing for account {account_handle} -> {platforms} (enabled: {enabled})"
-            )
-            return jsonify({
-                "success": True,
-                "message": f"Syndication route updated for {account_handle}.",
-                "account_handle": account_handle,
-                "platforms": platforms,
-                "enabled": bool(enabled)
-            })
-        return jsonify({"success": False, "error": "Failed to save syndication route."}), 500
-
-    # GET
-    routes = db.get_account_syndication_routes()
-    supported_accounts = scheduler.SUPPORTED_ACCOUNTS
-    supported_platforms = ["mastodon", "bluesky"]
-
-    return jsonify({
-        "success": True,
-        "routes": routes,
-        "supported_accounts": supported_accounts,
-        "supported_platforms": supported_platforms
-    })
-
-
 @app.route('/api/syndication/metrics', methods=['GET'])
 def api_syndication_metrics():
     """
@@ -1301,204 +951,6 @@ def api_syndication_poll():
         "poll_results": poll_results,
         "summary": summary
     })
-
-
-@app.route('/api/syndication/latency', methods=['GET', 'POST'])
-def api_syndication_latency():
-    """
-    Probes round-trip HTTP response latency and connectivity health of federation nodes.
-    GET / POST: Returns latency profiles for Mastodon and Bluesky.
-    Query/Body: dry_run=true|false (defaults to True for local testing resilience).
-    """
-    dry_run = True
-    if request.method == 'POST':
-        data = request.get_json(silent=True) or {}
-        dry_run = bool(data.get("dry_run", True))
-    else:
-        dry_run_arg = request.args.get("dry_run", "true").lower()
-        dry_run = (dry_run_arg != "false")
-
-    results = syndication.probe_all_federation_latencies(dry_run=dry_run)
-    return jsonify({
-        "success": True,
-        "latencies": results,
-        "dry_run": dry_run
-    })
-
-
-@app.route('/api/syndication/composite-preview', methods=['POST'])
-def api_syndication_composite_preview():
-    """
-    Simulates multi-channel cross-posting structure and preview for composite infographics
-    across Twitter, Mastodon ActivityPub, and Bluesky ATProto.
-    Payload: {
-      "content": "...",
-      "panels": [{"title": "...", "text": "..."}, ...],
-      "theme": "dark|cyberpunk|solar|clean",
-      "layout": "grid|side-by-side|auto"
-    }
-    """
-    data = request.get_json(silent=True) or {}
-    content = str(data.get("content") or "").strip()
-    panels = data.get("panels")
-    theme = str(data.get("theme") or "dark").strip().lower()
-    layout = str(data.get("layout") or "auto").strip().lower()
-
-    try:
-        preview = syndication.simulate_composite_syndication_preview(
-            content=content,
-            panels=panels,
-            theme=theme,
-            layout=layout
-        )
-        return jsonify({
-            "success": True,
-            "preview": preview
-        })
-    except Exception as e:
-        app.logger.error(f"Error generating composite syndication preview: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/syndication/dlq', methods=['GET'])
-def api_syndication_dlq():
-    """
-    Returns items in the syndication Dead-Letter Queue (DLQ) and summary metrics.
-    Query parameters:
-        status: optional filter ('pending', 'exhausted', 'replayed', 'discarded')
-        limit: int (default 20)
-    """
-    try:
-        status = request.args.get('status')
-        limit = request.args.get('limit', 20)
-        try:
-            limit = max(1, min(100, int(limit)))
-        except (ValueError, TypeError):
-            limit = 20
-
-        items = db.get_syndication_dlq(status=status, limit=limit)
-        metrics = db.get_syndication_dlq_metrics()
-        return jsonify({
-            "success": True,
-            "items": items,
-            "metrics": metrics
-        })
-    except Exception as e:
-        app.logger.error(f"Error retrieving syndication DLQ: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/syndication/dlq/replay', methods=['POST'])
-def api_syndication_dlq_replay():
-    """
-    Replays an individual DLQ item by ID or batch-replays pending items.
-    JSON payload:
-        id: int (optional, specific DLQ ID)
-        all: bool (optional, if True replays all pending items)
-        dry_run: bool (optional, defaults to True for safety if not explicitly set to False)
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-        dry_run = data.get('dry_run', True)
-        if isinstance(dry_run, str):
-            dry_run = dry_run.lower() in ('true', '1', 'yes')
-
-        item_id = data.get('id')
-        process_all = bool(data.get('all', False))
-
-        if process_all:
-            result = syndication.process_syndication_dlq(limit=data.get('limit', 10), dry_run=dry_run)
-            metrics = db.get_syndication_dlq_metrics()
-            return jsonify({
-                "success": True,
-                "batch": True,
-                "summary": result,
-                "metrics": metrics
-            })
-
-        if not item_id:
-            return jsonify({"success": False, "error": "Missing 'id' or 'all' in request."}), 400
-
-        result = syndication.replay_syndication_dlq_item(int(item_id), dry_run=dry_run)
-        metrics = db.get_syndication_dlq_metrics()
-        return jsonify({
-            "success": result.get("success", False),
-            "result": result,
-            "metrics": metrics
-        })
-    except Exception as e:
-        app.logger.error(f"Error replaying syndication DLQ item: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/syndication/dlq/discard', methods=['POST'])
-def api_syndication_dlq_discard():
-    """
-    Discards an item in the Dead-Letter Queue.
-    JSON payload:
-        id: int (required)
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-        item_id = data.get('id')
-        if not item_id:
-            return jsonify({"success": False, "error": "Missing 'id' in request."}), 400
-
-        res = syndication.discard_syndication_dlq_item(int(item_id))
-        metrics = db.get_syndication_dlq_metrics()
-        return jsonify({
-            "success": res.get("success", False),
-            "result": res,
-            "metrics": metrics
-        })
-    except Exception as e:
-        app.logger.error(f"Error discarding syndication DLQ item: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/syndication/circuit-breakers', methods=['GET'])
-def api_syndication_circuit_breakers_get():
-    """
-    Returns real-time status, states, consecutive failure counts, and cooldowns
-    for all federation circuit breakers (Mastodon, Bluesky).
-    """
-    try:
-        breakers = {}
-        for platform in ["mastodon", "bluesky"]:
-            breakers[platform] = syndication.FederationCircuitBreaker.get_status(platform)
-        return jsonify({
-            "success": True,
-            "circuit_breakers": breakers
-        })
-    except Exception as e:
-        app.logger.error(f"Error querying federation circuit breakers: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route('/api/syndication/circuit-breakers/reset', methods=['POST'])
-def api_syndication_circuit_breakers_reset():
-    """
-    Manually resets one or all federation circuit breakers to CLOSED.
-    JSON body:
-        platform: 'mastodon' | 'bluesky' | 'all' (default: 'all')
-    """
-    try:
-        data = request.get_json(silent=True) or {}
-        platform = data.get('platform', 'all').lower().strip()
-        syndication.FederationCircuitBreaker.reset(platform=platform)
-
-        breakers = {}
-        for p in ["mastodon", "bluesky"]:
-            breakers[p] = syndication.FederationCircuitBreaker.get_status(p)
-
-        return jsonify({
-            "success": True,
-            "message": f"Circuit breaker for '{platform}' successfully reset to CLOSED.",
-            "circuit_breakers": breakers
-        })
-    except Exception as e:
-        app.logger.error(f"Error resetting federation circuit breakers: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/webhook', methods=['GET', 'POST'])
@@ -1603,50 +1055,8 @@ def api_webhook():
         "adapter": webhook.DEFAULT_ADAPTER,
         "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
         "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,
-        "last_dispatch": webhook.LAST_DISPATCH_TIMESTAMP,
-        "history": webhook.get_webhook_dispatch_history()[:10]
+        "last_dispatch": webhook.LAST_DISPATCH_TIMESTAMP
     })
-
-
-@app.route('/api/webhook/history', methods=['GET'])
-def api_webhook_history():
-    """Returns the recorded webhook dispatch history log."""
-    return jsonify({
-        "success": True,
-        "history": webhook.get_webhook_dispatch_history()
-    })
-
-
-@app.route('/api/webhook/multi', methods=['POST'])
-def api_webhook_multi():
-    """
-    Broadcasts digest to multiple webhook targets simultaneously.
-    Body:
-      {
-        "channels": [
-          {"url": "...", "adapter": "slack", "secret": "..."},
-          {"url": "...", "adapter": "discord"}
-        ]
-      }
-    """
-    data = request.get_json(silent=True) or {}
-    channels = data.get("channels", [])
-    if not isinstance(channels, list) or len(channels) == 0:
-        return jsonify({"success": False, "error": "Channels list cannot be empty."}), 400
-
-    try:
-        summary = digest.generate_performance_digest(days=7)
-        results = webhook.dispatch_digest_to_all_channels(summary, channels=channels)
-        all_success = all(r.get("success", False) for r in results.values())
-        return jsonify({
-            "success": all_success,
-            "results": results,
-            "total_channels": len(results),
-            "history": webhook.get_webhook_dispatch_history()[:10]
-        }), 200 if all_success else 207
-    except Exception as e:
-        app.logger.error(f"Error in multi-channel webhook dispatch: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/shutdown', methods=['POST'])
