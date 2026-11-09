@@ -158,8 +158,26 @@ def format_slack_payload(digest_data):
         }
     ]
 
+    pb = digest_data.get("platform_breakdowns", {})
+    if pb:
+        pb_parts = [
+            f"{info.get('display_name', k)}: {info.get('avg_engagement_per_post', 0.0)}/post "
+            f"({info.get('velocity_tier', 'Low')})"
+            for k, info in sorted(pb.items())
+        ]
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*⚡ Platform Velocities:* " + " | ".join(pb_parts)
+            }
+        })
+
     if alerts:
-        alert_text = "\n".join([f"• {a.get('message')}" for a in alerts])
+        alert_text = "\n".join([
+            f"• *[{a.get('level', 'warning').upper()}]* {a.get('message')}"
+            for a in alerts
+        ])
         blocks.append({
             "type": "section",
             "text": {
@@ -251,8 +269,20 @@ def format_discord_payload(digest_data):
         recs_desc = "\n".join([f"• {r}" for r in recs[:2]])
         fields.append({"name": "💡 Strategic Insights", "value": recs_desc, "inline": False})
 
+    pb_discord = digest_data.get("platform_breakdowns", {})
+    if pb_discord:
+        pb_disc_desc = "\n".join([
+            f"• **{info.get('display_name', k)}**: {info.get('avg_engagement_per_post', 0.0)} eng/post "
+            f"({info.get('velocity_tier', 'Low')} tier, {info.get('share_of_total_posts_pct', 0.0)}% share)"
+            for k, info in sorted(pb_discord.items())
+        ])
+        fields.append({"name": "⚡ Platform Velocities", "value": pb_disc_desc, "inline": False})
+
     if alerts:
-        alert_msgs = "\n".join([f"• {a.get('message')}" for a in alerts])
+        alert_msgs = "\n".join([
+            f"• **[{a.get('level', 'warning').upper()}]** {a.get('message')}"
+            for a in alerts
+        ])
         fields.append({"name": "⚠️ Active Alerts", "value": alert_msgs, "inline": False})
 
     top_humor = rat.get("top_humor", [])

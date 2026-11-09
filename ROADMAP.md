@@ -60,4 +60,5 @@
 *   [x] Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`, `templates/index.html`).
 *   [x] Federation Circuit Breaker Telemetry, Outage Alerts & Health Scorecard Integration in Performance Digest (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [x] Hourly Engagement Heatmap & AI Strategic Recommendations in Performance Digest (`digest.py`, `webhook.py`, `templates/index.html`).
+*   [x] Per-Platform Metric Extraction, Velocity Tiers, Distribution Shares & Alert Banner Expansion (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [ ] Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.

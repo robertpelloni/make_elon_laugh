@@ -2933,6 +2933,72 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_digest_per_platform_metrics_and_alerts(self):
+        """Tests extract_per_platform_metric_breakdowns, divergence alerts, and multi-platform exports."""
+        test_db = f"test_platform_breakdown_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # Insert mock data: 5 mastodon posts with 0 engagement (triggering divergence),
+            # and 5 bluesky posts with high engagement
+            with sqlite3.connect(test_db) as conn:
+                cursor = conn.cursor()
+                for i in range(5):
+                    cursor.execute(
+                        """INSERT INTO syndicated_posts
+                           (platform, remote_id, content, likes, shares, status, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                        ("mastodon", f"m_{i}", f"M post {i}", 0, 0, "success")
+                    )
+                    cursor.execute(
+                        """INSERT INTO syndicated_posts
+                           (platform, remote_id, content, likes, shares, status, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                        ("bluesky", f"b_{i}", f"B post {i}", 10, 5, "success")
+                    )
+                conn.commit()
+
+            digest_data = digest.generate_performance_digest(db_path=test_db, days=7)
+            pb = digest_data.get("platform_breakdowns", {})
+            self.assertIn("twitter", pb)
+            self.assertIn("mastodon", pb)
+            self.assertIn("bluesky", pb)
+
+            # Mastodon velocity should be Stalled (5 posts, 0 engagement)
+            self.assertEqual(pb["mastodon"]["posts"], 5)
+            self.assertEqual(pb["mastodon"]["avg_engagement_per_post"], 0.0)
+            self.assertEqual(pb["mastodon"]["velocity_tier"], "Stalled")
+
+            # Bluesky velocity should be High (15 per post)
+            self.assertEqual(pb["bluesky"]["posts"], 5)
+            self.assertEqual(pb["bluesky"]["avg_engagement_per_post"], 15.0)
+            self.assertEqual(pb["bluesky"]["velocity_tier"], "High")
+            self.assertEqual(pb["bluesky"]["share_of_total_posts_pct"], 50.0)
+
+            # Check divergence alert
+            alerts = digest_data.get("alerts", [])
+            self.assertTrue(any(a["type"] == "platform_divergence_mastodon" for a in alerts))
+
+            # Markdown export check
+            md = digest.export_digest_markdown(digest_data)
+            self.assertIn("## ⚡ Per-Platform Engagement Velocity & Distribution Share", md)
+            self.assertIn("- **Mastodon:** Velocity: `0.0` eng/post (Tier: **Stalled**)", md)
+
+            # HTML export check
+            html = digest.export_digest_html(digest_data)
+            self.assertIn("Per-Platform Velocity &amp; Distribution", html)
+            self.assertIn("<strong>Mastodon</strong>", html)
+
+            # Webhook exports check
+            slack = webhook.format_slack_payload(digest_data)
+            self.assertTrue(any("Platform Velocities" in str(b) for b in slack["blocks"]))
+
+            discord = webhook.format_discord_payload(digest_data)
+            self.assertTrue(any(f["name"] == "⚡ Platform Velocities" for f in discord["embeds"][0]["fields"]))
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

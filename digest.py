@@ -107,7 +107,93 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
                 "message": f"Federation circuit breaker for {plat} is HALF-OPEN. Probing for network recovery."
             })
 
+    # Per-platform divergence alerts
+    platform_breakdowns = extract_per_platform_metric_breakdowns(digest_data)
+    for p_name, p_data in platform_breakdowns.items():
+        if p_data.get("posts", 0) >= 3 and p_data.get("total_engagement", 0) == 0:
+            alerts.append({
+                "level": "warning",
+                "type": f"platform_divergence_{p_name}",
+                "message": (
+                    f"Platform divergence on {p_name.capitalize()}: {p_data.get('posts')} posts published "
+                    "with 0 engagement recorded."
+                )
+            })
+
     return alerts
+
+
+def extract_per_platform_metric_breakdowns(digest_data):
+    """
+    Extracts structured per-network engagement velocities and distribution shares
+    for Twitter/X, Mastodon, Bluesky, and any dynamically discovered federation network.
+
+    Returns dict mapping platform name to:
+      - 'posts': post count
+      - 'likes': total likes
+      - 'shares': total shares/retweets
+      - 'total_engagement': likes + shares
+      - 'avg_engagement_per_post': engagement velocity
+      - 'velocity_tier': 'High' | 'Moderate' | 'Low' | 'Stalled'
+      - 'share_of_total_posts_pct': percentage of total bot dispatches across all networks
+    """
+    platforms = {}
+    rep = digest_data.get("replies", {})
+    tw_posts = rep.get("total_replies", 0)
+    tw_likes = rep.get("total_likes", 0)
+    tw_shares = rep.get("total_retweets", 0)
+    tw_eng = tw_likes + tw_shares
+    tw_avg = round(tw_eng / tw_posts, 2) if tw_posts > 0 else 0.0
+
+    def _calc_tier(avg_val, post_cnt, eng_cnt):
+        if avg_val >= 5.0:
+            return "High"
+        if avg_val >= 1.0:
+            return "Moderate"
+        if post_cnt >= 3 and eng_cnt == 0:
+            return "Stalled"
+        return "Low"
+
+    platforms["twitter"] = {
+        "platform": "twitter",
+        "display_name": "Twitter / X",
+        "posts": tw_posts,
+        "likes": tw_likes,
+        "shares": tw_shares,
+        "total_engagement": tw_eng,
+        "avg_engagement_per_post": tw_avg,
+        "velocity_tier": _calc_tier(tw_avg, tw_posts, tw_eng),
+        "share_of_total_posts_pct": 0.0,
+    }
+
+    syn = digest_data.get("syndication", {})
+    syn_plats = syn.get("platforms", {})
+    for plat_name, p_stats in syn_plats.items():
+        p_posts = p_stats.get("posts", 0)
+        p_likes = p_stats.get("likes", 0)
+        p_shares = p_stats.get("shares", 0)
+        p_eng = p_likes + p_shares
+        p_avg = round(p_eng / p_posts, 2) if p_posts > 0 else 0.0
+        v_tier = _calc_tier(p_avg, p_posts, p_eng)
+
+        platforms[plat_name] = {
+            "platform": plat_name,
+            "display_name": plat_name.capitalize(),
+            "posts": p_posts,
+            "likes": p_likes,
+            "shares": p_shares,
+            "total_engagement": p_eng,
+            "avg_engagement_per_post": p_avg,
+            "velocity_tier": v_tier,
+            "share_of_total_posts_pct": 0.0,
+        }
+
+    total_all_posts = sum(p["posts"] for p in platforms.values())
+    if total_all_posts > 0:
+        for p in platforms.values():
+            p["share_of_total_posts_pct"] = round((p["posts"] / total_all_posts) * 100.0, 1)
+
+    return platforms
 
 
 def _compute_delta(current, previous):
@@ -344,6 +430,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "discarded": 0
         },
         "circuit_breakers": [],
+        "platform_breakdowns": {},
         "heatmap": {},
         "recommendations": [],
         "deltas": {
@@ -616,6 +703,9 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             digest["heatmap"] = compute_hourly_engagement_heatmap(days=max(days, 30), db_path=db_path)
             digest["recommendations"] = generate_digest_engagement_recommendations(digest)
 
+            # 8. Per-Platform Metric Breakdowns
+            digest["platform_breakdowns"] = extract_per_platform_metric_breakdowns(digest)
+
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
 
@@ -702,6 +792,23 @@ def export_digest_markdown(digest):
 
     federation_reach_md = "\n".join(platform_reach_lines)
 
+    pb = digest.get("platform_breakdowns", {})
+    if pb:
+        pb_lines = []
+        for p_key, p_info in sorted(pb.items()):
+            p_name = p_info.get("display_name", p_key.capitalize())
+            p_velocity = p_info.get("avg_engagement_per_post", 0.0)
+            p_tier = p_info.get("velocity_tier", "Low")
+            p_share = p_info.get("share_of_total_posts_pct", 0.0)
+            pb_lines.append(
+                f"- **{p_name}:** Velocity: `{p_velocity}` eng/post (Tier: **{p_tier}**), "
+                f"Share of Broadcasts: **{p_share}%**"
+            )
+        platform_breakdowns_md = "## ⚡ Per-Platform Engagement Velocity & Distribution Share\n" + \
+                                 "\n".join(pb_lines) + "\n\n"
+    else:
+        platform_breakdowns_md = ""
+
     cbs = digest.get("circuit_breakers", {})
     cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
     if cb_list:
@@ -769,7 +876,7 @@ def export_digest_markdown(digest):
 ## 🛡️ Federation Circuit Breaker Telemetry
 {circuit_breakers_md}
 
-{heatmap_md}{recs_md}---
+{platform_breakdowns_md}{heatmap_md}{recs_md}---
 *Autonomous Tactful Humor Operations Console*
 """
     return md
@@ -936,6 +1043,44 @@ def export_digest_html(digest):
     </div>
 """
 
+    pb = digest.get("platform_breakdowns", {})
+    if pb:
+        pb_html_rows = []
+        for p_key, p_info in sorted(pb.items()):
+            p_name = p_info.get("display_name", p_key.capitalize())
+            p_vel = p_info.get("avg_engagement_per_post", 0.0)
+            p_tier = p_info.get("velocity_tier", "Low")
+            p_share = p_info.get("share_of_total_posts_pct", 0.0)
+            tier_badge = f'<span class="badge" style="background: #e0e7ff; color: #4338ca;">{p_tier}</span>'
+            pb_html_rows.append(f"""
+        <tr>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;"><strong>{p_name}</strong></td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_info.get('posts', 0)}</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_vel} / post</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{tier_badge}</td>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e2e8f0;">{p_share}%</td>
+        </tr>
+""")
+        pb_section_html = f"""
+    <h2>⚡ Per-Platform Velocity &amp; Distribution</h2>
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 10px;">
+      <thead>
+        <tr style="background: #f1f5f9; text-align: left; color: #475569;">
+          <th style="padding: 8px 12px;">Platform</th>
+          <th style="padding: 8px 12px;">Posts</th>
+          <th style="padding: 8px 12px;">Velocity</th>
+          <th style="padding: 8px 12px;">Tier</th>
+          <th style="padding: 8px 12px;">Share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {"".join(pb_html_rows)}
+      </tbody>
+    </table>
+"""
+    else:
+        pb_section_html = ""
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1087,7 +1232,7 @@ def export_digest_html(digest):
     <h2>🛡️ Federation Circuit Breaker Sentinel</h2>
     <ul>
       {cb_html_items}
-    </ul>
+    </ul>{pb_section_html}
 
     {heatmap_section_html}
     {recs_section_html}

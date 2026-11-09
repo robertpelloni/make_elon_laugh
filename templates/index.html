@@ -992,6 +992,22 @@
                 </div>
             </div>
 
+            <!-- Per-Platform Velocity & Alert Banners Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        ⚡ Per-Platform Velocity &amp; Distribution Share
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Tracks real-time post throughput, engagement velocity (likes+shares per post), and platform distribution ratios across decentralized networks.</span>
+                        </div>
+                    </span>
+                    <span id="digest-platform-summary-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--accent-success); font-weight: 600;">3 Networks Monitored</span>
+                </div>
+                <div id="digest-platform-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Loading platform metrics...</div>
+                </div>
+            </div>
+
             <!-- Webhook Dispatch & Alerts Section -->
             <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -2193,6 +2209,29 @@
                             recsListEl.innerHTML = recs.map(r => `<div style="display: flex; gap: 0.4rem; align-items: flex-start;"><span style="color: var(--accent-primary);">•</span><span>${r}</span></div>`).join('');
                         } else {
                             recsListEl.innerHTML = '<div style="font-style: italic;">All channels operating nominally. No strategic calibrations required.</div>';
+                        }
+                    }
+
+                    // Hydrate Per-Platform Velocity Cards Grid
+                    const pbGrid = document.getElementById('digest-platform-cards-grid');
+                    if (pbGrid && d.platform_breakdowns) {
+                        const pbEntries = Object.entries(d.platform_breakdowns);
+                        if (pbEntries.length > 0) {
+                            pbGrid.innerHTML = pbEntries.map(([k, p]) => {
+                                const tierColor = p.velocity_tier === 'High' ? 'var(--accent-success)' : (p.velocity_tier === 'Moderate' ? 'var(--accent-primary)' : (p.velocity_tier === 'Stalled' ? 'var(--danger)' : 'var(--text-muted)'));
+                                return `
+                                    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem 0.8rem;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                                            <strong style="font-size: 0.85rem; color: var(--text-color);">${p.display_name}</strong>
+                                            <span style="font-size: 0.7rem; font-weight: 700; color: ${tierColor};">${p.velocity_tier} Velocity</span>
+                                        </div>
+                                        <div style="font-size: 1.1rem; font-weight: 800; color: var(--text-color);">${p.avg_engagement_per_post} <span style="font-size: 0.75rem; font-weight: normal; color: var(--text-muted);">eng/post</span></div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+                                            ${p.posts} posts (${p.share_of_total_posts_pct}% total volume)
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
                         }
                     }
                 }
