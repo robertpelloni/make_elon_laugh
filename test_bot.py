@@ -2999,6 +2999,84 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_digest_snapshot_archiving_and_api(self):
+        """Tests automated snapshot creation, retention management, and dashboard archive endpoints."""
+        import json
+        import tempfile
+        import shutil
+
+        temp_dir = tempfile.mkdtemp()
+        test_db = f"test_archive_{int(time.time() * 1000)}.db"
+
+        try:
+            # 1. Test core archiving function in digest.py
+            saved = digest.archive_performance_digest_snapshots(
+                formats=["md", "html", "json"],
+                output_dir=temp_dir,
+                max_retained=10,
+                db_path=test_db
+            )
+            self.assertEqual(len(saved), 3)
+            self.assertTrue(os.path.exists(saved["md"]))
+            self.assertTrue(os.path.exists(saved["html"]))
+            self.assertTrue(os.path.exists(saved["json"]))
+
+            # 2. Test listing archived reports
+            archives = digest.list_archived_digest_reports(output_dir=temp_dir)
+            self.assertEqual(len(archives), 3)
+            formats_found = {a["format"] for a in archives}
+            self.assertEqual(formats_found, {"md", "html", "json"})
+            for a in archives:
+                self.assertGreater(a["size_bytes"], 0)
+                self.assertIn("UTC", a["modified_at"])
+
+            # 3. Test retention purge
+            purged = digest.purge_expired_digest_archives(output_dir=temp_dir, max_retained=1)
+            self.assertEqual(len(purged), 2)
+            remaining = digest.list_archived_digest_reports(output_dir=temp_dir)
+            self.assertEqual(len(remaining), 1)
+
+            # 4. Test dashboard API routes with test client
+            client = dashboard.app.test_client()
+
+            # Test GET /api/digest/archives
+            res_get = client.get('/api/digest/archives')
+            self.assertEqual(res_get.status_code, 200)
+            data_get = json.loads(res_get.data)
+            self.assertTrue(data_get["success"])
+            self.assertIn("archives", data_get)
+
+            # Test POST /api/digest/archives (creates snapshot in reports/)
+            res_post = client.post('/api/digest/archives', json={
+                "formats": ["md", "json"],
+                "max_retained": 20
+            })
+            self.assertEqual(res_post.status_code, 200)
+            data_post = json.loads(res_post.data)
+            self.assertTrue(data_post["success"])
+            self.assertIn("saved", data_post)
+            created_md = os.path.basename(data_post["saved"]["md"])
+
+            # Test GET /api/digest/archives/download valid file
+            res_dl = client.get(f'/api/digest/archives/download?filename={created_md}')
+            self.assertEqual(res_dl.status_code, 200)
+            self.assertIn(b"Tactful Humor Bot", res_dl.data)
+            self.assertEqual(res_dl.mimetype, "text/markdown")
+
+            # Test GET /api/digest/archives/download path traversal attempts
+            bad_traversal = client.get('/api/digest/archives/download?filename=../../etc/passwd')
+            self.assertEqual(bad_traversal.status_code, 400)
+
+            bad_ext = client.get('/api/digest/archives/download?filename=digest_test.py')
+            self.assertEqual(bad_ext.status_code, 400)
+
+            not_found = client.get('/api/digest/archives/download?filename=digest_99999999_999999.md')
+            self.assertEqual(not_found.status_code, 404)
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

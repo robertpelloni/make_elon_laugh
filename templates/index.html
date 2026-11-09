@@ -1008,6 +1008,44 @@
                 </div>
             </div>
 
+            <!-- Automated Digest Snapshots & Archive Explorer -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        🗄️ Automated Snapshots &amp; Report Archives
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Autonomous and on-demand report snapshots (.md, .html, .json) preserved in reports/ directory with automated retention policies.</span>
+                        </div>
+                    </span>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span id="digest-archive-count-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600;">0 Archived</span>
+                        <button class="btn btn-secondary btn-sm" id="btn-create-snapshot" onclick="createDigestArchiveSnapshot()" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                            📸 Archive Snapshot Now
+                        </button>
+                    </div>
+                </div>
+                <div id="digest-archives-table-container" style="max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
+                        <thead>
+                            <tr style="background: var(--surface-accent); color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
+                                <th style="padding: 6px 10px;">Filename</th>
+                                <th style="padding: 6px 10px;">Format</th>
+                                <th style="padding: 6px 10px;">Size</th>
+                                <th style="padding: 6px 10px;">Timestamp</th>
+                                <th style="padding: 6px 10px; text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="digest-archives-tbody">
+                            <tr>
+                                <td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted); font-style: italic;">
+                                    Loading archived digest reports...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Webhook Dispatch & Alerts Section -->
             <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -2240,6 +2278,97 @@
             }
         }
 
+        async function loadDigestArchives() {
+            try {
+                const res = await fetch('/api/digest/archives');
+                const data = await res.json();
+                const badge = document.getElementById('digest-archive-count-badge');
+                const tbody = document.getElementById('digest-archives-tbody');
+                if (!tbody) return;
+
+                if (data.success && Array.isArray(data.archives)) {
+                    if (badge) {
+                        badge.textContent = `${data.total_archived || data.archives.length} Archived`;
+                    }
+                    if (data.archives.length === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="5" style="padding: 12px; text-align: center; color: var(--text-muted); font-style: italic;">
+                                    No archived digest snapshots found. Click 'Archive Snapshot Now' to create one.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+                    tbody.innerHTML = data.archives.map(item => {
+                        const fmtColor = item.format === 'html' ? '#0284c7' : (item.format === 'json' ? '#eab308' : '#10b981');
+                        const kbSize = (item.size_bytes / 1024).toFixed(1);
+                        return `
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 6px 10px; font-family: monospace; font-size: 0.72rem; color: var(--text-color);">
+                                    ${item.filename}
+                                </td>
+                                <td style="padding: 6px 10px;">
+                                    <span class="badge" style="background: rgba(2, 132, 199, 0.1); color: ${fmtColor}; font-weight: 700; text-transform: uppercase;">
+                                        ${item.format}
+                                    </span>
+                                </td>
+                                <td style="padding: 6px 10px; color: var(--text-muted);">${kbSize} KB</td>
+                                <td style="padding: 6px 10px; color: var(--text-muted);">${item.modified_at}</td>
+                                <td style="padding: 6px 10px; text-align: right;">
+                                    <a href="/api/digest/archives/download?filename=${encodeURIComponent(item.filename)}"
+                                       class="btn btn-secondary btn-sm"
+                                       style="padding: 0.15rem 0.45rem; font-size: 0.7rem;"
+                                       title="Download ${item.filename}">
+                                        ⬇️ Download
+                                    </a>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="5" style="padding: 12px; text-align: center; color: var(--danger);">
+                                Failed to load archives: ${data.error || 'Unknown error'}
+                            </td>
+                        </tr>
+                    `;
+                }
+            } catch (err) {
+                console.error("Error loading digest archives:", err);
+            }
+        }
+
+        async function createDigestArchiveSnapshot() {
+            const btn = document.getElementById('btn-create-snapshot');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "📸 Archiving...";
+            }
+            try {
+                const res = await fetch('/api/digest/archives', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ formats: ['md', 'html', 'json'], max_retained: 30 })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Snapshot created: ${Object.keys(data.saved).length} formats archived.`);
+                    loadDigestArchives();
+                } else {
+                    alert("Failed to archive snapshot: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error archiving snapshot: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "📸 Archive Snapshot Now";
+                }
+            }
+        }
+
         async function exportDigestMarkdown() {
             try {
                 const res = await fetch('/api/digest?format=markdown');
@@ -2888,6 +3017,7 @@
             fetchLogs();
             fetchScheduledTweets();
             fetchPerformanceDigest();
+            loadDigestArchives();
             fetchSyndicationMetrics();
             fetchTargetProfiles();
         }
@@ -2898,6 +3028,7 @@
         fetchLogs();
         fetchScheduledTweets();
         fetchPerformanceDigest();
+        loadDigestArchives();
         fetchWebhookConfig();
         fetchSyndicationSettings();
         fetchSyndicationMetrics();

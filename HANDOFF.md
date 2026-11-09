@@ -1,20 +1,25 @@
-# Session Handoff - Release v0.50.0
+# Session Handoff - Release v0.51.0
 
-## Completed in v0.50.0:
-1. **Per-Platform Metric Extraction, Velocity Tiers, Distribution Shares & Alert Banner Expansion (`digest.py`, `webhook.py`)**:
-   - Implemented `extract_per_platform_metric_breakdowns(digest_data)` in `digest.py` computing post counts, average engagement velocity per post, distribution share of total dispatches, and categorized velocity tiers (`High`, `Moderate`, `Low`, `Stalled`) across Twitter/X, Mastodon, and Bluesky.
-   - Enhanced operational anomaly alerts in `evaluate_performance_alerts()` with cross-platform divergence detection (identifying networks with >=3 posts but 0 total engagement).
-   - Formatted per-platform velocity metrics and engagement breakdown tables into `export_digest_markdown()` and `export_digest_html()`.
-   - Enriched Slack (`format_slack_payload`) and Discord (`format_discord_payload`) webhook dispatches with per-platform velocity metrics and detailed operational anomaly alert lines.
-2. **Command Center Per-Platform Velocity & Distribution Share Card Grid (`templates/index.html`)**:
-   - Added dedicated `#digest-platform-cards-grid` container within the Weekly Performance Digest card displaying responsive cards for all monitored networks with real-time velocity metrics, distribution share percentages, and status badges.
-   - Enhanced client-side hydration (`fetchPerformanceDigest()`) to dynamically populate per-platform velocity cards on page load and manual digest refresh.
-3. **Verification & Quality**:
-   - Added unit test `test_digest_per_platform_metrics_and_alerts` in `test_bot.py` validating platform metric extraction, velocity tier classification, divergence alerting, multi-format report tables, and webhook serialization.
-   - 123 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
+## Completed in v0.51.0:
+1. **Automated Digest Report Archiver, Lister & Retention Manager (`digest.py`, `dashboard.py`)**:
+   - Implemented `archive_performance_digest_snapshots(formats, output_dir, max_retained, db_path, days)` generating timestamped report snapshots across Markdown (`.md`), HTML (`.html`), and JSON (`.json`) formats.
+   - Implemented `list_archived_digest_reports(output_dir)` scanning and returning structured metadata (filename, format, size in bytes, ISO-8601 UTC timestamp, epoch) sorted newest first.
+   - Implemented `purge_expired_digest_archives(output_dir, max_retained)` automatically pruning older reports beyond the retention limit to prevent unbounded disk growth.
+2. **Archive Management REST APIs (`dashboard.py`)**:
+   - Added `GET /api/digest/archives` returning the list of existing archived digest files and cumulative storage metrics.
+   - Added `POST /api/digest/archives` triggering an on-demand snapshot generation into `reports/` with configurable formats and retention thresholds.
+   - Added `GET /api/digest/archives/download` streaming individual archived files by filename with strict path traversal rejection, directory bounding verification, and format validation.
+3. **Command Center Digest Archive Explorer UI (`templates/index.html`)**:
+   - Integrated "Automated Snapshots & Report Archives" section within the Weekly Performance Digest card featuring tooltip guidance.
+   - Added `#digest-archive-count-badge` displaying real-time archived counts.
+   - Added `#btn-create-snapshot` triggering on-demand snapshot archiving (`createDigestArchiveSnapshot()`) with toast confirmation.
+   - Added responsive archive reports table displaying filename, format badge (`MD`, `HTML`, `JSON`), file size in KB, formatted timestamp, and direct download buttons (`loadDigestArchives()`).
+4. **Verification & Quality**:
+   - Added unit test `test_digest_snapshot_archiving_and_api` in `test_bot.py` validating core snapshot archiving, metadata listing, retention pruning, and dashboard REST endpoints including path traversal security.
+   - 124 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
    - Zero lint errors (`flake8 .`).
-   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_50_digest_platform_velocities.png`).
-   - Global version string bumped to `0.50.0` in `VERSION.md`.
+   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_51_digest_archives.png`).
+   - Global version string bumped to `0.51.0` in `VERSION.md`.
 
 ## Next Autonomous Objectives:
 - Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.

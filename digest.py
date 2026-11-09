@@ -7,12 +7,144 @@ Provides previous-period delta trend comparisons, operational health scorecards,
 and exportable markdown and structured summaries for bot operators.
 """
 
+import json
 import logging
+import os
 from datetime import datetime, timezone, timedelta
 import sqlite3
 import db
 
 logger = logging.getLogger(__name__)
+
+
+def purge_expired_digest_archives(output_dir="reports", max_retained=30):
+    """
+    Enforces retention limits on archived digest files in output_dir to prevent
+    unbounded disk consumption. Retains the newest `max_retained` files per format extension
+    (.md, .html, .json) or overall if mixed, removing older obsolete files.
+
+    Returns list of deleted file paths.
+    """
+    if not os.path.exists(output_dir) or max_retained <= 0:
+        return []
+
+    deleted_paths = []
+    try:
+        entries = []
+        for fname in os.listdir(output_dir):
+            if fname.startswith("digest_") and any(fname.endswith(ext) for ext in (".md", ".html", ".json")):
+                full_p = os.path.join(output_dir, fname)
+                if os.path.isfile(full_p):
+                    try:
+                        mtime = os.path.getmtime(full_p)
+                        entries.append((mtime, full_p))
+                    except OSError:
+                        continue
+
+        # Sort newest first
+        entries.sort(key=lambda x: x[0], reverse=True)
+        if len(entries) > max_retained:
+            excess = entries[max_retained:]
+            for _, fpath in excess:
+                try:
+                    os.remove(fpath)
+                    deleted_paths.append(fpath)
+                    logger.info(f"Purged expired digest archive: {fpath}")
+                except OSError as e:
+                    logger.warning(f"Failed to remove expired archive {fpath}: {e}")
+    except Exception as e:
+        logger.warning(f"Error purging expired digest archives in {output_dir}: {e}")
+
+    return deleted_paths
+
+
+def list_archived_digest_reports(output_dir="reports"):
+    """
+    Scans output_dir and returns structured metadata for all archived digest snapshot files,
+    ordered by modification time descending (newest first).
+
+    Returns list of dicts:
+      - 'filename': base filename
+      - 'format': 'md' | 'html' | 'json'
+      - 'size_bytes': file size
+      - 'modified_at': ISO-8601 UTC timestamp string
+      - 'timestamp_epoch': epoch float
+    """
+    if not os.path.exists(output_dir):
+        return []
+
+    reports = []
+    try:
+        for fname in os.listdir(output_dir):
+            if fname.startswith("digest_") and any(fname.endswith(ext) for ext in (".md", ".html", ".json")):
+                fpath = os.path.join(output_dir, fname)
+                if not os.path.isfile(fpath):
+                    continue
+                try:
+                    stat = os.stat(fpath)
+                    ext = fname.rsplit(".", 1)[-1].lower()
+                    mod_dt = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+                    reports.append({
+                        "filename": fname,
+                        "format": ext,
+                        "size_bytes": stat.st_size,
+                        "modified_at": mod_dt.strftime("%Y-%m-%d %H:%M:%S UTC"),
+                        "timestamp_epoch": stat.st_mtime
+                    })
+                except OSError:
+                    continue
+    except Exception as e:
+        logger.warning(f"Error scanning archived reports in {output_dir}: {e}")
+
+    reports.sort(key=lambda r: r["timestamp_epoch"], reverse=True)
+    return reports
+
+
+def archive_performance_digest_snapshots(
+    formats=None, output_dir="reports", max_retained=30, db_path=db.DB_PATH, days=7
+):
+    """
+    Generates a performance digest snapshot and persists it in `reports/` across
+    the requested formats ('md', 'html', 'json'). Enforces automatic retention policy
+    by calling `purge_expired_digest_archives`.
+
+    Returns dict mapping format to generated file path:
+      {"md": "reports/digest_YYYYMMDD_HHMMSS.md", ...}
+    """
+    if formats is None:
+        formats = ["md", "html", "json"]
+
+    os.makedirs(output_dir, exist_ok=True)
+    digest_data = generate_performance_digest(db_path=db_path, days=days)
+    timestamp_slug = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    saved = {}
+
+    for fmt in formats:
+        clean_fmt = fmt.lower().strip().replace(".", "")
+        if clean_fmt in ("md", "markdown"):
+            content = export_digest_markdown(digest_data)
+            fname = f"digest_{timestamp_slug}.md"
+            fpath = os.path.join(output_dir, fname)
+            with open(fpath, "w", encoding="utf-8") as f:
+                f.write(content)
+            saved["md"] = fpath
+        elif clean_fmt == "html":
+            content = export_digest_html(digest_data)
+            fname = f"digest_{timestamp_slug}.html"
+            fpath = os.path.join(output_dir, fname)
+            with open(fpath, "w", encoding="utf-8") as f:
+                f.write(content)
+            saved["html"] = fpath
+        elif clean_fmt == "json":
+            fname = f"digest_{timestamp_slug}.json"
+            fpath = os.path.join(output_dir, fname)
+            with open(fpath, "w", encoding="utf-8") as f:
+                json.dump(digest_data, f, indent=2)
+            saved["json"] = fpath
+
+    # Apply retention limits
+    purge_expired_digest_archives(output_dir=output_dir, max_retained=max_retained)
+    return saved
 
 
 def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_threshold=50):

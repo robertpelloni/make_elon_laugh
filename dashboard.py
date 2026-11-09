@@ -909,6 +909,121 @@ def api_digest_download():
         }), 500
 
 
+@app.route('/api/digest/archives', methods=['GET', 'POST'])
+def api_digest_archives():
+    """
+    Manages automated digest report snapshots and archives.
+    GET: Returns a list of all archived digest reports stored on disk.
+    POST: Triggers an on-demand snapshot generation in reports/ with configurable formats.
+    """
+    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
+
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        formats = data.get('formats', ['md', 'html', 'json'])
+        if not isinstance(formats, list) or not formats:
+            formats = ['md', 'html', 'json']
+        max_retained = data.get('max_retained', 30)
+        try:
+            max_retained = int(max_retained)
+            if max_retained < 1:
+                max_retained = 30
+        except (TypeError, ValueError):
+            max_retained = 30
+
+        try:
+            saved = digest.archive_performance_digest_snapshots(
+                formats=formats,
+                output_dir=reports_dir,
+                max_retained=max_retained
+            )
+            archives = digest.list_archived_digest_reports(output_dir=reports_dir)
+            return jsonify({
+                "success": True,
+                "saved": saved,
+                "total_archived": len(archives),
+                "archives": archives[:15]
+            })
+        except Exception as e:
+            app.logger.error(f"Error creating digest archive snapshot: {e}")
+            return jsonify({
+                "success": False,
+                "error": f"Failed to archive digest snapshots: {str(e)}"
+            }), 500
+
+    # GET: list archived reports
+    try:
+        archives = digest.list_archived_digest_reports(output_dir=reports_dir)
+        total_size = sum(item.get("size_bytes", 0) for item in archives)
+        return jsonify({
+            "success": True,
+            "total_archived": len(archives),
+            "total_size_bytes": total_size,
+            "archives": archives
+        })
+    except Exception as e:
+        app.logger.error(f"Error listing digest archives: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to list digest archives: {str(e)}"
+        }), 500
+
+
+@app.route('/api/digest/archives/download', methods=['GET'])
+def api_digest_archive_download():
+    """
+    Downloads an individual archived digest file by filename.
+    Strictly validates and sanitizes filename against path traversal attacks.
+    """
+    filename = request.args.get('filename', '').strip()
+    if not filename:
+        return jsonify({"success": False, "error": "Filename parameter is required"}), 400
+
+    # Sanitize to base filename only
+    safe_filename = os.path.basename(filename)
+    if safe_filename != filename or ".." in filename or "/" in filename or "\\" in filename:
+        return jsonify({"success": False, "error": "Invalid filename syntax or directory traversal detected"}), 400
+
+    valid_exts = (".md", ".html", ".json")
+    if not safe_filename.startswith("digest_") or not any(safe_filename.endswith(ext) for ext in valid_exts):
+        return jsonify({"success": False, "error": "Unrecognized or unauthorized archive file format"}), 400
+
+    reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
+    file_path = os.path.join(reports_dir, safe_filename)
+
+    # Resolve realpath to ensure within reports_dir
+    real_reports = os.path.realpath(reports_dir)
+    real_target = os.path.realpath(file_path)
+    if not real_target.startswith(real_reports + os.sep) and real_target != real_reports:
+        return jsonify({"success": False, "error": "Access denied: file path outside archive directory"}), 403
+
+    if not os.path.exists(real_target) or not os.path.isfile(real_target):
+        return jsonify({"success": False, "error": "Requested archive file does not exist"}), 404
+
+    try:
+        ext = safe_filename.rsplit(".", 1)[-1].lower()
+        if ext == 'json':
+            mimetype = 'application/json'
+        elif ext == 'html':
+            mimetype = 'text/html'
+        else:
+            mimetype = 'text/markdown'
+
+        with open(real_target, "rb") as f:
+            file_bytes = f.read()
+
+        response = app.response_class(
+            response=file_bytes,
+            status=200,
+            mimetype=mimetype
+        )
+        response.headers["Content-Disposition"] = f'attachment; filename="{safe_filename}"'
+        return response
+    except Exception as e:
+        app.logger.error(f"Error serving archived digest file {safe_filename}: {e}")
+        return jsonify({"success": False, "error": f"Failed to download archive: {str(e)}"}), 500
+
+
 @app.route('/api/syndication', methods=['GET', 'POST'])
 def api_syndication():
     """
