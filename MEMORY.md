@@ -45,4 +45,5 @@
 - Automated Performance Digest HTML Export & Threshold Alerts (`digest.py`, `dashboard.py`) generate standalone responsive HTML reports (`/api/digest/download?format=html`) and evaluate anomaly alerts across database, backlog, and humor ratings.
 - Webhook adapters for Slack and Discord format and highlight active performance threshold alerts in outgoing payload blocks.
 - The CLI report exporter (`generate_digest.py`) supports exporting Markdown, HTML, and JSON simultaneously using `--format all` into structured timestamped archives.
-- The project maintains comprehensive test coverage with 95 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.
+- Executive KPI Summary Header & One-Click Distribution Report (`digest.py`, `dashboard.py`, `templates/index.html`) computes global reach across all channels, overall engagement velocity, leading network ranking with volume share, DLQ/circuit breaker infrastructure resilience score, and community humor approval with one-click report bundle packaging and distribution.
+- The project maintains comprehensive test coverage with 126 unit tests (`test_bot.py`) and passes all `flake8` lint checks cleanly.

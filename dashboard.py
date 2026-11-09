@@ -1027,6 +1027,106 @@ def api_digest_archive_download():
         return jsonify({"success": False, "error": f"Failed to download archive: {str(e)}"}), 500
 
 
+@app.route('/api/digest/executive-summary', methods=['GET'])
+def api_digest_executive_summary():
+    """
+    Returns high-level Executive KPI Briefing and platform distribution performance.
+    Query params:
+      days: integer window length (default 7, bounded 1-365)
+    """
+    days = request.args.get('days', default=7, type=int)
+    if days < 1 or days > 365:
+        days = 7
+
+    try:
+        digest_data = digest.generate_performance_digest(days=days)
+        kpi_summary = digest.generate_executive_kpi_summary(digest_data)
+        return jsonify({
+            "success": True,
+            "window_days": days,
+            "generated_at": digest_data.get("generated_at"),
+            "executive_kpi": kpi_summary,
+            "platform_breakdowns": digest_data.get("platform_breakdowns", {}),
+            "recommendations": digest_data.get("recommendations", [])[:2],
+        })
+    except Exception as e:
+        app.logger.error(f"Error computing executive KPI summary: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to compute executive summary: {str(e)}"
+        }), 500
+
+
+@app.route('/api/digest/distribute', methods=['POST'])
+def api_digest_distribute():
+    """
+    Packages a complete performance digest report bundle (Markdown, HTML, JSON)
+    and optionally distributes it to configured webhook channels in a single operation.
+    JSON payload:
+      days: integer (default 7)
+      broadcast_webhook: boolean (default False)
+      channels: optional list of webhook channel dicts [{'url': ..., 'secret': ...}]
+    """
+    data = request.get_json(silent=True) or {}
+    days = data.get('days', 7)
+    try:
+        days = int(days)
+    except (ValueError, TypeError):
+        days = 7
+    if days < 1 or days > 365:
+        days = 7
+
+    broadcast_webhook = bool(data.get('broadcast_webhook', False))
+    channels = data.get('channels')
+
+    try:
+        reports_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
+        bundle = digest.generate_and_package_distribution_report(
+            db_path=db.DB_PATH,
+            days=days,
+            output_dir=reports_dir
+        )
+
+        dispatch_result = None
+        if broadcast_webhook:
+            # Dispatch to channels if provided, else default webhook
+            if channels and isinstance(channels, list):
+                dispatch_result = webhook.dispatch_digest_to_all_channels(bundle["digest"], channels)
+            else:
+                success = webhook.send_digest_webhook(bundle["digest"])
+                dispatch_result = {
+                    "total_channels": 1,
+                    "success_count": 1 if success else 0,
+                    "failure_count": 0 if success else 1,
+                    "results": [{"channel": webhook.WEBHOOK_URL or "default", "success": success}],
+                }
+
+        # Convert local absolute paths into relative filenames for client downloads
+        client_files = {}
+        for fmt, fpath in bundle.get("files", {}).items():
+            client_files[fmt] = {
+                "filename": os.path.basename(fpath),
+                "download_url": f"/api/digest/archives/download?filename={os.path.basename(fpath)}"
+            }
+
+        return jsonify({
+            "success": True,
+            "message": "Performance digest report successfully packaged and ready for distribution.",
+            "generated_at": bundle.get("generated_at"),
+            "window_days": days,
+            "executive_kpi": bundle.get("executive_kpi"),
+            "files": client_files,
+            "broadcast_dispatched": broadcast_webhook,
+            "dispatch_result": dispatch_result,
+        })
+    except Exception as e:
+        app.logger.error(f"Error packaging distribution report: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Failed to generate distribution report: {str(e)}"
+        }), 500
+
+
 @app.route('/api/syndication', methods=['GET', 'POST'])
 def api_syndication():
     """

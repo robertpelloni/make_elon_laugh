@@ -1,0 +1,370 @@
+{
+  "generated_at": "2026-11-09 11:22:47 UTC",
+  "window_days": 7,
+  "replies": {
+    "total_replies": 0,
+    "total_likes": 0,
+    "total_retweets": 0,
+    "avg_likes_per_reply": 0.0,
+    "avg_retweets_per_reply": 0.0,
+    "top_reply": null
+  },
+  "queue": {
+    "total_scheduled": 262,
+    "pending": 61,
+    "sent": 4,
+    "cancelled": 197,
+    "persona_distribution": {
+      "astrophysics_fact": 1,
+      "deadpan_astronomer": 51,
+      "tactful_engineer": 13,
+      "witty_ai": 197
+    },
+    "account_distribution": {
+      "@make_elon_laugh": 198,
+      "@space_astronomy": 64
+    },
+    "media_distribution": {
+      "single": 215,
+      "composite": 47
+    }
+  },
+  "ratings": {
+    "total_ratings": 139,
+    "upvotes": 139,
+    "downvotes": 0,
+    "approval_rate": 100.0,
+    "top_humor": [
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      }
+    ]
+  },
+  "syndication": {
+    "total_posts": 755,
+    "platforms": {
+      "mastodon": {
+        "posts": 378,
+        "likes": 3015,
+        "shares": 961
+      },
+      "bluesky": {
+        "posts": 377,
+        "likes": 3894,
+        "shares": 1606
+      }
+    }
+  },
+  "dlq": {
+    "total": 4,
+    "pending": 0,
+    "exhausted": 0,
+    "replayed": 4,
+    "discarded": 0
+  },
+  "circuit_breakers": {
+    "mastodon": {
+      "platform": "mastodon",
+      "state": "CLOSED",
+      "consecutive_failures": 0,
+      "failure_threshold": 3,
+      "cooldown_seconds": 60,
+      "tripped_at": null,
+      "last_success_at": null,
+      "last_failure_reason": "Mastodon credentials or instance URL not configured.",
+      "updated_at": "2026-11-09T11:12:09.079788+00:00"
+    },
+    "bluesky": {
+      "platform": "bluesky",
+      "state": "CLOSED",
+      "consecutive_failures": 0,
+      "failure_threshold": 3,
+      "cooldown_seconds": 60,
+      "tripped_at": null,
+      "last_success_at": null,
+      "last_failure_reason": null,
+      "updated_at": "2026-11-09T11:12:09.083157+00:00"
+    }
+  },
+  "platform_breakdowns": {
+    "twitter": {
+      "platform": "twitter",
+      "display_name": "Twitter / X",
+      "posts": 0,
+      "likes": 0,
+      "shares": 0,
+      "total_engagement": 0,
+      "avg_engagement_per_post": 0.0,
+      "velocity_tier": "Low",
+      "share_of_total_posts_pct": 0.0
+    },
+    "mastodon": {
+      "platform": "mastodon",
+      "display_name": "Mastodon",
+      "posts": 378,
+      "likes": 3015,
+      "shares": 961,
+      "total_engagement": 3976,
+      "avg_engagement_per_post": 10.52,
+      "velocity_tier": "High",
+      "share_of_total_posts_pct": 50.1
+    },
+    "bluesky": {
+      "platform": "bluesky",
+      "display_name": "Bluesky",
+      "posts": 377,
+      "likes": 3894,
+      "shares": 1606,
+      "total_engagement": 5500,
+      "avg_engagement_per_post": 14.59,
+      "velocity_tier": "High",
+      "share_of_total_posts_pct": 49.9
+    }
+  },
+  "heatmap": {
+    "hours": [
+      {
+        "hour": 0,
+        "posts": 0,
+        "likes": 0,
+        "shares": 0,
+        "total_engagement": 0
+      },
+      {
+        "hour": 1,
+        "posts": 48,
+        "likes": 428,
+        "shares": 179,
+        "total_engagement": 607
+      },
+      {
+        "hour": 2,
+        "posts": 24,
+        "likes": 257,
+        "shares": 83,
+        "total_engagement": 340
+      },
+      {
+        "hour": 3,
+        "posts": 80,
+        "likes": 694,
+        "shares": 293,
+        "total_engagement": 987
+      },
+      {
+        "hour": 4,
+        "posts": 24,
+        "likes": 220,
+        "shares": 77,
+        "total_engagement": 297
+      },
+      {
+        "hour": 5,
+        "posts": 0,
+        "likes": 0,
+        "shares": 0,
+        "total_engagement": 0
+      },
+      {
+        "hour": 6,
+        "posts": 32,
+        "likes": 358,
+        "shares": 110,
+        "total_engagement": 468
+      },
+      {
+        "hour": 7,
+        "posts": 8,
+        "likes": 66,
+        "shares": 33,
+        "total_engagement": 99
+      },
+      {
+        "hour": 8,
+        "posts": 56,
+        "likes": 519,
+        "shares": 178,
+        "total_engagement": 697
+      },
+      {
+        "hour": 9,
+        "posts": 32,
+        "likes": 311,
+        "shares": 104,
+        "total_engagement": 415
+      },
+      {
+        "hour": 10,
+        "posts": 48,
+        "likes": 420,
+        "shares": 168,
+        "total_engagement": 588
+      },
+      {
+        "hour": 11,
+        "posts": 38,
+        "likes": 308,
+        "shares": 106,
+        "total_engagement": 414
+      },
+      {
+        "hour": 12,
+        "posts": 32,
+        "likes": 281,
+        "shares": 126,
+        "total_engagement": 407
+      },
+      {
+        "hour": 13,
+        "posts": 16,
+        "likes": 141,
+        "shares": 77,
+        "total_engagement": 218
+      },
+      {
+        "hour": 14,
+        "posts": 60,
+        "likes": 595,
+        "shares": 181,
+        "total_engagement": 776
+      },
+      {
+        "hour": 15,
+        "posts": 48,
+        "likes": 449,
+        "shares": 167,
+        "total_engagement": 616
+      },
+      {
+        "hour": 16,
+        "posts": 8,
+        "likes": 88,
+        "shares": 35,
+        "total_engagement": 123
+      },
+      {
+        "hour": 17,
+        "posts": 57,
+        "likes": 490,
+        "shares": 175,
+        "total_engagement": 665
+      },
+      {
+        "hour": 18,
+        "posts": 0,
+        "likes": 0,
+        "shares": 0,
+        "total_engagement": 0
+      },
+      {
+        "hour": 19,
+        "posts": 8,
+        "likes": 70,
+        "shares": 24,
+        "total_engagement": 94
+      },
+      {
+        "hour": 20,
+        "posts": 24,
+        "likes": 226,
+        "shares": 89,
+        "total_engagement": 315
+      },
+      {
+        "hour": 21,
+        "posts": 48,
+        "likes": 415,
+        "shares": 135,
+        "total_engagement": 550
+      },
+      {
+        "hour": 22,
+        "posts": 24,
+        "likes": 202,
+        "shares": 88,
+        "total_engagement": 290
+      },
+      {
+        "hour": 23,
+        "posts": 40,
+        "likes": 371,
+        "shares": 139,
+        "total_engagement": 510
+      }
+    ],
+    "peak_hour": 3,
+    "peak_window_label": "03:00 - 04:00 UTC",
+    "peak_engagement": 987,
+    "peak_posts": 80,
+    "total_tracked_events": 755
+  },
+  "recommendations": [
+    "\ud83c\udfaf Optimal Post Timing: Highest historical audience engagement converges at 03:00 - 04:00 UTC (987 engagements across 80 posts). Schedule high-priority announcements in this slot.",
+    "\ud83c\udfad Content Persona Allocation: 'witty_ai' leads queue volume (197 posts). Consider rotating with secondary personas to preserve audience freshness.",
+    "\ud83c\udf1f Strong Audience Alignment: High community approval (100.0%). Maintain current humor prompt parameters."
+  ],
+  "deltas": {
+    "replies": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "likes": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "retweets": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "queue_sent": {
+      "current": 4,
+      "previous": 0,
+      "diff": 4,
+      "pct": 100.0
+    },
+    "syndication_posts": {
+      "current": 755,
+      "previous": 0,
+      "diff": 755,
+      "pct": 100.0
+    },
+    "syndication_engagement": {
+      "current": 9476,
+      "previous": 0,
+      "diff": 9476,
+      "pct": 100.0
+    }
+  },
+  "health_scorecard": {
+    "db_connected": true,
+    "queue_backlog": 61,
+    "sentiment_status": "Positive",
+    "federation_health": "Active",
+    "overall_health": "Degraded (High Queue Backlog)"
+  },
+  "alerts": [
+    {
+      "level": "warning",
+      "type": "queue_backlog_high",
+      "message": "Scheduled tweet backlog has reached 61 items (threshold: >50)."
+    }
+  ]
+}

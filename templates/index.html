@@ -922,12 +922,56 @@
                       <span class="tooltiptext">Rolling 7-day performance analytics across bot replies, engagement, scheduled operations, and community approval.</span>
                     </div>
                 </span>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary btn-sm" id="btn-distribute-report" onclick="distributeDigestReport()" title="Package executive digest and trigger multi-channel distribution" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border-color: #0284c7; font-weight: 700;">🚀 Distribute Report
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">One-click automated packaging: archives all formats (.md, .html, .json), synthesizes the executive KPI briefing, and dispatches to configured webhooks.</span>
+                        </div>
+                    </button>
                     <button class="btn btn-secondary btn-sm" onclick="exportDigestMarkdown()" title="View Markdown summary in modal">View Markdown</button>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=html" download style="text-decoration: none;" title="Download styled HTML report">Download .HTML</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=markdown" download style="text-decoration: none;" title="Download Markdown report file">Download .MD</a>
                     <a class="btn btn-secondary btn-sm" href="/api/digest/download?format=json" download style="text-decoration: none;" title="Download JSON report file">Download .JSON</a>
                     <button class="btn btn-primary btn-sm" onclick="fetchPerformanceDigest()" title="Refresh digest metrics">Refresh Digest</button>
+                </div>
+            </div>
+
+            <!-- Executive KPI Briefing Strip -->
+            <div id="digest-executive-kpi-strip" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border: 1px solid #334155; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-size: 1rem;">📊</span>
+                        <strong style="color: #38bdf8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">Executive Performance Briefing</strong>
+                        <div class="tooltip"><span class="tooltip-icon" style="color: #94a3b8; border-color: #475569;">?</span>
+                          <span class="tooltiptext">Global performance synthesized across all networks (Twitter/X, Mastodon, Bluesky) with deliverability resilience & humor approval metrics.</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">
+                        Window: <span id="exec-kpi-window" style="color: #f1f5f9; font-weight: 600;">7 Days</span> &bull;
+                        Updated: <span id="exec-kpi-updated" style="color: #f1f5f9; font-weight: 600;">Just now</span>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
+                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Total Dispatches</div>
+                        <div id="exec-kpi-dispatches" style="font-size: 1.4rem; font-weight: 800; color: #38bdf8;">0</div>
+                        <div style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Cross-Network Posts</div>
+                    </div>
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
+                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Engagement Velocity</div>
+                        <div id="exec-kpi-velocity" style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">0.0</div>
+                        <div id="exec-kpi-total-eng" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">0 total engagements</div>
+                    </div>
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
+                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Leading Network</div>
+                        <div id="exec-kpi-leading-net" style="font-size: 1.2rem; font-weight: 800; color: #34d399; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+                        <div id="exec-kpi-leading-detail" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">0.0 eng/post &bull; 0% vol</div>
+                    </div>
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 0.75rem;">
+                        <div style="font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; font-weight: 700; margin-bottom: 2px;">Resilience Score</div>
+                        <div id="exec-kpi-resilience" style="font-size: 1.4rem; font-weight: 800; color: #10b981;">100%</div>
+                        <div id="exec-kpi-humor-label" style="font-size: 0.7rem; color: #64748b; margin-top: 2px;">Humor: Optimal</div>
+                    </div>
                 </div>
             </div>
 
@@ -2306,9 +2350,119 @@
                             }).join('');
                         }
                     }
+
+                    // Hydrate Executive KPI Briefing
+                    fetchExecutiveKpiBriefing();
                 }
             } catch (err) {
                 console.error("Performance digest fetch error:", err);
+            }
+        }
+
+        async function fetchExecutiveKpiBriefing() {
+            try {
+                const res = await fetch('/api/digest/executive-summary?days=7');
+                const data = await res.json();
+                if (data.success && data.executive_kpi) {
+                    const kpi = data.executive_kpi;
+                    const dispEl = document.getElementById('exec-kpi-dispatches');
+                    if (dispEl) dispEl.textContent = kpi.total_dispatches || 0;
+
+                    const velEl = document.getElementById('exec-kpi-velocity');
+                    if (velEl) velEl.textContent = kpi.global_velocity || 0.0;
+
+                    const engEl = document.getElementById('exec-kpi-total-eng');
+                    if (engEl) engEl.textContent = `${kpi.total_engagement || 0} total engagements`;
+
+                    const leadNet = kpi.leading_network || {};
+                    const leadNetEl = document.getElementById('exec-kpi-leading-net');
+                    if (leadNetEl) leadNetEl.textContent = leadNet.display_name || 'None';
+
+                    const leadDetailEl = document.getElementById('exec-kpi-leading-detail');
+                    if (leadDetailEl) {
+                        leadDetailEl.textContent = `${leadNet.velocity || 0.0} eng/post • ${leadNet.share_pct || 0}% vol`;
+                    }
+
+                    const resEl = document.getElementById('exec-kpi-resilience');
+                    if (resEl) {
+                        resEl.textContent = `${kpi.resilience_score || 100}%`;
+                        resEl.style.color = (kpi.resilience_score >= 80) ? '#10b981' : ((kpi.resilience_score >= 50) ? '#eab308' : '#ef4444');
+                    }
+
+                    const humorLabelEl = document.getElementById('exec-kpi-humor-label');
+                    if (humorLabelEl && kpi.humor_status) {
+                        humorLabelEl.textContent = `Humor: ${kpi.humor_status.label} (${kpi.humor_status.approval_pct}%)`;
+                    }
+
+                    const updatedEl = document.getElementById('exec-kpi-updated');
+                    if (updatedEl && data.generated_at) {
+                        updatedEl.textContent = data.generated_at.split(' ')[1] || 'Just now';
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching executive KPI summary:", err);
+            }
+        }
+
+        function showToast(message) {
+            let toast = document.getElementById('dashboard-global-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'dashboard-global-toast';
+                toast.style.position = 'fixed';
+                toast.style.bottom = '20px';
+                toast.style.right = '20px';
+                toast.style.background = '#0f172a';
+                toast.style.color = '#38bdf8';
+                toast.style.border = '1px solid #38bdf8';
+                toast.style.borderRadius = '8px';
+                toast.style.padding = '10px 16px';
+                toast.style.fontSize = '0.85rem';
+                toast.style.fontWeight = '600';
+                toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                toast.style.zIndex = '9999';
+                toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+            }, 3500);
+        }
+
+        async function distributeDigestReport() {
+            const btn = document.getElementById('btn-distribute-report');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "⏳ Packaging...";
+            }
+            try {
+                const res = await fetch('/api/digest/distribute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ days: 7, broadcast_webhook: true })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast("🚀 Report packaged and broadcasted to active channels!");
+                    fetchExecutiveKpiBriefing();
+                    loadDigestArchives();
+                    if (typeof fetchWebhookHistory === 'function') {
+                        fetchWebhookHistory();
+                    }
+                } else {
+                    alert("Distribution failed: " + (data.error || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Error during report distribution: " + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "🚀 Distribute Report";
+                }
             }
         }
 

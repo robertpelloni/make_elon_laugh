@@ -1,5 +1,7 @@
+import json
 import os
 import sqlite3
+import tempfile
 import time
 import unittest
 from unittest.mock import patch, MagicMock
@@ -3141,6 +3143,130 @@ class TestSyndication(unittest.TestCase):
         # Test empty channels list rejection
         bad_multi = client.post('/api/webhook/multi', json={"channels": []})
         self.assertEqual(bad_multi.status_code, 400)
+
+    def test_digest_executive_kpi_and_distribution_packaging(self):
+        """Tests generate_executive_kpi_summary, generate_and_package_distribution_report, and REST endpoints."""
+        dummy_digest = {
+            "window_days": 7,
+            "generated_at": "2026-11-09 12:00:00 UTC",
+            "replies": {
+                "total_replies": 10,
+                "total_likes": 50,
+                "total_retweets": 20,
+                "avg_likes_per_reply": 5.0,
+                "avg_retweets_per_reply": 2.0,
+            },
+            "queue": {
+                "total_scheduled": 15,
+                "pending": 2,
+                "sent": 10,
+                "cancelled": 3,
+                "persona_distribution": {"witty_ai": 10},
+                "account_distribution": {"@space": 10},
+            },
+            "ratings": {
+                "total_ratings": 8,
+                "upvotes": 7,
+                "downvotes": 1,
+                "approval_rate": 87.5,
+            },
+            "syndication": {
+                "total_posts": 20,
+                "platforms": {
+                    "mastodon": {"posts": 10, "likes": 40, "shares": 10},
+                    "bluesky": {"posts": 10, "likes": 60, "shares": 30},
+                }
+            },
+            "dlq": {
+                "total": 1,
+                "pending": 0,
+                "exhausted": 0,
+                "replayed": 1,
+                "discarded": 0,
+            },
+            "circuit_breakers": {
+                "mastodon": {"platform": "mastodon", "state": "CLOSED"},
+                "bluesky": {"platform": "bluesky", "state": "CLOSED"},
+            },
+            "platform_breakdowns": {
+                "mastodon": {
+                    "platform": "mastodon",
+                    "display_name": "Mastodon",
+                    "posts": 10,
+                    "total_engagement": 50,
+                    "avg_engagement_per_post": 5.0,
+                    "share_of_total_posts_pct": 50.0,
+                },
+                "bluesky": {
+                    "platform": "bluesky",
+                    "display_name": "Bluesky",
+                    "posts": 10,
+                    "total_engagement": 90,
+                    "avg_engagement_per_post": 9.0,
+                    "share_of_total_posts_pct": 50.0,
+                }
+            }
+        }
+
+        # 1. Test generate_executive_kpi_summary
+        kpi = digest.generate_executive_kpi_summary(dummy_digest)
+        self.assertEqual(kpi["total_dispatches"], 30)  # 10 replies + 20 syn posts
+        self.assertEqual(kpi["total_engagement"], 210)  # 50 likes + 20 rts + 50 mastodon + 90 bluesky
+        self.assertEqual(kpi["global_velocity"], 7.0)   # 210 / 30
+        self.assertEqual(kpi["leading_network"]["platform"], "bluesky")
+        self.assertEqual(kpi["resilience_score"], 100)
+        self.assertEqual(kpi["humor_status"]["label"], "Optimal")
+        self.assertEqual(kpi["humor_status"]["approval_pct"], 87.5)
+
+        # Test resilience penalty when circuit is OPEN and DLQ exhausted
+        penalized_digest = dict(dummy_digest)
+        penalized_digest["circuit_breakers"] = {
+            "mastodon": {"platform": "mastodon", "state": "OPEN"}
+        }
+        penalized_digest["dlq"] = {"exhausted": 2, "pending": 0}
+        penalized_kpi = digest.generate_executive_kpi_summary(penalized_digest)
+        self.assertEqual(penalized_kpi["resilience_score"], 55)  # 100 - 25 - 20
+
+        # 2. Test generate_and_package_distribution_report with temp reports dir
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bundle = digest.generate_and_package_distribution_report(
+                db_path=db.DB_PATH,
+                days=7,
+                output_dir=temp_dir
+            )
+            self.assertIn("digest", bundle)
+            self.assertIn("executive_kpi", bundle)
+            self.assertIn("files", bundle)
+            self.assertIn("md", bundle["files"])
+            self.assertIn("html", bundle["files"])
+            self.assertIn("json", bundle["files"])
+            for _, fpath in bundle["files"].items():
+                self.assertTrue(os.path.exists(fpath))
+
+        # 3. Test Dashboard REST endpoints
+        client = dashboard.app.test_client()
+
+        # GET /api/digest/executive-summary
+        res_exec = client.get('/api/digest/executive-summary?days=7')
+        self.assertEqual(res_exec.status_code, 200)
+        data_exec = json.loads(res_exec.data)
+        self.assertTrue(data_exec["success"])
+        self.assertIn("executive_kpi", data_exec)
+        self.assertIn("global_velocity", data_exec["executive_kpi"])
+
+        # POST /api/digest/distribute without webhook
+        res_dist = client.post('/api/digest/distribute', json={
+            "days": 7,
+            "broadcast_webhook": False
+        })
+        self.assertEqual(res_dist.status_code, 200)
+        data_dist = json.loads(res_dist.data)
+        self.assertTrue(data_dist["success"])
+        self.assertIn("files", data_dist)
+        self.assertIn("md", data_dist["files"])
+        self.assertIn("html", data_dist["files"])
+        self.assertIn("json", data_dist["files"])
+        self.assertFalse(data_dist["broadcast_dispatched"])
 
 
 if __name__ == "__main__":

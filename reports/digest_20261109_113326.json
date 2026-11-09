@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-09 08:18:19 UTC",
+  "generated_at": "2026-11-09 11:33:26 UTC",
   "window_days": 7,
   "replies": {
     "total_replies": 0,
@@ -10,28 +10,28 @@
     "top_reply": null
   },
   "queue": {
-    "total_scheduled": 242,
-    "pending": 55,
+    "total_scheduled": 266,
+    "pending": 62,
     "sent": 4,
-    "cancelled": 183,
+    "cancelled": 200,
     "persona_distribution": {
       "astrophysics_fact": 1,
-      "deadpan_astronomer": 46,
+      "deadpan_astronomer": 52,
       "tactful_engineer": 13,
-      "witty_ai": 182
+      "witty_ai": 200
     },
     "account_distribution": {
-      "@make_elon_laugh": 183,
-      "@space_astronomy": 59
+      "@make_elon_laugh": 201,
+      "@space_astronomy": 65
     },
     "media_distribution": {
-      "single": 200,
-      "composite": 42
+      "single": 218,
+      "composite": 48
     }
   },
   "ratings": {
-    "total_ratings": 134,
-    "upvotes": 134,
+    "total_ratings": 140,
+    "upvotes": 140,
     "downvotes": 0,
     "approval_rate": 100.0,
     "top_humor": [
@@ -53,17 +53,17 @@
     ]
   },
   "syndication": {
-    "total_posts": 715,
+    "total_posts": 763,
     "platforms": {
       "mastodon": {
-        "posts": 358,
-        "likes": 2882,
-        "shares": 912
+        "posts": 382,
+        "likes": 3055,
+        "shares": 975
       },
       "bluesky": {
-        "posts": 357,
-        "likes": 3655,
-        "shares": 1495
+        "posts": 381,
+        "likes": 3926,
+        "shares": 1619
       }
     }
   },
@@ -84,7 +84,7 @@
       "tripped_at": null,
       "last_success_at": null,
       "last_failure_reason": "Mastodon credentials or instance URL not configured.",
-      "updated_at": "2026-11-09T08:13:46.231536+00:00"
+      "updated_at": "2026-11-09T11:22:47.595671+00:00"
     },
     "bluesky": {
       "platform": "bluesky",
@@ -95,7 +95,7 @@
       "tripped_at": null,
       "last_success_at": null,
       "last_failure_reason": null,
-      "updated_at": "2026-11-09T08:13:46.234558+00:00"
+      "updated_at": "2026-11-09T11:22:47.600334+00:00"
     }
   },
   "platform_breakdowns": {
@@ -113,22 +113,22 @@
     "mastodon": {
       "platform": "mastodon",
       "display_name": "Mastodon",
-      "posts": 358,
-      "likes": 2882,
-      "shares": 912,
-      "total_engagement": 3794,
-      "avg_engagement_per_post": 10.6,
+      "posts": 382,
+      "likes": 3055,
+      "shares": 975,
+      "total_engagement": 4030,
+      "avg_engagement_per_post": 10.55,
       "velocity_tier": "High",
       "share_of_total_posts_pct": 50.1
     },
     "bluesky": {
       "platform": "bluesky",
       "display_name": "Bluesky",
-      "posts": 357,
-      "likes": 3655,
-      "shares": 1495,
-      "total_engagement": 5150,
-      "avg_engagement_per_post": 14.43,
+      "posts": 381,
+      "likes": 3926,
+      "shares": 1619,
+      "total_engagement": 5545,
+      "avg_engagement_per_post": 14.55,
       "velocity_tier": "High",
       "share_of_total_posts_pct": 49.9
     }
@@ -180,9 +180,9 @@
       {
         "hour": 6,
         "posts": 32,
-        "likes": 332,
-        "shares": 89,
-        "total_engagement": 421
+        "likes": 358,
+        "shares": 110,
+        "total_engagement": 468
       },
       {
         "hour": 7,
@@ -193,17 +193,17 @@
       },
       {
         "hour": 8,
-        "posts": 38,
-        "likes": 313,
-        "shares": 90,
-        "total_engagement": 403
+        "posts": 56,
+        "likes": 521,
+        "shares": 178,
+        "total_engagement": 699
       },
       {
         "hour": 9,
-        "posts": 24,
-        "likes": 230,
-        "shares": 79,
-        "total_engagement": 309
+        "posts": 32,
+        "likes": 315,
+        "shares": 103,
+        "total_engagement": 418
       },
       {
         "hour": 10,
@@ -214,10 +214,10 @@
       },
       {
         "hour": 11,
-        "posts": 24,
-        "likes": 249,
-        "shares": 80,
-        "total_engagement": 329
+        "posts": 46,
+        "likes": 374,
+        "shares": 134,
+        "total_engagement": 508
       },
       {
         "hour": 12,
@@ -308,11 +308,11 @@
     "peak_window_label": "03:00 - 04:00 UTC",
     "peak_engagement": 987,
     "peak_posts": 80,
-    "total_tracked_events": 715
+    "total_tracked_events": 763
   },
   "recommendations": [
     "\ud83c\udfaf Optimal Post Timing: Highest historical audience engagement converges at 03:00 - 04:00 UTC (987 engagements across 80 posts). Schedule high-priority announcements in this slot.",
-    "\ud83c\udfad Content Persona Allocation: 'witty_ai' leads queue volume (182 posts). Consider rotating with secondary personas to preserve audience freshness.",
+    "\ud83c\udfad Content Persona Allocation: 'witty_ai' leads queue volume (200 posts). Consider rotating with secondary personas to preserve audience freshness.",
     "\ud83c\udf1f Strong Audience Alignment: High community approval (100.0%). Maintain current humor prompt parameters."
   ],
   "deltas": {
@@ -341,21 +341,21 @@
       "pct": 100.0
     },
     "syndication_posts": {
-      "current": 715,
+      "current": 763,
       "previous": 0,
-      "diff": 715,
+      "diff": 763,
       "pct": 100.0
     },
     "syndication_engagement": {
-      "current": 8944,
+      "current": 9575,
       "previous": 0,
-      "diff": 8944,
+      "diff": 9575,
       "pct": 100.0
     }
   },
   "health_scorecard": {
     "db_connected": true,
-    "queue_backlog": 55,
+    "queue_backlog": 62,
     "sentiment_status": "Positive",
     "federation_health": "Active",
     "overall_health": "Degraded (High Queue Backlog)"
@@ -364,7 +364,7 @@
     {
       "level": "warning",
       "type": "queue_backlog_high",
-      "message": "Scheduled tweet backlog has reached 55 items (threshold: >50)."
+      "message": "Scheduled tweet backlog has reached 62 items (threshold: >50)."
     }
   ]
 }

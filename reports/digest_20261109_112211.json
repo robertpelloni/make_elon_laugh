@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-09 08:13:46 UTC",
+  "generated_at": "2026-11-09 11:22:11 UTC",
   "window_days": 7,
   "replies": {
     "total_replies": 0,
@@ -10,28 +10,28 @@
     "top_reply": null
   },
   "queue": {
-    "total_scheduled": 238,
-    "pending": 54,
+    "total_scheduled": 260,
+    "pending": 61,
     "sent": 4,
-    "cancelled": 180,
+    "cancelled": 195,
     "persona_distribution": {
       "astrophysics_fact": 1,
-      "deadpan_astronomer": 45,
+      "deadpan_astronomer": 51,
       "tactful_engineer": 13,
-      "witty_ai": 179
+      "witty_ai": 195
     },
     "account_distribution": {
-      "@make_elon_laugh": 180,
-      "@space_astronomy": 58
+      "@make_elon_laugh": 197,
+      "@space_astronomy": 63
     },
     "media_distribution": {
-      "single": 197,
-      "composite": 41
+      "single": 214,
+      "composite": 46
     }
   },
   "ratings": {
-    "total_ratings": 133,
-    "upvotes": 133,
+    "total_ratings": 138,
+    "upvotes": 138,
     "downvotes": 0,
     "approval_rate": 100.0,
     "top_humor": [
@@ -53,17 +53,17 @@
     ]
   },
   "syndication": {
-    "total_posts": 707,
+    "total_posts": 749,
     "platforms": {
       "mastodon": {
-        "posts": 354,
-        "likes": 2806,
-        "shares": 901
+        "posts": 375,
+        "likes": 3015,
+        "shares": 961
       },
       "bluesky": {
-        "posts": 353,
-        "likes": 3607,
-        "shares": 1481
+        "posts": 374,
+        "likes": 3894,
+        "shares": 1606
       }
     }
   },
@@ -84,7 +84,7 @@
       "tripped_at": null,
       "last_success_at": null,
       "last_failure_reason": "Mastodon credentials or instance URL not configured.",
-      "updated_at": "2026-11-09T06:21:17.707659+00:00"
+      "updated_at": "2026-11-09T11:12:09.079788+00:00"
     },
     "bluesky": {
       "platform": "bluesky",
@@ -95,7 +95,7 @@
       "tripped_at": null,
       "last_success_at": null,
       "last_failure_reason": null,
-      "updated_at": "2026-11-09T06:21:17.710027+00:00"
+      "updated_at": "2026-11-09T11:12:09.083157+00:00"
     }
   },
   "platform_breakdowns": {
@@ -113,22 +113,22 @@
     "mastodon": {
       "platform": "mastodon",
       "display_name": "Mastodon",
-      "posts": 354,
-      "likes": 2806,
-      "shares": 901,
-      "total_engagement": 3707,
-      "avg_engagement_per_post": 10.47,
+      "posts": 375,
+      "likes": 3015,
+      "shares": 961,
+      "total_engagement": 3976,
+      "avg_engagement_per_post": 10.6,
       "velocity_tier": "High",
       "share_of_total_posts_pct": 50.1
     },
     "bluesky": {
       "platform": "bluesky",
       "display_name": "Bluesky",
-      "posts": 353,
-      "likes": 3607,
-      "shares": 1481,
-      "total_engagement": 5088,
-      "avg_engagement_per_post": 14.41,
+      "posts": 374,
+      "likes": 3894,
+      "shares": 1606,
+      "total_engagement": 5500,
+      "avg_engagement_per_post": 14.71,
       "velocity_tier": "High",
       "share_of_total_posts_pct": 49.9
     }
@@ -166,9 +166,9 @@
       {
         "hour": 4,
         "posts": 24,
-        "likes": 230,
-        "shares": 78,
-        "total_engagement": 308
+        "likes": 220,
+        "shares": 77,
+        "total_engagement": 297
       },
       {
         "hour": 5,
@@ -180,9 +180,9 @@
       {
         "hour": 6,
         "posts": 32,
-        "likes": 283,
-        "shares": 84,
-        "total_engagement": 367
+        "likes": 358,
+        "shares": 110,
+        "total_engagement": 468
       },
       {
         "hour": 7,
@@ -193,17 +193,17 @@
       },
       {
         "hour": 8,
-        "posts": 30,
-        "likes": 228,
-        "shares": 69,
-        "total_engagement": 297
+        "posts": 56,
+        "likes": 519,
+        "shares": 178,
+        "total_engagement": 697
       },
       {
         "hour": 9,
-        "posts": 24,
-        "likes": 230,
-        "shares": 79,
-        "total_engagement": 309
+        "posts": 32,
+        "likes": 311,
+        "shares": 104,
+        "total_engagement": 415
       },
       {
         "hour": 10,
@@ -214,10 +214,10 @@
       },
       {
         "hour": 11,
-        "posts": 24,
-        "likes": 249,
-        "shares": 80,
-        "total_engagement": 329
+        "posts": 32,
+        "likes": 308,
+        "shares": 106,
+        "total_engagement": 414
       },
       {
         "hour": 12,
@@ -308,11 +308,11 @@
     "peak_window_label": "03:00 - 04:00 UTC",
     "peak_engagement": 987,
     "peak_posts": 80,
-    "total_tracked_events": 707
+    "total_tracked_events": 749
   },
   "recommendations": [
     "\ud83c\udfaf Optimal Post Timing: Highest historical audience engagement converges at 03:00 - 04:00 UTC (987 engagements across 80 posts). Schedule high-priority announcements in this slot.",
-    "\ud83c\udfad Content Persona Allocation: 'witty_ai' leads queue volume (179 posts). Consider rotating with secondary personas to preserve audience freshness.",
+    "\ud83c\udfad Content Persona Allocation: 'witty_ai' leads queue volume (195 posts). Consider rotating with secondary personas to preserve audience freshness.",
     "\ud83c\udf1f Strong Audience Alignment: High community approval (100.0%). Maintain current humor prompt parameters."
   ],
   "deltas": {
@@ -341,21 +341,21 @@
       "pct": 100.0
     },
     "syndication_posts": {
-      "current": 707,
+      "current": 749,
       "previous": 0,
-      "diff": 707,
+      "diff": 749,
       "pct": 100.0
     },
     "syndication_engagement": {
-      "current": 8795,
+      "current": 9476,
       "previous": 0,
-      "diff": 8795,
+      "diff": 9476,
       "pct": 100.0
     }
   },
   "health_scorecard": {
     "db_connected": true,
-    "queue_backlog": 54,
+    "queue_backlog": 61,
     "sentiment_status": "Positive",
     "federation_health": "Active",
     "overall_health": "Degraded (High Queue Backlog)"
@@ -364,7 +364,7 @@
     {
       "level": "warning",
       "type": "queue_backlog_high",
-      "message": "Scheduled tweet backlog has reached 54 items (threshold: >50)."
+      "message": "Scheduled tweet backlog has reached 61 items (threshold: >50)."
     }
   ]
 }

@@ -147,6 +147,132 @@ def archive_performance_digest_snapshots(
     return saved
 
 
+def generate_executive_kpi_summary(digest_data):
+    """
+    Synthesizes high-level Executive Key Performance Indicators (KPIs) from full digest metrics.
+    Computes global reach across all channels (Replies + Federation + Queue Dispatches),
+    overall engagement velocity (total engagements / total posts), the leading platform by
+    velocity and volume, and deliverability/circuit breaker resilience score.
+
+    Returns dict:
+      - total_dispatches: total posts/replies broadcasted across all networks
+      - total_engagement: aggregate likes, retweets, and shares
+      - global_velocity: average engagements per dispatch
+      - leading_network: { platform, display_name, velocity, share_pct }
+      - resilience_score: percentage (0-100%) reflecting circuits CLOSED and DLQ health
+      - humor_status: approval percentage and health assessment
+    """
+    rep = digest_data.get("replies", {})
+    queue = digest_data.get("queue", {})
+    syn = digest_data.get("syndication", {})
+    rat = digest_data.get("ratings", {})
+    pb = digest_data.get("platform_breakdowns", {})
+    dlq = digest_data.get("dlq", {})
+    cbs = digest_data.get("circuit_breakers", {})
+
+    total_replies = rep.get("total_replies", 0)
+    syn_posts = syn.get("total_posts", 0)
+    queue_sent = queue.get("sent", 0)
+    # Total broadcasts across all channels (public replies + federated posts)
+    # Fallback to queue_sent if total_replies is 0
+    total_dispatches = max(total_replies + syn_posts, queue_sent)
+
+    rep_likes = rep.get("total_likes", 0)
+    rep_rts = rep.get("total_retweets", 0)
+    syn_plats = syn.get("platforms", {})
+    syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
+    total_engagement = rep_likes + rep_rts + syn_eng
+
+    global_velocity = round(total_engagement / total_dispatches, 2) if total_dispatches > 0 else 0.0
+
+    # Determine leading network from platform breakdowns
+    leading_network = {
+        "platform": "none",
+        "display_name": "None",
+        "velocity": 0.0,
+        "posts": 0,
+        "share_pct": 0.0,
+    }
+    if pb:
+        # Platform with highest total engagement (and velocity as tie-breaker)
+        best_p = max(pb.values(), key=lambda x: (x.get("total_engagement", 0), x.get("avg_engagement_per_post", 0.0)))
+        leading_network = {
+            "platform": best_p.get("platform", "none"),
+            "display_name": best_p.get("display_name", best_p.get("platform", "").capitalize()),
+            "velocity": best_p.get("avg_engagement_per_post", 0.0),
+            "posts": best_p.get("posts", 0),
+            "share_pct": best_p.get("share_of_total_posts_pct", 0.0),
+        }
+
+    # Calculate resilience score: starts at 100, penalties for open circuits (-25 each) and exhausted DLQ (-15 each)
+    resilience = 100
+    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
+    for cb in cb_list:
+        if isinstance(cb, dict):
+            st = str(cb.get("state", "CLOSED")).upper()
+            if st == "OPEN":
+                resilience -= 25
+            elif st == "HALF-OPEN":
+                resilience -= 10
+
+    exhausted_dlq = dlq.get("exhausted", 0)
+    if exhausted_dlq > 0:
+        resilience -= min(30, exhausted_dlq * 10)
+
+    pending_dlq = dlq.get("pending", 0)
+    if pending_dlq > 10:
+        resilience -= 10
+
+    resilience = max(0, min(100, resilience))
+
+    approval_pct = rat.get("approval_rate", 100.0)
+    total_rat = rat.get("total_ratings", 0)
+    humor_label = "Optimal" if approval_pct >= 80.0 else ("Moderate" if approval_pct >= 60.0 else "Needs Tuning")
+    if total_rat == 0:
+        humor_label = "No Feedback"
+
+    return {
+        "total_dispatches": total_dispatches,
+        "total_engagement": total_engagement,
+        "global_velocity": global_velocity,
+        "leading_network": leading_network,
+        "resilience_score": resilience,
+        "humor_status": {
+            "approval_pct": approval_pct,
+            "total_ratings": total_rat,
+            "label": humor_label,
+        },
+    }
+
+
+def generate_and_package_distribution_report(db_path=db.DB_PATH, days=7, output_dir="reports"):
+    """
+    One-click packaging function that generates digest metrics, snapshots across all formats
+    (markdown, html, json), extracts the executive KPI briefing, and prepares distribution links.
+
+    Returns dict:
+      - digest: raw performance digest dict
+      - executive_kpi: executive KPI summary dict
+      - files: mapping format to file path (e.g. {'md': '...', 'html': '...', 'json': '...'})
+      - generated_at: UTC timestamp string
+    """
+    digest_data = generate_performance_digest(db_path=db_path, days=days)
+    exec_kpi = generate_executive_kpi_summary(digest_data)
+    saved_files = archive_performance_digest_snapshots(
+        formats=["md", "html", "json"],
+        output_dir=output_dir,
+        max_retained=30,
+        db_path=db_path,
+        days=days
+    )
+    return {
+        "digest": digest_data,
+        "executive_kpi": exec_kpi,
+        "files": saved_files,
+        "generated_at": digest_data.get("generated_at"),
+    }
+
+
 def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_threshold=50):
     """
     Evaluates automated threshold alerts based on digest metrics.
@@ -961,10 +1087,30 @@ def export_digest_markdown(digest):
     else:
         circuit_breakers_md = "- *No circuit breaker records found (all nominal).*"
 
+    exec_kpi = generate_executive_kpi_summary(digest)
+    lead_net = exec_kpi.get("leading_network", {})
+    lead_name = lead_net.get("display_name", "None")
+    lead_vel = lead_net.get("velocity", 0.0)
+    lead_share = lead_net.get("share_pct", 0.0)
+    lead_desc = f"{lead_name} ({lead_vel} eng/post, {lead_share}% volume)"
+    humor_info = exec_kpi.get("humor_status", {})
+    appr_pct = humor_info.get("approval_pct", 0.0)
+    appr_lbl = humor_info.get("label", "Optimal")
+
+    executive_briefing_md = f"""## 📊 Executive KPI Briefing
+- **Total Cross-Network Dispatches:** {exec_kpi.get('total_dispatches', 0)} posts/replies
+- **Total Cross-Network Engagement:** {exec_kpi.get('total_engagement', 0)} likes, shares & retweets
+- **Global Engagement Velocity:** `{exec_kpi.get('global_velocity', 0.0)}` engagements / post
+- **Leading Network by Volume & Impact:** **{lead_desc}**
+- **Infrastructure Resilience Score:** **{exec_kpi.get('resilience_score', 100)}%** (Circuits & DLQ deliverability)
+- **Community Humor Sentiment:** **{appr_pct}%** approval ({appr_lbl})
+
+"""
+
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
-{alerts_md}## 🩺 System Operational Health Scorecard
+{alerts_md}{executive_briefing_md}## 🩺 System Operational Health Scorecard
 - **Overall Status:** {scorecard.get('overall_health', 'Unknown')}
 - **Database Connection:** {"Operational" if scorecard.get('db_connected') else "Disconnected"}
 - **Pending Queue Backlog:** {scorecard.get('queue_backlog', 0)} items
@@ -1213,6 +1359,11 @@ def export_digest_html(digest):
     else:
         pb_section_html = ""
 
+    exec_kpi = generate_executive_kpi_summary(digest)
+    lead_net = exec_kpi.get("leading_network", {})
+    lead_name = lead_net.get("display_name", "None")
+    lead_vel = lead_net.get("velocity", 0.0)
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1267,6 +1418,27 @@ def export_digest_html(digest):
     }}
     .card-title {{ font-size: 0.85rem; color: #64748b; margin-bottom: 4px; }}
     .card-val {{ font-size: 1.5rem; font-weight: bold; color: #0f172a; }}
+    .exec-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin: 16px 0;
+    }}
+    .exec-card {{
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+    }}
+    .exec-card-title {{
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: #0369a1;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }}
+    .exec-card-val {{ font-size: 1.4rem; font-weight: 800; color: #0c4a6e; }}
     ul {{ padding-left: 20px; }}
     li {{ margin-bottom: 6px; }}
     footer {{ margin-top: 32px; font-size: 0.8rem; color: #94a3b8; text-align: center; }}
@@ -1281,6 +1453,30 @@ def export_digest_html(digest):
     </p>
 
     {alerts_banner}
+
+    <h2>📊 Executive KPI Briefing</h2>
+    <div class="exec-grid">
+      <div class="exec-card">
+        <div class="exec-card-title">Dispatches</div>
+        <div class="exec-card-val">{exec_kpi.get('total_dispatches', 0)}</div>
+        <div style="font-size: 0.75rem; color: #0284c7;">Cross-Network</div>
+      </div>
+      <div class="exec-card">
+        <div class="exec-card-title">Velocity</div>
+        <div class="exec-card-val">{exec_kpi.get('global_velocity', 0.0)}</div>
+        <div style="font-size: 0.75rem; color: #0284c7;">Eng / Post</div>
+      </div>
+      <div class="exec-card">
+        <div class="exec-card-title">Leading Network</div>
+        <div class="exec-card-val" style="font-size: 1.15rem;">{lead_name}</div>
+        <div style="font-size: 0.75rem; color: #0284c7;">{lead_vel} avg/post</div>
+      </div>
+      <div class="exec-card">
+        <div class="exec-card-title">Resilience</div>
+        <div class="exec-card-val">{exec_kpi.get('resilience_score', 100)}%</div>
+        <div style="font-size: 0.75rem; color: #0284c7;">Circuits &amp; DLQ</div>
+      </div>
+    </div>
 
     <h2>🩺 System Operational Health</h2>
     <div class="grid">
