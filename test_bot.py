@@ -2723,6 +2723,71 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_digest_pipeline_circuit_breaker_telemetry_and_alerts(self):
+        """Validates circuit breaker telemetry aggregation and anomaly alerting in performance digest."""
+        import json
+        test_db = f"test_cb_digest_{int(time.time() * 1000)}.db"
+        if os.path.exists(test_db):
+            os.remove(test_db)
+        try:
+            db.init_db(test_db)
+            # Trip mastodon to OPEN
+            db.update_circuit_breaker_state(
+                platform="mastodon",
+                state="OPEN",
+                consecutive_failures=3,
+                last_failure_reason="HTTP 503 Outage",
+                db_path=test_db
+            )
+            # Trip bluesky to HALF-OPEN
+            db.update_circuit_breaker_state(
+                platform="bluesky",
+                state="HALF-OPEN",
+                consecutive_failures=1,
+                last_failure_reason="Network Timeout",
+                db_path=test_db
+            )
+
+            d = digest.generate_performance_digest(db_path=test_db, days=7)
+            self.assertIn("circuit_breakers", d)
+            self.assertEqual(len(d["circuit_breakers"]), 2)
+
+            # Health scorecard status
+            self.assertIn("Critical", d["health_scorecard"]["overall_health"])
+            self.assertIn("Outage", d["health_scorecard"]["federation_health"])
+
+            # Verify active alerts triggered
+            alerts = d.get("alerts", [])
+            alert_types = [a["type"] for a in alerts]
+            self.assertIn("circuit_breaker_mastodon_open", alert_types)
+            self.assertIn("circuit_breaker_bluesky_half_open", alert_types)
+
+            # Markdown export contains circuit breaker section
+            md_out = digest.export_digest_markdown(d)
+            self.assertIn("Federation Circuit Breaker Telemetry", md_out)
+            self.assertIn("Mastodon", md_out)
+            self.assertIn("OPEN", md_out)
+
+            # HTML export contains circuit breaker section
+            html_out = digest.export_digest_html(d)
+            self.assertIn("Federation Circuit Breaker Sentinel", html_out)
+            self.assertIn("OPEN", html_out)
+
+            # Webhook payloads contain circuit breaker status
+            slack_payload = webhook.format_slack_payload(d)
+            slack_str = json.dumps(slack_payload)
+            self.assertIn("Circuit Breakers", slack_str)
+            self.assertIn("OPEN", slack_str)
+
+            discord_payload = webhook.format_discord_payload(d)
+            discord_str = json.dumps(discord_payload)
+            self.assertIn("Circuit Breakers", discord_str)
+            self.assertIn("OPEN", discord_str)
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
     def test_scheduled_tweet_rescheduling_and_api(self):
         """Tests scheduled tweet rescheduling helpers, validation, and REST API."""
         import scheduler

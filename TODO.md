@@ -71,6 +71,7 @@
 - [x] Integrate multi-channel syndication DLQ deliverability metrics into digest pipeline and webhook alerts (`digest.py`, `webhook.py`, `templates/index.html`).
 - [x] Implement Dynamic Rate-Limit Backpressure Throttler & Circuit Breaker for Federation Outages (`syndication.py`, `db.py`, `dashboard.py`, Command Center UI).
 - [x] Implement Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`, `templates/index.html`).
+- [x] Integrate Federation Circuit Breaker Telemetry & Outage Alerts into Weekly Performance Digest & Webhooks (`digest.py`, `webhook.py`, `templates/index.html`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

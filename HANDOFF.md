@@ -1,21 +1,21 @@
-# Session Handoff - Release v0.47.0
+# Session Handoff - Release v0.48.0
 
-## Completed in v0.47.0:
-1. **Interactive Scheduled Tweet Rescheduling & Visual Drag-and-Drop Calendar Planner (`db.py`, `scheduler.py`, `dashboard.py`)**:
-   - Implemented database helper `reschedule_tweet(tweet_id, new_scheduled_time)` in `db.py` ensuring that tweets are rescheduled and status reset to `pending` with robust error handling.
-   - Implemented `reschedule_scheduled_tweet(tweet_id, new_scheduled_time)` in `scheduler.py` normalizing ISO timestamps (`YYYY-MM-DD HH:MM:SS`) and validating target timestamps.
-   - Added REST endpoint `POST /api/schedule/reschedule` in `dashboard.py` allowing instant operational rescheduling with ISO timestamp validation.
-2. **Command Center Interactive Drag-and-Drop Visual Calendar & Reschedule UI (`templates/index.html`)**:
-   - Upgraded the 7-day visual calendar grid planner (`#weekly-calendar-grid`) with interactive HTML5 drag-and-drop dropzones (`dragover`, `dragleave`, `drop`) mapped to target calendar days.
-   - Made queue table rows draggable (`draggable="true"`) carrying the `tweet_id` and content payload.
-   - Added manual prompt reschedule trigger buttons (`🕒`) alongside cancel buttons in the scheduled queue table.
-   - Added client-side asynchronous reschedule handler (`executeRescheduleTweet()`) with animated visual toast confirmations and automatic queue refresh.
+## Completed in v0.48.0:
+1. **Federation Circuit Breaker Telemetry & Outage Alerts in Performance Digest (`digest.py`, `webhook.py`)**:
+   - Integrated `db.get_all_circuit_breakers()` telemetry directly into `generate_performance_digest()`, aggregating real-time circuit states (`CLOSED`, `OPEN`, `HALF-OPEN`), failure counts, and trip timestamps across decentralized networks (Mastodon, Bluesky).
+   - Enhanced operational threshold evaluation in `evaluate_performance_alerts()` to flag critical anomaly alerts when any platform circuit breaker trips `OPEN` (fast-failing during node outages) and warning alerts when `HALF-OPEN` (cooldown canary recovery).
+   - Enriched operational `health_scorecard` with dynamic `federation_health` (`Nominal`, `Outage: [platforms]`, `Canary Recovery: [platforms]`) and updated `overall_health` scoring to flag Critical status upon active circuit outages.
+   - Updated Markdown report export (`export_digest_markdown`) and standalone HTML report export (`export_digest_html`) to format and render dedicated Federation Circuit Breaker Telemetry tables and outage status alerts.
+   - Enriched outbound Slack (`format_slack_payload`) and Discord (`format_discord_payload`) webhook dispatches with real-time federation circuit breaker status summaries (`cb_summary`).
+2. **Command Center Digest Circuit Breaker UI Integration (`templates/index.html`)**:
+   - Added live `#digest-circuit-breaker-badge` within the Weekly Performance Digest & Insights card displaying real-time federation circuit status (`Circuits: 🟢 Nominal (All Closed)`, `Circuits: 🔴 Outage (platform)`, or `Circuits: 🟡 Probing (platform)`).
+   - Extended client-side hydration (`fetchPerformanceDigest()`) to update the circuit badge dynamically on initial load and manual digest refresh.
 3. **Verification & Quality**:
-   - Added `test_scheduled_tweet_rescheduling_and_api` in `test_bot.py`.
-   - 120 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
+   - Added `test_digest_pipeline_circuit_breaker_telemetry_and_alerts` in `test_bot.py`.
+   - 121 automated unit tests passing cleanly (`python -m unittest test_bot.py`).
    - Zero lint errors (`flake8 .`).
-   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_47_calendar_reschedule.png`).
-   - Global version string bumped to `0.47.0` in `VERSION.md`.
+   - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_48_digest_cropped.png`).
+   - Global version string bumped to `0.48.0` in `VERSION.md`.
 
 ## Next Autonomous Objectives:
 - Automated AI A/B Tweet Variant Generator & Engagement Comparison Engine.

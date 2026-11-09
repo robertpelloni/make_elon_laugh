@@ -972,6 +972,7 @@
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
                     <div id="digest-approval" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">100%</div>
                     <div id="digest-ratings-breakdown" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">0 ratings evaluated</div>
+                    <div id="digest-circuit-breaker-badge" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;" title="Federation circuit breaker operational status">Circuits: Nominal</div>
                 </div>
             </div>
 
@@ -2127,6 +2128,23 @@
                     if (dlqEl) {
                         dlqEl.textContent = `DLQ: ${dlqData.pending || 0} Pend, ${dlqData.exhausted || 0} Exh, ${dlqData.replayed || 0} Repl`;
                         dlqEl.style.color = (dlqData.exhausted > 0) ? 'var(--accent-alert)' : ((dlqData.pending > 0) ? 'var(--accent-warn)' : 'var(--accent-success)');
+                    }
+
+                    const cbEl = document.getElementById('digest-circuit-breaker-badge');
+                    if (cbEl && d.circuit_breakers) {
+                const cbList = Array.isArray(d.circuit_breakers) ? d.circuit_breakers : Object.values(d.circuit_breakers || {});
+                const openCbs = cbList.filter(c => (c.state || '').toUpperCase() === 'OPEN');
+                const halfCbs = cbList.filter(c => (c.state || '').toUpperCase() === 'HALF-OPEN');
+                        if (openCbs.length > 0) {
+                            cbEl.textContent = `Circuits: 🔴 ${openCbs.length} OPEN (${openCbs.map(c => c.platform).join(', ')})`;
+                            cbEl.style.color = 'var(--danger)';
+                        } else if (halfCbs.length > 0) {
+                            cbEl.textContent = `Circuits: 🟡 ${halfCbs.length} HALF-OPEN (${halfCbs.map(c => c.platform).join(', ')})`;
+                            cbEl.style.color = 'var(--accent-warning)';
+                        } else {
+                            cbEl.textContent = `Circuits: 🟢 Nominal (All Closed)`;
+                            cbEl.style.color = 'var(--accent-success)';
+                        }
                     }
 
                     const topRep = d.replies.top_reply;

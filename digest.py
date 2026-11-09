@@ -86,6 +86,27 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
             "message": f"Syndication DLQ pending retries elevated ({dlq_pending} pending retries)."
         })
 
+    cb_data = digest_data.get("circuit_breakers", {})
+    cb_list = list(cb_data.values()) if isinstance(cb_data, dict) else (cb_data or [])
+    for cb in cb_list:
+        if not isinstance(cb, dict):
+            continue
+        plat = cb.get("platform", "unknown").capitalize()
+        state = cb.get("state", "CLOSED").upper()
+        if state == "OPEN":
+            reason = cb.get("last_failure_reason", "Outage")
+            alerts.append({
+                "level": "critical",
+                "type": f"circuit_breaker_{cb.get('platform')}_open",
+                "message": f"Federation circuit breaker for {plat} is OPEN ({reason}). Broadcasts are failing fast."
+            })
+        elif state == "HALF-OPEN":
+            alerts.append({
+                "level": "warning",
+                "type": f"circuit_breaker_{cb.get('platform')}_half_open",
+                "message": f"Federation circuit breaker for {plat} is HALF-OPEN. Probing for network recovery."
+            })
+
     return alerts
 
 
@@ -157,6 +178,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "replayed": 0,
             "discarded": 0
         },
+        "circuit_breakers": [],
         "deltas": {
             "replies": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "likes": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
@@ -390,24 +412,38 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             syn_plats = digest["syndication"].get("platforms", {})
             syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
 
-            if syn_posts >= 5 and syn_eng == 0:
+            # 6. Dead-Letter Queue & Circuit Breakers Telemetry Aggregation
+            digest["dlq"] = db.get_syndication_dlq_metrics(db_path=db_path)
+            digest["circuit_breakers"] = db.get_all_circuit_breakers(db_path=db_path)
+            raw_cbs = digest["circuit_breakers"]
+            cb_vals = list(raw_cbs.values()) if isinstance(raw_cbs, dict) else raw_cbs
+
+            open_cbs = [cb for cb in cb_vals if isinstance(cb, dict) and cb.get("state") == "OPEN"]
+            half_open_cbs = [cb for cb in cb_vals if isinstance(cb, dict) and cb.get("state") == "HALF-OPEN"]
+
+            if open_cbs:
+                open_plats = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
+                digest["health_scorecard"]["federation_health"] = f"Outage ({open_plats} Circuit OPEN)"
+            elif half_open_cbs:
+                half_plats = ", ".join([c.get("platform", "").capitalize() for c in half_open_cbs])
+                digest["health_scorecard"]["federation_health"] = f"Canary Recovery ({half_plats} HALF-OPEN)"
+            elif syn_posts >= 5 and syn_eng == 0:
                 digest["health_scorecard"]["federation_health"] = "Stalled (No Engagement)"
             elif syn_posts > 0:
                 digest["health_scorecard"]["federation_health"] = "Active"
             else:
                 digest["health_scorecard"]["federation_health"] = "Idle"
 
-            if backlog > 50:
+            if open_cbs:
+                digest["health_scorecard"]["overall_health"] = "Critical (Federation Outage / Circuit OPEN)"
+            elif backlog > 50:
                 digest["health_scorecard"]["overall_health"] = "Degraded (High Queue Backlog)"
+            elif digest["dlq"].get("exhausted", 0) > 0:
+                digest["health_scorecard"]["overall_health"] = "Attention (Syndication Failures in DLQ)"
             elif digest["health_scorecard"]["federation_health"] == "Stalled (No Engagement)":
                 digest["health_scorecard"]["overall_health"] = "Attention (Federation Stalled)"
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
-
-            # 6. Dead-Letter Queue Metrics Aggregation
-            digest["dlq"] = db.get_syndication_dlq_metrics(db_path=db_path)
-            if digest["dlq"].get("exhausted", 0) > 0:
-                digest["health_scorecard"]["overall_health"] = "Attention (Syndication Failures in DLQ)"
 
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
@@ -480,6 +516,26 @@ def export_digest_markdown(digest):
 
     federation_reach_md = "\n".join(platform_reach_lines)
 
+    cbs = digest.get("circuit_breakers", {})
+    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
+    if cb_list:
+        cb_lines = []
+        for cb in cb_list:
+            if not isinstance(cb, dict):
+                continue
+            p = cb.get("platform", "unknown").capitalize()
+            st = cb.get("state", "CLOSED").upper()
+            fails = cb.get("consecutive_failures", 0)
+            thresh = cb.get("failure_threshold", 3)
+            icon = "🟢" if st == "CLOSED" else ("🔴" if st == "OPEN" else "🟡")
+            reason_str = ""
+            if cb.get('last_failure_reason') and st != "CLOSED":
+                reason_str = f" - Reason: {cb.get('last_failure_reason')}"
+            cb_lines.append(f"- **{icon} {p}:** State `{st}` (Failures: {fails}/{thresh}){reason_str}")
+        circuit_breakers_md = "\n".join(cb_lines)
+    else:
+        circuit_breakers_md = "- *No circuit breaker records found (all nominal).*"
+
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
 
@@ -523,6 +579,9 @@ def export_digest_markdown(digest):
 - **DLQ Exhausted Failures:** {digest.get('dlq', {}).get('exhausted', 0)}
 - **DLQ Successfully Replayed:** {digest.get('dlq', {}).get('replayed', 0)}
 - **DLQ Discarded:** {digest.get('dlq', {}).get('discarded', 0)}
+
+## 🛡️ Federation Circuit Breaker Telemetry
+{circuit_breakers_md}
 
 ---
 *Autonomous Tactful Humor Operations Console*
@@ -636,6 +695,30 @@ def export_digest_html(digest):
             f"{p_likes} likes/favs &bull; {p_shares} shares &bull; avg {p_avg}/post</li>"
         )
     federation_html_items = "".join(html_platform_list) or "<li><em>No federated activity recorded.</em></li>"
+
+    cbs = digest.get("circuit_breakers", {})
+    cb_list = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
+    if cb_list:
+        cb_html_list = []
+        for cb in cb_list:
+            if not isinstance(cb, dict):
+                continue
+            p = cb.get("platform", "unknown").capitalize()
+            st = cb.get("state", "CLOSED").upper()
+            fails = cb.get("consecutive_failures", 0)
+            thresh = cb.get("failure_threshold", 3)
+            bg = "#dcfce7" if st == "CLOSED" else ("#fee2e2" if st == "OPEN" else "#fef3c7")
+            fg = "#166534" if st == "CLOSED" else ("#991b1b" if st == "OPEN" else "#92400e")
+            reason_info = ""
+            if cb.get('last_failure_reason') and st != "CLOSED":
+                reason_info = f" &bull; <em>{cb.get('last_failure_reason')}</em>"
+            cb_html_list.append(
+                f'<li><strong>{p}:</strong> <span class="badge" style="background: {bg}; color: {fg};">{st}</span> '
+                f'({fails}/{thresh} failures){reason_info}</li>'
+            )
+        cb_html_items = "".join(cb_html_list)
+    else:
+        cb_html_items = "<li><em>All circuits nominal (no faults logged).</em></li>"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -784,6 +867,11 @@ def export_digest_html(digest):
         <div class="card-val">{digest.get('dlq', {}).get('replayed', 0)}</div>
       </div>
     </div>
+
+    <h2>🛡️ Federation Circuit Breaker Sentinel</h2>
+    <ul>
+      {cb_html_items}
+    </ul>
 
     <footer>
       Autonomous Tactful Humor Operations Console &bull; Confidential Digest Report

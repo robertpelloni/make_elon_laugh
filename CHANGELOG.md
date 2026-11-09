@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.48.0] - 2026-11-08
+
+### Added
+- **Federation Circuit Breaker Telemetry, Outage Alerts & Health Scorecard Integration in Digest (`digest.py`, `webhook.py`)**:
+  - Integrated `db.get_all_circuit_breakers()` telemetry directly into `generate_performance_digest()`, aggregating real-time circuit states (`CLOSED`, `OPEN`, `HALF-OPEN`), failure counts, and trip timestamps across all decentralized platforms (Mastodon, Bluesky).
+  - Enhanced operational threshold evaluation in `evaluate_performance_alerts()` to flag critical anomaly alerts when any platform circuit breaker trips `OPEN` (fast-failing during network outages) and warning alerts when `HALF-OPEN` (cooldown canary recovery).
+  - Enriched operational `health_scorecard` with dynamic `federation_health` (`Nominal`, `Outage: [platforms]`, `Canary Recovery: [platforms]`) and updated `overall_health` scoring to flag Critical status upon active circuit outages.
+  - Updated Markdown report export (`export_digest_markdown`) and standalone HTML report export (`export_digest_html`) to format and render dedicated Federation Circuit Breaker Telemetry tables and outage status alerts.
+  - Enriched outbound Slack (`format_slack_payload`) and Discord (`format_discord_payload`) webhook dispatches with real-time federation circuit breaker status summaries (`cb_summary`).
+- **Command Center Digest Circuit Breaker UI Integration (`templates/index.html`)**:
+  - Added live `#digest-circuit-breaker-badge` within the Weekly Performance Digest & Insights card displaying real-time federation circuit status (`Circuits: 🟢 Nominal (All Closed)`, `Circuits: 🔴 Outage (platform)`, or `Circuits: 🟡 Probing (platform)`).
+  - Extended client-side hydration (`fetchPerformanceDigest()`) to update the circuit badge dynamically on initial load and manual digest refresh.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_digest_pipeline_circuit_breaker_telemetry_and_alerts` in `test_bot.py` validating metrics aggregation across open/half-open circuits, anomaly alert generation, health scorecard grading, Markdown/HTML formatting, and Slack/Discord webhook serialization (121 passing unit tests, clean flake8).
+  - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_48_digest_cropped.png`).
+
 ## [0.47.0] - 2026-11-08
 
 ### Added
