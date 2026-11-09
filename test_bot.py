@@ -3077,6 +3077,71 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_multi_channel_webhook_and_history(self):
+        """Tests multi-channel webhook dispatching and history recording."""
+        import json
+        from unittest.mock import patch, MagicMock
+
+        # Reset history
+        webhook.DISPATCH_HISTORY.clear()
+
+        # 1. Test record and get dispatch history
+        entry = webhook.record_dispatch_history("https://hooks.slack.com/services/123", "slack", 200, True)
+        self.assertEqual(entry["adapter"], "slack")
+        self.assertTrue(entry["success"])
+        self.assertIn("hooks.slack.com", entry["target_url"])
+
+        history = webhook.get_webhook_dispatch_history()
+        self.assertEqual(len(history), 1)
+
+        # 2. Test dispatch_digest_to_all_channels with mock
+        mock_response = MagicMock()
+        mock_response.getcode.return_value = 200
+        mock_response.__enter__.return_value = mock_response
+
+        dummy_digest = {"replies": {}, "ratings": {}, "queue": {}}
+        channels = [
+            {"name": "ops", "url": "https://hooks.slack.com/ops", "adapter": "slack"},
+            {"name": "community", "url": "https://discord.com/api/webhooks/comm", "adapter": "discord"}
+        ]
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            results = webhook.dispatch_digest_to_all_channels(dummy_digest, channels=channels)
+            self.assertIn("ops", results)
+            self.assertIn("community", results)
+            self.assertTrue(results["ops"]["success"])
+            self.assertTrue(results["community"]["success"])
+
+        # History should now contain 3 items total
+        new_hist = webhook.get_webhook_dispatch_history()
+        self.assertEqual(len(new_hist), 3)
+
+        # 3. Test Dashboard REST endpoints
+        client = dashboard.app.test_client()
+
+        # GET /api/webhook/history
+        res_hist = client.get('/api/webhook/history')
+        self.assertEqual(res_hist.status_code, 200)
+        data_hist = json.loads(res_hist.data)
+        self.assertTrue(data_hist["success"])
+        self.assertEqual(len(data_hist["history"]), 3)
+
+        # POST /api/webhook/multi
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            res_multi = client.post('/api/webhook/multi', json={
+                "channels": [
+                    {"url": "https://hooks.slack.com/test", "adapter": "slack"}
+                ]
+            })
+            self.assertEqual(res_multi.status_code, 200)
+            data_multi = json.loads(res_multi.data)
+            self.assertTrue(data_multi["success"])
+            self.assertEqual(data_multi["total_channels"], 1)
+
+        # Test empty channels list rejection
+        bad_multi = client.post('/api/webhook/multi', json={"channels": []})
+        self.assertEqual(bad_multi.status_code, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

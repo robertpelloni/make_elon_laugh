@@ -75,6 +75,7 @@
 - [x] Implement Hourly Engagement Heatmap & AI Strategic Recommendations in Performance Digest (`digest.py`, `webhook.py`, `templates/index.html`).
 - [x] Implement Per-Platform Metric Extraction, Velocity Tiers, Distribution Shares & Alert Banner Expansion (`digest.py`, `webhook.py`, `templates/index.html`).
 - [x] Implement Automated Digest Report Archiver, Retention Manager & Snapshot Explorer (`digest.py`, `dashboard.py`, `templates/index.html`).
+- [x] Implement Multi-Channel Webhook Dispatch Router & Audit History Log (`webhook.py`, `dashboard.py`, `templates/index.html`).
 
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.

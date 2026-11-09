@@ -1089,6 +1089,40 @@
                     <div id="webhook-last-dispatch" style="font-size: 0.75rem; color: var(--text-muted);">Last Broadcast: None</div>
                 </div>
                 <div id="webhook-feedback" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem;"></div>
+
+                <!-- Webhook Dispatch History Viewer -->
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-color);">
+                            📋 Webhook Dispatch Log &amp; Broadcast History
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Real-time audit log of external webhook dispatches including status codes, recipient platforms, and latency errors.</span>
+                            </div>
+                        </span>
+                        <button class="btn btn-secondary btn-sm" onclick="fetchWebhookHistory()" style="padding: 0.15rem 0.45rem; font-size: 0.7rem;">
+                            🔄 Refresh Log
+                        </button>
+                    </div>
+                    <div id="webhook-history-container" style="max-height: 120px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card);">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+                            <thead>
+                                <tr style="background: var(--surface-accent); color: var(--text-muted); border-bottom: 1px solid var(--border-color);">
+                                    <th style="padding: 4px 8px;">Timestamp</th>
+                                    <th style="padding: 4px 8px;">Target</th>
+                                    <th style="padding: 4px 8px;">Adapter</th>
+                                    <th style="padding: 4px 8px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="webhook-history-tbody">
+                                <tr>
+                                    <td colspan="4" style="padding: 8px; text-align: center; color: var(--text-muted); font-style: italic;">
+                                        No webhook dispatches recorded in this session.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Social Federation Syndication Section -->
@@ -2424,9 +2458,58 @@
                     badge.textContent = 'Not Configured';
                     badge.className = 'status-badge warn';
                 }
+
+                if (Array.isArray(data.history)) {
+                    renderWebhookHistory(data.history);
+                }
             } catch (err) {
                 console.error("Error loading webhook config:", err);
             }
+        }
+
+        async function fetchWebhookHistory() {
+            try {
+                const res = await fetch('/api/webhook/history');
+                const data = await res.json();
+                if (data.success && Array.isArray(data.history)) {
+                    renderWebhookHistory(data.history);
+                }
+            } catch (err) {
+                console.error("Error fetching webhook history:", err);
+            }
+        }
+
+        function renderWebhookHistory(historyItems) {
+            const tbody = document.getElementById('webhook-history-tbody');
+            if (!tbody) return;
+
+            if (!historyItems || historyItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="padding: 8px; text-align: center; color: var(--text-muted); font-style: italic;">
+                            No webhook dispatches recorded in this session.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = historyItems.map(item => {
+                const isSuccess = item.success;
+                const statusColor = isSuccess ? 'var(--accent-success)' : 'var(--danger)';
+                const statusBadge = isSuccess
+                    ? `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">HTTP ${item.status_code || 200}</span>`
+                    : `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;" title="${item.error || 'Failed'}">Error</span>`;
+
+                return `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 4px 8px; color: var(--text-muted);">${item.timestamp}</td>
+                        <td style="padding: 4px 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-color);">${item.target_url}</td>
+                        <td style="padding: 4px 8px; text-transform: uppercase; font-weight: 600; color: var(--text-muted);">${item.adapter}</td>
+                        <td style="padding: 4px 8px;">${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         async function saveWebhookSettings() {
@@ -2485,9 +2568,11 @@
                 if (data.success) {
                     feedback.textContent = "🚀 " + data.message;
                     feedback.style.color = "var(--accent-success)";
+                    fetchWebhookHistory();
                 } else {
                     feedback.textContent = "❌ " + (data.error || "Webhook dispatch failed.");
                     feedback.style.color = "var(--accent-alert)";
+                    fetchWebhookHistory();
                 }
             } catch (err) {
                 feedback.textContent = "❌ Error triggering webhook: " + err.message;

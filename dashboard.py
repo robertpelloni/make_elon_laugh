@@ -748,7 +748,18 @@ def api_schedule():
     total_cancelled = 0
     account_counts = {}
 
-    all_recent = db.get_scheduled_tweets(limit=100)
+    # Sample up to 500 recent scheduled items and all pending items to compute accurate calendar distributions
+    all_pending = db.get_scheduled_tweets(status="pending", limit=200)
+    for t in all_pending:
+        try:
+            date_str = t.get("scheduled_time", "").split(" ")[0]
+            dt = time.strptime(date_str, "%Y-%m-%d")
+            weekday = day_abbrs[dt.tm_wday]
+            calendar_breakdown[weekday] += 1
+        except Exception:
+            pass
+
+    all_recent = db.get_scheduled_tweets(limit=200)
     for t in all_recent:
         st = t.get("status", "pending")
         acc = t.get("account_handle", "@make_elon_laugh") or "@make_elon_laugh"
@@ -756,14 +767,6 @@ def api_schedule():
 
         if st == "pending":
             total_pending += 1
-            # Add to day breakdown if parsable
-            try:
-                date_str = t.get("scheduled_time", "").split(" ")[0]
-                dt = time.strptime(date_str, "%Y-%m-%d")
-                weekday = day_abbrs[dt.tm_wday]
-                calendar_breakdown[weekday] += 1
-            except Exception:
-                pass
         elif st == "sent":
             total_sent += 1
         elif st == "cancelled":
@@ -1500,8 +1503,50 @@ def api_webhook():
         "adapter": webhook.DEFAULT_ADAPTER,
         "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
         "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,
-        "last_dispatch": webhook.LAST_DISPATCH_TIMESTAMP
+        "last_dispatch": webhook.LAST_DISPATCH_TIMESTAMP,
+        "history": webhook.get_webhook_dispatch_history()[:10]
     })
+
+
+@app.route('/api/webhook/history', methods=['GET'])
+def api_webhook_history():
+    """Returns the recorded webhook dispatch history log."""
+    return jsonify({
+        "success": True,
+        "history": webhook.get_webhook_dispatch_history()
+    })
+
+
+@app.route('/api/webhook/multi', methods=['POST'])
+def api_webhook_multi():
+    """
+    Broadcasts digest to multiple webhook targets simultaneously.
+    Body:
+      {
+        "channels": [
+          {"url": "...", "adapter": "slack", "secret": "..."},
+          {"url": "...", "adapter": "discord"}
+        ]
+      }
+    """
+    data = request.get_json(silent=True) or {}
+    channels = data.get("channels", [])
+    if not isinstance(channels, list) or len(channels) == 0:
+        return jsonify({"success": False, "error": "Channels list cannot be empty."}), 400
+
+    try:
+        summary = digest.generate_performance_digest(days=7)
+        results = webhook.dispatch_digest_to_all_channels(summary, channels=channels)
+        all_success = all(r.get("success", False) for r in results.values())
+        return jsonify({
+            "success": all_success,
+            "results": results,
+            "total_channels": len(results),
+            "history": webhook.get_webhook_dispatch_history()[:10]
+        }), 200 if all_success else 207
+    except Exception as e:
+        app.logger.error(f"Error in multi-channel webhook dispatch: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/shutdown', methods=['POST'])

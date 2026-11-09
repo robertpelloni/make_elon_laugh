@@ -25,6 +25,36 @@ DEFAULT_ADAPTER = os.environ.get("DIGEST_WEBHOOK_ADAPTER", "generic").lower()
 AUTO_DISPATCH_ENABLED = os.environ.get("DIGEST_AUTO_DISPATCH", "false").lower() in ["true", "1", "yes"]
 DISPATCH_INTERVAL_HOURS = int(os.environ.get("DIGEST_INTERVAL_HOURS", "168"))  # default 7 days (168 hours)
 LAST_DISPATCH_TIMESTAMP = 0.0
+DISPATCH_HISTORY = []
+MAX_HISTORY_ITEMS = 50
+
+
+def record_dispatch_history(target_url, adapter, status_code, success, error_msg="", is_multi=False):
+    """Records an entry in the in-memory dispatch history log."""
+    masked_url = target_url
+    if target_url and "://" in target_url:
+        parts = target_url.split("://", 1)
+        domain = parts[1].split("/", 1)[0]
+        masked_url = f"{parts[0]}://{domain}/..."
+
+    entry = {
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+        "target_url": masked_url,
+        "adapter": adapter,
+        "status_code": status_code,
+        "success": success,
+        "error": str(error_msg) if error_msg else None,
+        "multi_channel": is_multi,
+    }
+    DISPATCH_HISTORY.insert(0, entry)
+    if len(DISPATCH_HISTORY) > MAX_HISTORY_ITEMS:
+        DISPATCH_HISTORY.pop()
+    return entry
+
+
+def get_webhook_dispatch_history():
+    """Returns the recorded webhook dispatch history."""
+    return list(DISPATCH_HISTORY)
 
 
 def compute_webhook_signature(payload_bytes, secret):
@@ -375,3 +405,60 @@ def dispatch_webhook(webhook_url, payload, max_retries=2, timeout=5, secret=None
 
     logger.error(f"Failed to dispatch webhook after retries: {last_error}")
     return False, str(last_error)
+
+
+def dispatch_digest_to_all_channels(digest_data, channels=None):
+    """
+    Dispatches formatted digest to multiple webhook channels.
+    `channels`: list of dicts, e.g.:
+      [{"url": "https://hooks.slack.com/...", "adapter": "slack", "secret": "..."}]
+    If channels is None or empty, falls back to DEFAULT_WEBHOOK_URL and DEFAULT_ADAPTER.
+
+    Returns dict mapping channel index to result dict:
+      {"channel_0": {"success": True, "status": 200, "url": "...", "adapter": "..."}, ...}
+    """
+    if channels is None or len(channels) == 0:
+        if not DEFAULT_WEBHOOK_URL:
+            return {"default": {"success": False, "error": "No default webhook URL configured."}}
+        channels = [{
+            "url": DEFAULT_WEBHOOK_URL,
+            "adapter": DEFAULT_ADAPTER,
+            "secret": DEFAULT_WEBHOOK_SECRET
+        }]
+
+    results = {}
+    is_multi = len(channels) > 1
+
+    for idx, ch in enumerate(channels):
+        url = ch.get("url")
+        adapter = ch.get("adapter", "generic").lower()
+        secret = ch.get("secret", None)
+        ch_key = ch.get("name") or f"channel_{idx}"
+
+        if not url:
+            record_dispatch_history(url or "None", adapter, None, False, "Missing URL", is_multi=is_multi)
+            results[ch_key] = {"success": False, "error": "Missing webhook URL", "adapter": adapter}
+            continue
+
+        try:
+            payload = format_webhook_payload(digest_data, adapter=adapter)
+            ok, status_or_err = dispatch_webhook(url, payload, secret=secret)
+            record_dispatch_history(
+                url, adapter,
+                status_or_err if ok else None,
+                ok,
+                "" if ok else str(status_or_err),
+                is_multi=is_multi
+            )
+            results[ch_key] = {
+                "success": ok,
+                "status": status_or_err if ok else None,
+                "error": None if ok else str(status_or_err),
+                "adapter": adapter,
+                "url": url[:30] + "..." if len(url) > 30 else url
+            }
+        except Exception as e:
+            record_dispatch_history(url, adapter, None, False, str(e), is_multi=is_multi)
+            results[ch_key] = {"success": False, "error": str(e), "adapter": adapter}
+
+    return results
