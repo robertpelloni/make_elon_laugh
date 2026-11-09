@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-11-09 19:56:06 UTC",
+  "window_days": 7,
+  "replies": {
+    "total_replies": 0,
+    "total_likes": 0,
+    "total_retweets": 0,
+    "avg_likes_per_reply": 0.0,
+    "avg_retweets_per_reply": 0.0,
+    "top_reply": null
+  },
+  "queue": {
+    "total_scheduled": 288,
+    "pending": 69,
+    "sent": 6,
+    "cancelled": 213,
+    "persona_distribution": {
+      "astrophysics_fact": 1,
+      "deadpan_astronomer": 59,
+      "tactful_engineer": 13,
+      "witty_ai": 215
+    },
+    "account_distribution": {
+      "@make_elon_laugh": 215,
+      "@space_astronomy": 73
+    }
+  },
+  "ratings": {
+    "total_ratings": 146,
+    "upvotes": 146,
+    "downvotes": 0,
+    "approval_rate": 100.0,
+    "top_humor": [
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      },
+      {
+        "content": "Rocket test",
+        "rating": 1,
+        "notes": null
+      }
+    ]
+  },
+  "syndication": {
+    "total_posts": 817,
+    "platforms": {
+      "mastodon": {
+        "posts": 409,
+        "likes": 3320,
+        "shares": 1050
+      },
+      "bluesky": {
+        "posts": 408,
+        "likes": 4199,
+        "shares": 1723
+      }
+    }
+  },
+  "deltas": {
+    "replies": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "likes": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "retweets": {
+      "current": 0,
+      "previous": 0,
+      "diff": 0,
+      "pct": 0.0
+    },
+    "queue_sent": {
+      "current": 6,
+      "previous": 0,
+      "diff": 6,
+      "pct": 100.0
+    },
+    "syndication_posts": {
+      "current": 817,
+      "previous": 0,
+      "diff": 817,
+      "pct": 100.0
+    },
+    "syndication_engagement": {
+      "current": 10292,
+      "previous": 0,
+      "diff": 10292,
+      "pct": 100.0
+    }
+  },
+  "health_scorecard": {
+    "db_connected": true,
+    "queue_backlog": 69,
+    "sentiment_status": "Positive",
+    "federation_health": "Active",
+    "overall_health": "Degraded (High Queue Backlog)"
+  },
+  "alerts": [
+    {
+      "level": "warning",
+      "type": "queue_backlog_high",
+      "message": "Scheduled tweet backlog has reached 69 items (threshold: >50)."
+    }
+  ]
+}
