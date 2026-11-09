@@ -976,6 +976,22 @@
                 </div>
             </div>
 
+            <!-- Heatmap Peak Window & Strategic AI Insights Section -->
+            <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                        ⏱️ Hourly Activity Heatmap & Strategic Timing Recommendations
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Aggregates historical audience engagement patterns across the 24-hour UTC cycle to recommend optimal scheduling slots.</span>
+                        </div>
+                    </span>
+                    <span id="digest-peak-slot-badge" class="badge" style="font-size: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--accent-primary); font-weight: 700;">Peak Slot: Loading...</span>
+                </div>
+                <div id="digest-recommendations-list" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; display: flex; flex-direction: column; gap: 0.3rem;">
+                    <div style="font-style: italic;">Analyzing telemetry patterns...</div>
+                </div>
+            </div>
+
             <!-- Webhook Dispatch & Alerts Section -->
             <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
@@ -2161,6 +2177,24 @@
 
                     document.getElementById('digest-approval').textContent = `${d.ratings.approval_rate || 100}%`;
                     document.getElementById('digest-ratings-breakdown').textContent = `${d.ratings.total_ratings || 0} ratings evaluated (+${d.ratings.upvotes} / -${d.ratings.downvotes})`;
+
+                    // Hydrate Peak Window & Strategic Recommendations
+                    const peakBadge = document.getElementById('digest-peak-slot-badge');
+                    if (peakBadge && d.heatmap) {
+                        const winLabel = d.heatmap.peak_window_label || '17:00 - 18:00 UTC';
+                        const eng = d.heatmap.peak_engagement || 0;
+                        const posts = d.heatmap.peak_posts || 0;
+                        peakBadge.textContent = `Peak Slot: ⏱️ ${winLabel} (${eng} eng / ${posts} posts)`;
+                    }
+                    const recsListEl = document.getElementById('digest-recommendations-list');
+                    if (recsListEl) {
+                        const recs = d.recommendations || [];
+                        if (recs.length > 0) {
+                            recsListEl.innerHTML = recs.map(r => `<div style="display: flex; gap: 0.4rem; align-items: flex-start;"><span style="color: var(--accent-primary);">•</span><span>${r}</span></div>`).join('');
+                        } else {
+                            recsListEl.innerHTML = '<div style="font-style: italic;">All channels operating nominally. No strategic calibrations required.</div>';
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Performance digest fetch error:", err);

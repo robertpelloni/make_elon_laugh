@@ -8,7 +8,7 @@ and exportable markdown and structured summaries for bot operators.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import sqlite3
 import db
 
@@ -120,6 +120,171 @@ def _compute_delta(current, previous):
     return {"current": current, "previous": previous, "diff": diff, "pct": pct}
 
 
+def compute_hourly_engagement_heatmap(days=30, db_path=db.DB_PATH):
+    """
+    Computes hourly engagement distribution (0-23 UTC) across public replies and
+    syndicated federation posts over the specified historical window (default 30 days).
+
+    Returns dictionary with:
+      - 'hours': list of 24 hourly dicts (hour, posts, likes, shares, total_engagement)
+      - 'peak_hour': the hour with maximum total engagement (or post density)
+      - 'peak_window_label': e.g. '14:00 - 15:00 UTC'
+      - 'total_tracked_events': total posts/replies sampled across the window
+    """
+    db.init_db(db_path)
+    heatmap = {
+        h: {"hour": h, "posts": 0, "likes": 0, "shares": 0, "total_engagement": 0}
+        for h in range(24)
+    }
+    total_events = 0
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+        # Sample replied_tweets within window
+        cursor.execute("""
+            SELECT replied_at, likes, retweets
+            FROM replied_tweets
+            WHERE replied_at >= ?
+        """, (cutoff,))
+        for replied_at, l, rt in cursor.fetchall():
+            if not replied_at:
+                continue
+            try:
+                clean_ts = str(replied_at).replace("Z", "").split("+")[0].strip()
+                if " " in clean_ts:
+                    hr = int(clean_ts.split(" ")[1].split(":")[0])
+                elif "T" in clean_ts:
+                    hr = int(clean_ts.split("T")[1].split(":")[0])
+                else:
+                    continue
+                if 0 <= hr < 24:
+                    heatmap[hr]["posts"] += 1
+                    heatmap[hr]["likes"] += (l or 0)
+                    heatmap[hr]["shares"] += (rt or 0)
+                    heatmap[hr]["total_engagement"] += (l or 0) + (rt or 0)
+                    total_events += 1
+            except Exception:
+                continue
+
+        # Sample syndicated_posts within window
+        cursor.execute("""
+            SELECT created_at, likes, shares
+            FROM syndicated_posts
+            WHERE created_at >= ?
+        """, (cutoff,))
+        for created_at, l, sh in cursor.fetchall():
+            if not created_at:
+                continue
+            try:
+                clean_ts = str(created_at).replace("Z", "").split("+")[0].strip()
+                if " " in clean_ts:
+                    hr = int(clean_ts.split(" ")[1].split(":")[0])
+                elif "T" in clean_ts:
+                    hr = int(clean_ts.split("T")[1].split(":")[0])
+                else:
+                    continue
+                if 0 <= hr < 24:
+                    heatmap[hr]["posts"] += 1
+                    heatmap[hr]["likes"] += (l or 0)
+                    heatmap[hr]["shares"] += (sh or 0)
+                    heatmap[hr]["total_engagement"] += (l or 0) + (sh or 0)
+                    total_events += 1
+            except Exception:
+                continue
+
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error computing hourly engagement heatmap: {e}")
+
+    hours_list = [heatmap[h] for h in range(24)]
+    if total_events > 0:
+        peak_entry = max(hours_list, key=lambda x: (x["total_engagement"], x["posts"]))
+        peak_h = peak_entry["hour"]
+    else:
+        # Fallback to industry peak 17:00 UTC
+        peak_h = 17
+        peak_entry = heatmap[peak_h]
+
+    return {
+        "hours": hours_list,
+        "peak_hour": peak_h,
+        "peak_window_label": f"{peak_h:02d}:00 - {(peak_h + 1) % 24:02d}:00 UTC",
+        "peak_engagement": peak_entry["total_engagement"],
+        "peak_posts": peak_entry["posts"],
+        "total_tracked_events": total_events,
+    }
+
+
+def generate_digest_engagement_recommendations(digest_data):
+    """
+    Synthesizes actionable audience engagement recommendations from digest performance metrics,
+    heatmap peak windows, persona distribution, and federation health.
+    """
+    recs = []
+    heatmap = digest_data.get("heatmap", {})
+    peak_label = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
+    total_events = heatmap.get("total_tracked_events", 0)
+
+    if total_events > 0:
+        recs.append(
+            f"🎯 Optimal Post Timing: Highest historical audience engagement converges at "
+            f"{peak_label} ({heatmap.get('peak_engagement', 0)} engagements across "
+            f"{heatmap.get('peak_posts', 0)} posts). Schedule high-priority announcements in this slot."
+        )
+    else:
+        recs.append(
+            f"🎯 Recommended Post Timing: Defaulting to high-traffic aerospace window {peak_label}. "
+            "Queue posts across this timeframe to seed historical telemetry."
+        )
+
+    queue = digest_data.get("queue", {})
+    persona_dist = queue.get("persona_distribution", {})
+    if persona_dist:
+        top_persona = max(persona_dist.items(), key=lambda kv: kv[1])[0]
+        recs.append(
+            f"🎭 Content Persona Allocation: '{top_persona}' leads queue volume ({persona_dist[top_persona]} posts). "
+            "Consider rotating with secondary personas to preserve audience freshness."
+        )
+
+    media_dist = queue.get("media_distribution", {})
+    comp_count = media_dist.get("composite", 0)
+    single_count = media_dist.get("single", 0)
+    if single_count > 0 and comp_count == 0:
+        recs.append(
+            "🌌 Media Diversity: 100% of queued media are single cards. Integrate multi-panel composite infographics "
+            "to lift deep-space narrative engagement across Mastodon and Bluesky."
+        )
+
+    cbs = digest_data.get("circuit_breakers", [])
+    cb_vals = list(cbs.values()) if isinstance(cbs, dict) else (cbs or [])
+    open_cbs = [c for c in cb_vals if isinstance(c, dict) and c.get("state") == "OPEN"]
+    if open_cbs:
+        c_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
+        recs.append(
+            f"⚠️ Operational Resilience: Outage detected on {c_names} (Circuit OPEN). "
+            "Wait for automatic canary recovery or verify upstream node connectivity."
+        )
+
+    rat = digest_data.get("ratings", {})
+    approval = rat.get("approval_rate", 0.0)
+    total_ratings = rat.get("total_ratings", 0)
+    if total_ratings >= 5 and approval < 60.0:
+        recs.append(
+            f"📉 Humor Calibration: Approval rating at {approval:.1f}%. "
+            "Refine LLM tone styling or switch persona presets in Command Center."
+        )
+    elif approval >= 80.0 and total_ratings >= 5:
+        recs.append(
+            f"🌟 Strong Audience Alignment: High community approval ({approval:.1f}%). "
+            "Maintain current humor prompt parameters."
+        )
+
+    return recs
+
+
 def generate_performance_digest(db_path=db.DB_PATH, days=7):
     """
     Computes performance and engagement metrics over the preceding `days` window,
@@ -179,6 +344,8 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "discarded": 0
         },
         "circuit_breakers": [],
+        "heatmap": {},
+        "recommendations": [],
         "deltas": {
             "replies": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "likes": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
@@ -445,6 +612,10 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
+            # 7. Hourly Heatmap & AI Engagement Recommendations
+            digest["heatmap"] = compute_hourly_engagement_heatmap(days=max(days, 30), db_path=db_path)
+            digest["recommendations"] = generate_digest_engagement_recommendations(digest)
+
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
 
@@ -491,6 +662,21 @@ def export_digest_markdown(digest):
                      f"({top_rep['likes']} likes, {top_rep['retweets']} retweets, posted {top_rep['replied_at']})"
     else:
         top_rep_md = "- **Top Performing Reply:** None recorded in this period."
+
+    recs = digest.get("recommendations", [])
+    if recs:
+        recs_md = "## 💡 Strategic Engagement Recommendations\n" + "\n".join(
+            [f"- {r}" for r in recs]
+        ) + "\n\n"
+    else:
+        recs_md = ""
+
+    heatmap = digest.get("heatmap", {})
+    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
+    heatmap_md = f"## ⏱️ Hourly Activity & Optimal Engagement Windows\n" \
+                 f"- **Peak Historical Window:** `{peak_win}` " \
+                 f"({heatmap.get('peak_engagement', 0)} engagements, {heatmap.get('peak_posts', 0)} posts sampled)\n" \
+                 f"- **Total Tracked Historical Dispatches:** {heatmap.get('total_tracked_events', 0)}\n\n"
 
     if alerts:
         alerts_md = "## ⚠️ Active System Anomaly Alerts\n" + "\n".join(
@@ -583,7 +769,7 @@ def export_digest_markdown(digest):
 ## 🛡️ Federation Circuit Breaker Telemetry
 {circuit_breakers_md}
 
----
+{heatmap_md}{recs_md}---
 *Autonomous Tactful Humor Operations Console*
 """
     return md
@@ -719,6 +905,36 @@ def export_digest_html(digest):
         cb_html_items = "".join(cb_html_list)
     else:
         cb_html_items = "<li><em>All circuits nominal (no faults logged).</em></li>"
+
+    recs = digest.get("recommendations", [])
+    if recs:
+        recs_html_items = "".join([f"<li>{r}</li>" for r in recs])
+        recs_section_html = f"""
+    <h2>💡 Strategic Engagement Recommendations</h2>
+    <div class="card" style="border-left: 4px solid #0284c7; background: #f0f9ff;">
+      <ul style="margin: 0; padding-left: 20px;">
+        {recs_html_items}
+      </ul>
+    </div>
+"""
+    else:
+        recs_section_html = ""
+
+    heatmap = digest.get("heatmap", {})
+    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
+    heatmap_section_html = f"""
+    <h2>⏱️ Hourly Engagement & Optimal Windows</h2>
+    <div class="card">
+      <div style="font-size: 0.95rem; margin-bottom: 8px;">
+        <strong>Peak Historical Window:</strong>
+        <span class="badge" style="background: #e0f2fe; color: #0369a1;">{peak_win}</span>
+        ({heatmap.get('peak_engagement', 0)} engagements sampled across {heatmap.get('peak_posts', 0)} posts)
+      </div>
+      <div style="font-size: 0.85rem; color: #64748b;">
+        Total historical dispatches tracked: <strong>{heatmap.get('total_tracked_events', 0)}</strong>
+      </div>
+    </div>
+"""
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -872,6 +1088,9 @@ def export_digest_html(digest):
     <ul>
       {cb_html_items}
     </ul>
+
+    {heatmap_section_html}
+    {recs_section_html}
 
     <footer>
       Autonomous Tactful Humor Operations Console &bull; Confidential Digest Report

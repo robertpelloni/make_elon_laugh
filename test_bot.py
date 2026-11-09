@@ -2850,6 +2850,89 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_digest_hourly_heatmap_and_recommendations(self):
+        """Tests compute_hourly_engagement_heatmap, recommendation synthesis, and webhook serialization."""
+        test_db = f"test_heatmap_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Test empty database fallback (nominal defaults)
+            empty_heatmap = digest.compute_hourly_engagement_heatmap(days=30, db_path=test_db)
+            self.assertEqual(len(empty_heatmap["hours"]), 24)
+            self.assertEqual(empty_heatmap["total_tracked_events"], 0)
+            self.assertEqual(empty_heatmap["peak_hour"], 17)
+            self.assertEqual(empty_heatmap["peak_window_label"], "17:00 - 18:00 UTC")
+
+            # 2. Populate test events across replied_tweets and syndicated_posts
+            with sqlite3.connect(test_db) as conn:
+                cursor = conn.cursor()
+                # 3 replied_tweets at 14:00 UTC with engagement
+                cursor.execute(
+                    "INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets) VALUES (?, ?, ?, ?)",
+                    ("1001", "2026-11-08 14:15:00", 25, 5)
+                )
+                cursor.execute(
+                    "INSERT INTO replied_tweets (tweet_id, replied_at, likes, retweets) VALUES (?, ?, ?, ?)",
+                    ("1002", "2026-11-08 14:45:00", 15, 2)
+                )
+                # 2 syndicated_posts at 14:00 UTC
+                cursor.execute(
+                    """INSERT INTO syndicated_posts
+                       (platform, remote_id, content, likes, shares, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ("mastodon", "m_01", "Post 1", 10, 3, "success", "2026-11-08 14:30:00", "2026-11-08 14:30:00")
+                )
+                # 1 post at 09:00 UTC with lower engagement
+                cursor.execute(
+                    """INSERT INTO syndicated_posts
+                       (platform, remote_id, content, likes, shares, status, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    ("bluesky", "b_01", "Post 2", 2, 1, "success", "2026-11-08 09:10:00", "2026-11-08 09:10:00")
+                )
+                conn.commit()
+
+            populated_heatmap = digest.compute_hourly_engagement_heatmap(days=30, db_path=test_db)
+            self.assertEqual(populated_heatmap["total_tracked_events"], 4)
+            self.assertEqual(populated_heatmap["peak_hour"], 14)
+            self.assertEqual(populated_heatmap["peak_window_label"], "14:00 - 15:00 UTC")
+            self.assertEqual(populated_heatmap["peak_posts"], 3)
+            # 25+5 + 15+2 + 10+3 = 60 engagement at hour 14
+            self.assertEqual(populated_heatmap["peak_engagement"], 60)
+
+            # 3. Test recommendation generation in complete digest
+            digest_summary = digest.generate_performance_digest(db_path=test_db, days=7)
+            self.assertIn("heatmap", digest_summary)
+            self.assertIn("recommendations", digest_summary)
+            self.assertEqual(digest_summary["heatmap"]["peak_hour"], 14)
+            recs = digest_summary["recommendations"]
+            self.assertTrue(len(recs) > 0)
+            self.assertTrue(any("14:00 - 15:00 UTC" in r for r in recs))
+
+            # 4. Multi-format export validations
+            md_output = digest.export_digest_markdown(digest_summary)
+            self.assertIn("## ⏱️ Hourly Activity & Optimal Engagement Windows", md_output)
+            self.assertIn("14:00 - 15:00 UTC", md_output)
+            self.assertIn("## 💡 Strategic Engagement Recommendations", md_output)
+
+            html_output = digest.export_digest_html(digest_summary)
+            self.assertIn("Hourly Engagement &amp; Optimal Windows", html_output.replace("& ", "&amp; "))
+            self.assertIn("Strategic Engagement Recommendations", html_output)
+
+            # 5. Webhook serialization validations
+            slack_payload = webhook.format_slack_payload(digest_summary)
+            self.assertTrue(any(
+                "Peak Engagement Slot" in str(f)
+                for b in slack_payload["blocks"] if "fields" in b for f in b["fields"]
+            ))
+
+            discord_payload = webhook.format_discord_payload(digest_summary)
+            discord_fields = discord_payload["embeds"][0]["fields"]
+            self.assertTrue(any(f["name"] == "Peak Engagement" for f in discord_fields))
+            self.assertTrue(any(f["name"] == "💡 Strategic Insights" for f in discord_fields))
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
 
 if __name__ == "__main__":
     unittest.main()

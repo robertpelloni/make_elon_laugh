@@ -111,6 +111,10 @@ def format_slack_payload(digest_data):
         open_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs])
         cb_summary = f"⚠️ {len(open_cbs)} OPEN ({open_names})"
 
+    heatmap = digest_data.get("heatmap", {})
+    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
+    recs = digest_data.get("recommendations", [])
+
     blocks = [
         {
             "type": "header",
@@ -145,6 +149,10 @@ def format_slack_payload(digest_data):
                 {
                     "type": "mrkdwn",
                     "text": f"*Circuit Breakers:*\n{cb_summary}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Peak Engagement Slot:*\n⏱️ {peak_win}"
                 }
             ]
         }
@@ -183,6 +191,16 @@ def format_slack_payload(digest_data):
             }
         })
 
+    if recs:
+        recs_text = "\n".join([f"• {r}" for r in recs[:2]])
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*💡 Engagement Insights:*\n{recs_text}"
+            }
+        })
+
     return {"text": "Weekly Performance Digest", "blocks": blocks}
 
 
@@ -213,6 +231,10 @@ def format_discord_payload(digest_data):
         open_names = ", ".join([c.get("platform", "").capitalize() for c in open_cbs_discord])
         cb_summary = f"⚠️ {len(open_cbs_discord)} OPEN ({open_names})"
 
+    heatmap = digest_data.get("heatmap", {})
+    peak_win = heatmap.get("peak_window_label", "17:00 - 18:00 UTC")
+    recs = digest_data.get("recommendations", [])
+
     fields = [
         {"name": "Replies Sent", "value": str(rep.get("total_replies", 0)), "inline": True},
         {"name": "Likes / RTs", "value": likes_rts, "inline": True},
@@ -222,7 +244,12 @@ def format_discord_payload(digest_data):
         {"name": "Media Distribution", "value": f"Single: {single_cnt} | Composite: {comp_cnt}", "inline": True},
         {"name": "DLQ Deliverability", "value": f"Pend: {dlq_pend} | Exh: {dlq_exh} | Repl: {dlq_rep}", "inline": True},
         {"name": "Circuit Breakers", "value": cb_summary, "inline": True},
+        {"name": "Peak Engagement", "value": f"⏱️ {peak_win}", "inline": True},
     ]
+
+    if recs:
+        recs_desc = "\n".join([f"• {r}" for r in recs[:2]])
+        fields.append({"name": "💡 Strategic Insights", "value": recs_desc, "inline": False})
 
     if alerts:
         alert_msgs = "\n".join([f"• {a.get('message')}" for a in alerts])

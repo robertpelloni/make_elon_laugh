@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.49.0] - 2026-11-09
+
+### Added
+- **Hourly Engagement Heatmap & AI Strategic Recommendations (`digest.py`, `webhook.py`)**:
+  - Implemented `compute_hourly_engagement_heatmap(days=30, db_path)` in `digest.py` sampling historical timestamp distributions across `replied_tweets` and `syndicated_posts` to compute hourly engagement metrics (0-23 UTC), identifying the global peak engagement window and total historical post density.
+  - Implemented `generate_digest_engagement_recommendations(digest_data)` generating actionable audience insights, optimal post scheduling recommendations, persona rotation advice, and media diversity suggestions.
+  - Integrated hourly heatmap telemetry and recommendations into `generate_performance_digest()`.
+  - Updated Markdown report export (`export_digest_markdown`) and standalone HTML report export (`export_digest_html`) to format and render dedicated Hourly Activity & Optimal Engagement Windows and Strategic Engagement Recommendations sections.
+  - Enriched Slack (`format_slack_payload`) and Discord (`format_discord_payload`) webhook dispatches with peak engagement window tags and strategic insight bullet points.
+- **Command Center Hourly Activity & Strategic Recommendations UI (`templates/index.html`)**:
+  - Integrated "Hourly Activity Heatmap & Strategic Timing Recommendations" section within the Weekly Performance Digest card featuring tooltip guidance.
+  - Added `#digest-peak-slot-badge` displaying real-time historical peak slots (`⏱️ 03:00 - 04:00 UTC (949 eng / 80 posts)`).
+  - Added `#digest-recommendations-list` dynamically populated with formatted recommendations on page load and manual digest refresh.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_digest_hourly_heatmap_and_recommendations` in `test_bot.py` testing empty database fallbacks, populated events aggregation across replied and syndicated posts, recommendation synthesis, Markdown/HTML formatting, and Slack/Discord webhook serialization (122 passing unit tests, clean flake8).
+  - Verified visual UI rendering via Playwright screenshot (`/home/jules/verification/v0_49_digest_recs.png`).
+
 ## [0.48.0] - 2026-11-08
 
 ### Added
