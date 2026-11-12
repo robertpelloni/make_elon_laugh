@@ -34,4 +34,16 @@
 *   [x] Refined Multi-Format Digest CLI Generator & Resilient Download Stream Delivery (`generate_digest.py`, `dashboard.py`).
 *   [x] Enriched Performance Digest Extraction, Top-Reply Isolation, and Embedded Anomaly Banners (`digest.py`, `webhook.py`, `templates/index.html`).
 *   [x] Configurable CLI Digest Pipeline & Per-Platform Federation Metrics Breakdown (`generate_digest.py`, `digest.py`, `dashboard.py`).
-*   [ ] Multi-account Twitter / X scheduling and cross-account coordination.
+*   [x] Automated Long-Form Content Splitting & Multi-Platform Syndication Chunking (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
+*   [x] Peak Hour Auto-Scheduler & Target Window Recommendation Engine (`scheduler.py`, `/api/schedule/optimal-slot`, Command Center Peak Slot Planner).
+*   [x] Cryptographic HMAC-SHA256 Webhook Payload Signing & Header Verification (`webhook.py`, `dashboard.py`, `templates/index.html`).
+*   [x] Target Audience Segmentation & Dynamic Persona Routing (`db.py`, `bot.py`, `dashboard.py`, `templates/index.html`).
+*   [x] Themed Visual Meme Card Styles & Binary Download Exports (`meme_generator.py`, `/api/meme/download`, Command Center theme controls).
+*   [x] Multi-account Twitter / X scheduling and cross-account coordination (`db.py`, `scheduler.py`, `/api/schedule`, Command Center UI).
+*   [x] Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`, Command Center UI).
+*   [x] Automated LLM-Driven Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`, `dashboard.py`, Command Center UI).
+*   [x] Visual Meme Card Attachments in Scheduled Tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+*   [x] Dynamic Multi-Platform Syndication Metrics & Windowed Federation Engagement Deltas (`db.py`, `digest.py`, `templates/index.html`).
+*   [x] Multi-Image Composite Infographic Generator & Grid Layout Engine (`meme_generator.py`, `dashboard.py`, Command Center UI).
+*   [x] AI-Driven Smart Layout Auto-Selection & Reasoning Engine (`meme_generator.py`, `dashboard.py`, Command Center UI).
+*   [x] Autonomous Performance Digest Pipeline Refinement & Calendar Visibility Scaling (`dashboard.py`, Command Center UI).

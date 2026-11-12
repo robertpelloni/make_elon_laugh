@@ -5,11 +5,16 @@ import logging
 import os
 import random
 import sqlite3
-import os
+import threading
+import time
+from flask import Flask, jsonify, render_template, request, Response
+
 import db
 import digest
 import joke_generator
+import meme_generator
 import scheduler
+import splitter
 import syndication
 import webhook
 
@@ -69,6 +74,35 @@ def index():
     return render_template('index.html', stats=stats, config=config_status)
 
 
+@app.route('/api/split-preview', methods=['POST'])
+def api_split_preview():
+    """
+    Simulates cross-platform thread chunking for arbitrary text input.
+    Returns chunk count and lists of chunks per platform (Twitter, Bluesky, Mastodon).
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "")
+    if not isinstance(text, str):
+        return jsonify({"error": "text must be a string"}), 400
+
+    results = {
+        "original_length": len(text),
+        "twitter": {
+            "limit": splitter.PLATFORM_LIMITS["twitter"],
+            "chunks": splitter.split_for_platform(text, "twitter")
+        },
+        "bluesky": {
+            "limit": splitter.PLATFORM_LIMITS["bluesky"],
+            "chunks": splitter.split_for_platform(text, "bluesky")
+        },
+        "mastodon": {
+            "limit": splitter.PLATFORM_LIMITS["mastodon"],
+            "chunks": splitter.split_for_platform(text, "mastodon")
+        }
+    }
+    return jsonify(results)
+
+
 @app.route('/api/stats')
 def api_stats():
     """Returns database stats as JSON for potential dynamic frontend updates."""
@@ -122,25 +156,198 @@ def api_test_generate():
         return jsonify({"content": content, "content_type": ctype, "persona": persona, "skipped": False})
 
 
+@app.route('/api/content/rephrase', methods=['POST'])
+def api_content_rephrase():
+    """
+    Rephrases a given joke, tweet, or fact using selectable personas and tone variation styles.
+    Accepts: {
+        "content": "...",
+        "persona": "tactful_engineer|witty_ai|deadpan_astronomer",
+        "tone_style": "witty|concise|enthusiastic|academic"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    content = str(data.get("content", "")).strip()
+    if not content:
+        return jsonify({"success": False, "error": "Content is required for rephrasing."}), 400
+
+    persona = str(data.get("persona", CURRENT_PERSONA)).strip().lower()
+    tone_style = str(data.get("tone_style", "witty")).strip().lower()
+
+    if tone_style not in joke_generator.TONE_STYLES:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid tone_style '{tone_style}'. Choose from: {list(joke_generator.TONE_STYLES.keys())}"
+        }), 400
+
+    try:
+        rephrased = joke_generator.rephrase_content(content, persona=persona, tone_style=tone_style)
+        return jsonify({
+            "success": True,
+            "original": content,
+            "rephrased": rephrased,
+            "persona": persona,
+            "tone_style": tone_style,
+            "character_count": len(rephrased),
+            "tones": {
+                k: {"display_name": v["display_name"], "description": v["description"]}
+                for k, v in joke_generator.TONE_STYLES.items()
+            }
+        })
+    except Exception as e:
+        app.logger.error(f"Error rephrasing content: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/test-generate-meme', methods=['POST'])
 def api_test_generate_meme():
     """
-    Generates a visual meme card as a base64 PNG image based on content text.
+    Generates a visual meme card as a base64 PNG image based on content text and theme.
     """
     data = request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
+    theme = data.get("theme", "dark").strip().lower()
     if not text:
         text = joke_generator.generate_content()
 
     try:
-        b64_image = joke_generator.generate_meme_card_b64(text)
+        b64_image = joke_generator.generate_meme_card_b64(text, theme=theme)
         return jsonify({
             "success": True,
             "text": text,
+            "theme": theme,
             "image_b64": b64_image
         })
     except Exception as e:
         app.logger.error(f"Meme card generation error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/download', methods=['GET'])
+def api_meme_download():
+    """
+    Generates and serves a visual meme card directly as a downloadable PNG binary image.
+    Query params: ?text=...&theme=dark|cyberpunk|solar|clean
+    """
+    text = request.args.get("text", "").strip()
+    theme = request.args.get("theme", "dark").strip().lower()
+    if not text:
+        text = joke_generator.generate_content()
+
+    try:
+        raw_bytes = meme_generator.create_meme_card(text, theme=theme)
+        return Response(
+            raw_bytes,
+            mimetype="image/png",
+            headers={"Content-Disposition": "attachment; filename=meme_card.png"}
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving meme image download: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/composite/recommend-layout', methods=['POST'])
+def api_meme_composite_recommend_layout():
+    """
+    Analyzes candidate panel content and recommends the optimal visual layout.
+    Payload: {
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "content_text": "..."
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    panels = data.get("panels")
+    content_text = data.get("content_text")
+
+    try:
+        rec = meme_generator.recommend_infographic_layout(panels=panels, content_text=content_text)
+        return jsonify({
+            "success": True,
+            "recommendation": rec
+        })
+    except Exception as e:
+        app.logger.error(f"Error recommending infographic layout: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/composite', methods=['POST'])
+def api_meme_composite():
+    """
+    Generates a multi-image composite infographic card as base64 PNG image.
+    Payload: {
+      "panels": [{"title": "...", "text": "..."}, ...],
+      "title": "...",
+      "theme": "dark|cyberpunk|solar|clean",
+      "layout": "grid|side-by-side|auto"
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    panels = data.get("panels")
+    title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
+    theme = str(data.get("theme") or "dark").strip().lower()
+    layout = str(data.get("layout") or "grid").strip().lower()
+
+    # If layout is auto, resolve recommendation metadata
+    resolved_layout = layout
+    recommendation = None
+    if layout == "auto":
+        recommendation = meme_generator.recommend_infographic_layout(panels=panels)
+        resolved_layout = recommendation["layout"]
+
+    try:
+        b64_img = meme_generator.generate_composite_infographic_b64(
+            panels=panels,
+            title=title,
+            theme=theme,
+            layout=layout
+        )
+        return jsonify({
+            "success": True,
+            "title": title,
+            "theme": theme,
+            "layout": resolved_layout,
+            "requested_layout": layout,
+            "recommendation": recommendation,
+            "image_b64": b64_img
+        })
+    except Exception as e:
+        app.logger.error(f"Error generating composite infographic: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/meme/composite/download', methods=['GET', 'POST'])
+def api_meme_composite_download():
+    """
+    Streams a generated multi-image composite infographic card directly as a downloadable PNG binary image.
+    Supports GET (with query parameters) or POST (with JSON payload).
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        panels = data.get("panels")
+        title = str(data.get("title") or "Cosmic Infographic Dispatch").strip()
+        theme = str(data.get("theme") or "dark").strip().lower()
+        layout = str(data.get("layout") or "grid").strip().lower()
+    else:
+        title = request.args.get("title", "Cosmic Infographic Dispatch").strip()
+        theme = request.args.get("theme", "dark").strip().lower()
+        layout = request.args.get("layout", "grid").strip().lower()
+        panels = None
+
+    try:
+        raw_bytes = meme_generator.create_composite_infographic(
+            panels=panels,
+            title=title,
+            theme=theme,
+            layout=layout
+        )
+        filename = f"infographic_composite_{layout}_{theme}.png"
+        return Response(
+            raw_bytes,
+            mimetype="image/png",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving composite infographic download: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -166,6 +373,69 @@ def api_config():
         "target_user_ids": os.environ.get("TARGET_USER_IDS", "44196397"),
         "db_path": db.DB_PATH,
         "version": get_version()
+    })
+
+
+@app.route('/api/targets', methods=['GET', 'POST', 'DELETE'])
+def api_targets():
+    """
+    Manages target audience profiles and per-target persona routing.
+    GET: Returns list of all configured target profiles.
+    POST: Inserts or updates a target profile.
+          Body: {
+            "target_id": "...",
+            "username": "...",
+            "persona_override": "tactful_engineer|witty_ai|deadpan_astronomer|",
+            "auto_reply_enabled": true|false,
+            "tags": "..."
+          }
+    DELETE: Deletes a target profile. Body: {"target_id": "..."}
+    """
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or {}
+        target_id = str(data.get("target_id", "")).strip()
+        if not target_id:
+            return jsonify({"success": False, "error": "Target ID is required."}), 400
+
+        username = str(data.get("username", "")).strip()
+        persona = str(data.get("persona_override", "")).strip()
+        if persona and persona not in joke_generator.PERSONAS:
+            return jsonify({
+                "success": False,
+                "error": f"Invalid persona '{persona}'. Allowed: {list(joke_generator.PERSONAS.keys())}"
+            }), 400
+
+        auto_reply = data.get("auto_reply_enabled", True)
+        tags = str(data.get("tags", "")).strip()
+
+        ok = db.upsert_target_profile(
+            target_id=target_id,
+            username=username,
+            persona_override=persona,
+            auto_reply_enabled=1 if auto_reply else 0,
+            tags=tags
+        )
+        if ok:
+            return jsonify({"success": True, "message": f"Target profile {target_id} saved."})
+        return jsonify({"success": False, "error": "Failed to save target profile."}), 500
+
+    elif request.method == 'DELETE':
+        data = request.get_json(silent=True) or {}
+        target_id = str(data.get("target_id", "")).strip()
+        if not target_id:
+            return jsonify({"success": False, "error": "Target ID is required."}), 400
+
+        deleted = db.delete_target_profile(target_id)
+        if deleted:
+            return jsonify({"success": True, "message": f"Target profile {target_id} deleted."})
+        return jsonify({"success": False, "error": f"Target profile {target_id} not found."}), 404
+
+    # GET
+    profiles = db.get_target_profiles()
+    return jsonify({
+        "success": True,
+        "profiles": profiles,
+        "allowed_personas": list(joke_generator.PERSONAS.keys())
     })
 
 
@@ -197,6 +467,17 @@ def api_run_check():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/schedule/optimal-slot", methods=["GET"])
+def api_schedule_optimal_slot():
+    """
+    Returns the recommended optimal post scheduling slot based on audience activity
+    and space/tech engagement windows.
+    """
+    from scheduler import recommend_optimal_post_slot
+    slot_info = recommend_optimal_post_slot()
+    return jsonify({"success": True, "slot": slot_info})
+
+
 @app.route('/api/schedule', methods=['GET', 'POST', 'DELETE'])
 def api_schedule():
     """
@@ -210,6 +491,8 @@ def api_schedule():
         content = data.get("content", "").strip()
         scheduled_time = data.get("scheduled_time", "").strip()
         persona = data.get("persona", CURRENT_PERSONA).strip()
+        account_handle = data.get("account_handle", "@make_elon_laugh").strip() or "@make_elon_laugh"
+        media_theme = data.get("media_theme")
 
         if not content:
             return jsonify({"success": False, "error": "Content cannot be empty."}), 400
@@ -217,13 +500,21 @@ def api_schedule():
             return jsonify({"success": False, "error": "Scheduled time is required (YYYY-MM-DD HH:MM)."}), 400
 
         try:
-            tweet_id = scheduler.enqueue_scheduled_tweet(content, scheduled_time, persona=persona)
+            tweet_id = scheduler.enqueue_scheduled_tweet(
+                content, scheduled_time, persona=persona, account_handle=account_handle,
+                media_theme=media_theme
+            )
             if tweet_id:
-                logging.info(f"Enqueued scheduled tweet ID {tweet_id} for {scheduled_time}.")
+                logging.info(
+                    f"Enqueued scheduled tweet ID {tweet_id} [{account_handle}] "
+                    f"for {scheduled_time} (theme: {media_theme})."
+                )
                 return jsonify({
                     "success": True,
                     "id": tweet_id,
-                    "message": "Tweet scheduled successfully.",
+                    "account_handle": account_handle,
+                    "media_theme": media_theme,
+                    "message": f"Tweet scheduled successfully for {account_handle}.",
                     "scheduled_tweets": db.get_scheduled_tweets(limit=10)
                 })
             return jsonify({"success": False, "error": "Database error while enqueuing tweet."}), 500
@@ -244,8 +535,9 @@ def api_schedule():
 
     # GET request
     status = request.args.get("status")
+    account_handle = request.args.get("account_handle")
     limit = request.args.get("limit", 20, type=int)
-    tweets = db.get_scheduled_tweets(status=status, limit=limit)
+    tweets = db.get_scheduled_tweets(status=status, account_handle=account_handle, limit=limit)
 
     # Compute calendar distribution across 7 days of current week (Monday=0 to Sunday=6)
     calendar_breakdown = {day: 0 for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]}
@@ -254,24 +546,31 @@ def api_schedule():
     total_pending = 0
     total_sent = 0
     total_cancelled = 0
+    account_counts = {}
 
-    all_recent = db.get_scheduled_tweets(limit=100)
+    all_recent = db.get_scheduled_tweets(limit=500)
     for t in all_recent:
         st = t.get("status", "pending")
+        acc = t.get("account_handle", "@make_elon_laugh") or "@make_elon_laugh"
+        account_counts[acc] = account_counts.get(acc, 0) + 1
+
         if st == "pending":
             total_pending += 1
-            # Add to day breakdown if parsable
-            try:
-                date_str = t.get("scheduled_time", "").split(" ")[0]
-                dt = time.strptime(date_str, "%Y-%m-%d")
-                weekday = day_abbrs[dt.tm_wday]
-                calendar_breakdown[weekday] += 1
-            except Exception:
-                pass
         elif st == "sent":
             total_sent += 1
         elif st == "cancelled":
             total_cancelled += 1
+
+    # Populate weekly calendar breakdown across all pending scheduled tweets
+    all_pending = db.get_scheduled_tweets(status="pending", limit=500)
+    for t in all_pending:
+        try:
+            date_str = t.get("scheduled_time", "").split(" ")[0]
+            dt = time.strptime(date_str, "%Y-%m-%d")
+            weekday = day_abbrs[dt.tm_wday]
+            calendar_breakdown[weekday] += 1
+        except Exception:
+            pass
 
     return jsonify({
         "scheduled_tweets": tweets,
@@ -280,6 +579,7 @@ def api_schedule():
             "sent": total_sent,
             "cancelled": total_cancelled
         },
+        "account_counts": account_counts,
         "weekly_calendar": calendar_breakdown
     })
 
@@ -294,8 +594,11 @@ def api_digest():
     """
     days = request.args.get('days', default=7, type=int)
     fmt = request.args.get('format', default='json', type=str).lower()
+    account = request.args.get('account')
 
     summary = digest.generate_performance_digest(days=days)
+    if account:
+        summary["filter_account"] = account.strip()
 
     if fmt == 'markdown':
         md_text = digest.export_digest_markdown(summary)
@@ -452,14 +755,24 @@ def api_syndication():
 @app.route('/api/syndication/metrics', methods=['GET'])
 def api_syndication_metrics():
     """
-    Returns platform-by-platform syndication counts and engagement metrics.
+    Returns platform-by-platform syndication counts and engagement metrics,
+    along with any active federation anomaly alerts.
     """
     summary = db.get_syndication_summary_metrics()
     recent = db.get_syndicated_posts_for_metrics_polling(limit=10)
+
+    perf_digest = digest.generate_performance_digest()
+    fed_alerts = [
+        a for a in perf_digest.get("alerts", [])
+        if a.get("type", "").startswith("federation_")
+    ]
+
     return jsonify({
         "success": True,
         "summary": summary,
-        "recent_posts": recent
+        "recent_posts": recent,
+        "federation_alerts": fed_alerts,
+        "federation_health": perf_digest.get("health_scorecard", {}).get("federation_health", "Idle")
     })
 
 
@@ -486,10 +799,11 @@ def api_syndication_poll():
 def api_webhook():
     """
     Manages digest webhook delivery configuration and manual test dispatch.
-    GET: Returns current webhook configuration (masked URL, auto dispatch status, interval).
-    POST: Updates webhook URL, adapter, auto-dispatch switch, interval, or triggers test dispatch.
+    GET: Returns current webhook configuration (masked URL, secret status, auto dispatch status, interval).
+    POST: Updates webhook URL, secret, adapter, auto-dispatch switch, interval, or triggers test dispatch.
           Body: {
             "webhook_url": "...",
+            "webhook_secret": "...",
             "adapter": "slack|discord|generic",
             "auto_dispatch": true|false,
             "interval_hours": 24|72|168,
@@ -499,6 +813,7 @@ def api_webhook():
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
         new_url = data.get("webhook_url")
+        new_secret = data.get("webhook_secret")
         new_adapter = data.get("adapter")
         auto_dispatch = data.get("auto_dispatch")
         interval_hours = data.get("interval_hours")
@@ -506,6 +821,8 @@ def api_webhook():
 
         if new_url is not None:
             webhook.DEFAULT_WEBHOOK_URL = new_url.strip()
+        if new_secret is not None:
+            webhook.DEFAULT_WEBHOOK_SECRET = new_secret.strip()
         if new_adapter is not None:
             webhook.DEFAULT_ADAPTER = new_adapter.strip().lower()
         if auto_dispatch is not None:
@@ -527,13 +844,18 @@ def api_webhook():
             summary = digest.generate_performance_digest(days=7)
             payload = webhook.format_webhook_payload(summary, adapter=webhook.DEFAULT_ADAPTER)
 
-            success, status_or_err = webhook.dispatch_webhook(target_url, payload)
+            success, status_or_err = webhook.dispatch_webhook(
+                target_url,
+                payload,
+                secret=webhook.DEFAULT_WEBHOOK_SECRET
+            )
             if success:
                 webhook.LAST_DISPATCH_TIMESTAMP = time.time()
                 return jsonify({
                     "success": True,
                     "message": f"Webhook dispatched successfully (HTTP {status_or_err}).",
-                    "adapter": webhook.DEFAULT_ADAPTER
+                    "adapter": webhook.DEFAULT_ADAPTER,
+                    "signed": bool(webhook.DEFAULT_WEBHOOK_SECRET)
                 })
             else:
                 return jsonify({
@@ -546,10 +868,11 @@ def api_webhook():
             "message": "Webhook settings updated.",
             "adapter": webhook.DEFAULT_ADAPTER,
             "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
-            "interval_hours": webhook.DISPATCH_INTERVAL_HOURS
+            "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,
+            "has_secret": bool(webhook.DEFAULT_WEBHOOK_SECRET)
         })
 
-    # GET: return masked URL and status for operator review
+    # GET: return masked URL, secret status, and dispatch configuration for operator review
     url = webhook.DEFAULT_WEBHOOK_URL
     masked_url = ""
     if url:
@@ -558,9 +881,19 @@ def api_webhook():
         else:
             masked_url = "***"
 
+    secret = webhook.DEFAULT_WEBHOOK_SECRET
+    masked_secret = ""
+    if secret:
+        if len(secret) > 8:
+            masked_secret = secret[:3] + "..." + secret[-3:]
+        else:
+            masked_secret = "***"
+
     return jsonify({
         "configured": bool(url),
         "masked_url": masked_url,
+        "has_secret": bool(secret),
+        "masked_secret": masked_secret,
         "adapter": webhook.DEFAULT_ADAPTER,
         "auto_dispatch": webhook.AUTO_DISPATCH_ENABLED,
         "interval_hours": webhook.DISPATCH_INTERVAL_HOURS,

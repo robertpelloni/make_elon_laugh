@@ -113,9 +113,329 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🛸 Emperor Musk Bot Dashboard</h1>
-            <p>System Diagnostics & Analytics</p>
+        <!-- Main Top Bar -->
+        <header>
+            <div class="title-group">
+                <h1>🛸 Emperor Musk Bot <span style="font-size: 0.8rem; vertical-align: middle; background: var(--surface-accent); padding: 0.2rem 0.5rem; border-radius: 6px; color: var(--primary);">v{{ version }}</span></h1>
+                <p>Tactful Autonomous Space & Engineering Humor Agent</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-outline btn-sm" id="btn-theme-toggle" onclick="toggleTheme()" title="Switch Light/Dark Theme">
+                    🌓 Theme
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-refresh" onclick="refreshAll()" title="Refresh Dashboard Data">
+                    🔄 Refresh Data
+                </button>
+                <button class="btn btn-outline btn-sm" id="btn-run-check" onclick="triggerRunCheck()">
+                    ⚡ Test Dry-Run Cycle
+                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                      <span class="tooltiptext">Runs an immediate simulated dry-run cycle to fetch targets, evaluate tweets, test filters, and log metrics.</span>
+                    </div>
+                </button>
+            </div>
+        </header>
+
+        <!-- HIGH-VALUE HERO METRICS (Prominent Section) -->
+        <section class="grid grid-hero">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Total Replies Logged
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Total verified replies stored in persistent SQLite storage since bot commissioning.</span>
+                        </div>
+                    </span>
+                    <span class="status-badge ok">Active</span>
+                </div>
+                <div class="stat-huge" id="stat-replies">{{ stats.total_replies }}</div>
+                <div class="stat-sub">Persistent replies across all sessions</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Likes Gathered
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cumulative likes tracked from Twitter Public Metrics polling.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-heart);">❤️ Likes</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-heart);" id="stat-likes">{{ stats.total_likes }}</div>
+                <div class="stat-sub">Public audience appreciation</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Retweets Gathered
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Cumulative retweets gathered from Twitter API public metrics.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-retweet);">🔁 Reposts</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-retweet);" id="stat-retweets">{{ stats.total_retweets }}</div>
+                <div class="stat-sub">Viral reach & distribution</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Humor Approval
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Percentage of positive ratings submitted by operators on generated humor and facts.</span>
+                        </div>
+                    </span>
+                    <span style="color: var(--accent-warning);">⭐ Quality</span>
+                </div>
+                <div class="stat-huge" style="color: var(--accent-warning);" id="stat-approval">{{ stats.approval_rate }}%</div>
+                <div class="stat-sub" id="stat-ratings-sub">{{ stats.total_ratings }} reviews logged</div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">System Status
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Overall operational health indicator covering database, credentials, and polling safety.</span>
+                        </div>
+                    </span>
+                    {% if config.api_key_configured and config.db_exists %}
+                        <span class="status-badge ok">Optimal</span>
+                    {% else %}
+                        <span class="status-badge warn">Configuration Notice</span>
+                    {% endif %}
+                </div>
+                <div class="kv-list" style="margin-top: 0.5rem;">
+                    <div class="kv-item">
+                        <span class="kv-key">API Credentials:</span>
+                        <span class="kv-val">
+                            {% if config.api_key_configured %}
+                                <span class="status-badge ok">Loaded</span>
+                            {% else %}
+                                <span class="status-badge alert">Missing/Default</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="kv-item">
+                        <span class="kv-key">SQLite Database:</span>
+                        <span class="kv-val">
+                            {% if config.db_exists %}
+                                <span class="status-badge ok">Connected</span>
+                            {% else %}
+                                <span class="status-badge alert">Missing</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Tone Rephraser Box -->
+                <div style="margin-top: 1.25rem; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🎨 Dynamic Tone Stylist & Rephraser</span>
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Rephrase sandbox content or queued text using tailored tone variations (Witty, Concise, Enthusiastic, Academic).</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                        <select id="rephrase-tone" style="padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-accent); color: var(--text-main); font-size: 0.85rem;">
+                            <option value="witty">✨ Witty & Sharp (Clever timing)</option>
+                            <option value="concise">⚡ Concise & Direct (Under 120 chars)</option>
+                            <option value="enthusiastic">🔥 Enthusiastic & Hype (Rocketry energy)</option>
+                            <option value="academic">🔭 Academic & Scholarly (Rigorous prose)</option>
+                        </select>
+                        <button type="button" class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer;" onclick="rephraseCurrentContent()">🪄 Rephrase Content</button>
+                        <button type="button" class="btn btn-outline" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; border-radius: 6px; cursor: pointer;" onclick="copyRephraseToSchedule()">📋 Copy to Schedule Queue</button>
+                    </div>
+                    <div id="rephrase-result-container" style="display: none; margin-top: 0.75rem; background: var(--surface-accent); border: 1px dashed var(--primary); border-radius: 6px; padding: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+                            <span id="rephrase-tone-badge" style="font-weight: 600; color: var(--primary);">WITTY & SHARP</span>
+                            <span id="rephrase-char-count">0 / 280 chars</span>
+                        </div>
+                        <div id="rephrase-output-text" style="font-size: 0.9rem; color: var(--text-main); font-family: monospace;"></div>
+                    </div>
+                </div>
+        </section>
+
+        <!-- MAJOR OPERATIONAL PANELS: Split Layout -->
+        <div class="grid grid-split">
+            <!-- Left: Interactive Content Generator & Preview Tester -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title">🧪 Content Generation & Sentiment Sandbox
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Test dynamic OpenAI or curated static joke/fact generation. Simulates sentiment analysis (e.g. serious/tragic posts trigger 'SKIP').</span>
+                        </div>
+                    </span>
+                </div>
+                <form id="gen-form" onsubmit="event.preventDefault(); testGeneration();">
+                    <div class="form-group">
+                        <label for="persona-select">Humor & Content Persona:
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Alters the voice and tone of generated content. Choose between uplifting physics humor, synthetic AI wit, or existential cosmic perspective.</span>
+                            </div>
+                        </label>
+                        <select id="persona-select" onchange="changePersona(this.value)" style="width: 100%; background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.65rem 0.85rem; border-radius: 8px; font-family: inherit; font-size: 0.9rem;">
+                            <option value="tactful_engineer" selected>🚀 Tactful Rocket Scientist (Upbeat Aerospace & Physics)</option>
+                            <option value="witty_ai">🤖 Witty Cybernetic AI (Compute, Silicon & Algorithms)</option>
+                            <option value="deadpan_astronomer">🌌 Deadpan Deep-Space Observer (Dry Scale of the Cosmos)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sample-tweet">Context Tweet Text (Optional Sentiment Check):</label>
+                        <textarea id="sample-tweet" rows="3" placeholder="e.g. Launching Starship Flight 6 next week into orbit! (Or test 'Tragic rocket failure today' to verify SKIP safety filter)"></textarea>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn" id="btn-gen-joke" onclick="testGeneration('joke')">Generate Joke 🚀</button>
+                        <button type="button" class="btn btn-outline" id="btn-gen-fact" onclick="testGeneration('fact')">Generate Fact 🪐</button>
+                        <button type="button" class="btn btn-outline" id="btn-gen-auto" onclick="testGeneration('auto')">Auto Content 🎲</button>
+                        <div style="display: flex; align-items: center; gap: 0.3rem;">
+                            <select id="meme-theme-select" style="font-size: 0.8rem; padding: 0.4rem 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                                <option value="dark">Cosmic Slate (Dark)</option>
+                                <option value="cyberpunk">Neon Cyberpunk</option>
+                                <option value="solar">Solar Flare</option>
+                                <option value="clean">Minimalist Light</option>
+                            </select>
+                            <button type="button" class="btn btn-outline" id="btn-meme" onclick="testMemeCard()">
+                                🖼️ Meme Card
+                                <div class="tooltip"><span class="tooltip-icon">?</span>
+                                  <span class="tooltiptext">Generates a visual 600x340 graphic card formatted for social media post attachments in multiple aesthetic palettes.</span>
+                                </div>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-outline" id="btn-split-preview" onclick="testSplitPreview()">
+                            🧵 Thread Split Preview
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Simulates multi-part thread chunking for Twitter (280c), Bluesky (300c), and Mastodon (500c).</span>
+                            </div>
+                        </button>
+                        <button type="button" class="btn btn-outline" id="btn-composite-infographic" onclick="testCompositeInfographic()">
+                            🌌 Composite Infographic
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Generates multi-panel composite infographics formatted in 2-panel horizontal or 4-panel 2x2 grid layouts.</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+
+                <div style="margin-top: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label>Generated Content Preview:</label>
+                        <div id="rating-controls" style="display: none; gap: 0.35rem; align-items: center;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Rate:</span>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-up" onclick="ratePreview(1)" title="Thumbs Up (+1)">👍</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="btn-rate-down" onclick="ratePreview(-1)" title="Thumbs Down (-1)">👎</button>
+                        </div>
+                    </div>
+                    <div id="gen-preview" class="preview-box">Click a button above to generate a preview...</div>
+                    <div id="meme-preview-container" style="display: none; margin-top: 0.5rem; text-align: center;">
+                        <img id="meme-preview-img" class="meme-preview-img" alt="Meme Card Preview" style="margin: 0 auto; display: block;">
+                        <div style="margin-top: 0.5rem; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-download-meme" onclick="downloadCurrentMeme()">⬇️ Download PNG Card</button>
+                        </div>
+                    </div>
+                    <div id="composite-preview-container" style="display: none; margin-top: 0.75rem; text-align: center; border: 1px dashed var(--border-color); padding: 0.75rem; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; font-weight: 600;">Multi-Image Composite Infographic:</span>
+                            <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
+                                <select id="composite-layout-select" onchange="testCompositeInfographic()" style="font-size: 0.8rem; padding: 0.3rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                                    <option value="auto">✨ Auto-Detect Layout</option>
+                                    <option value="grid">2x2 Grid Layout (4 Panels)</option>
+                                    <option value="side-by-side">Side-by-Side (2 Panels)</option>
+                                </select>
+                                <button type="button" class="btn btn-outline btn-sm" id="btn-recommend-layout" onclick="recommendLayout()" title="Analyze text density and suggest optimal layout">
+                                    ⚡ AI Layout Reasoner
+                                    <div class="tooltip"><span class="tooltip-icon">?</span>
+                                      <span class="tooltiptext">Evaluates panel counts, character density, and structural symmetry to select between side-by-side and 2x2 quadrant grid layouts.</span>
+                                    </div>
+                                </button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-download-composite" onclick="downloadCompositeInfographic()">⬇️ Download PNG</button>
+                            </div>
+                        </div>
+                        <div id="composite-layout-banner" style="display: none; font-size: 0.78rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.5rem; text-align: left; color: var(--text-color);"></div>
+                        <img id="composite-preview-img" class="meme-preview-img" alt="Composite Infographic Preview" style="margin: 0 auto; display: block; max-width: 100%;">
+                    </div>
+                    <div id="thread-split-container" style="display:none; margin-top: 10px; background: rgba(0,0,0,0.03); border: 1px dashed var(--border); border-radius: 6px; padding: 10px;">
+                        <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px;">Multi-Platform Thread Segments:</div>
+                        <div id="thread-split-output" style="font-size: 0.8rem;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Target Configuration & System Controls -->
+            <section class="card">
+                <div class="card-header">
+                    <span class="card-title">🎯 Target Accounts & Bot Settings
+                        <div class="tooltip"><span class="tooltip-icon">?</span>
+                          <span class="tooltiptext">Manage Twitter User IDs tracked by the bot polling loop and configure operational parameters.</span>
+                        </div>
+                    </span>
+                </div>
+                <form id="config-form" onsubmit="event.preventDefault(); saveConfig();">
+                    <div class="form-group">
+                        <label for="target-ids">Monitored Target User IDs (comma-separated):</label>
+                        <input type="text" id="target-ids" value="{{ config.target_user_ids }}" placeholder="44196397, 2941621343">
+                        <small style="color: var(--text-muted); display: block; margin-top: 0.3rem;">Default: 44196397 (Elon Musk)</small>
+                    </div>
+                    <div class="kv-list" style="margin-bottom: 1.25rem;">
+                        <div class="kv-item">
+                            <span class="kv-key">Database Path:</span>
+                            <span class="kv-val" style="font-family: monospace; font-size: 0.8rem;">{{ config.db_path }}</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-key">Rate Limiter Protection:</span>
+                            <span class="kv-val status-badge ok">Exponential Backoff + Jitter</span>
+                        </div>
+                        <div class="kv-item">
+                            <span class="kv-key">System Tray Companion:</span>
+                            <span class="kv-val status-badge ok">Integrated (`tray.py`)</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <button type="submit" class="btn">Save Configuration</button>
+                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmShutdown()">
+                            🛑 Graceful Server Shutdown
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Sends a termination signal to stop the dashboard and background bot services safely.</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- TARGET AUDIENCE SEGMENTATION & PERSONA ROUTING -->
+                <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-color);">
+                            🎯 Target Audience Segmentation & Persona Routing
+                            <div class="tooltip"><span class="tooltip-icon">?</span>
+                              <span class="tooltiptext">Route tailored humor personas to specific Twitter accounts and configure independent auto-reply switches per target.</span>
+                            </div>
+                        </span>
+                        <span id="target-count-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">0 Profiles</span>
+                    </div>
+
+                    <!-- Target Profile Creation Bar -->
+                    <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem;">
+                        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+                            <input type="text" id="target-profile-id" placeholder="User ID (e.g. 44196397)" style="flex: 1; min-width: 140px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <input type="text" id="target-profile-username" placeholder="@handle (optional)" style="flex: 1; min-width: 120px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                            <select id="target-profile-persona" style="flex: 1; min-width: 140px; font-size: 0.8rem; padding: 0.35rem 0.5rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-card); color: var(--text-color);">
+                                <option value="">Default Persona (Global)</option>
+                                <option value="tactful_engineer">Tactful Engineer</option>
+                                <option value="witty_ai">Witty AI</option>
+                                <option value="deadpan_astronomer">Deadpan Astronomer</option>
+                            </select>
+                            <label style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.75rem; color: var(--text-color); cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="target-profile-autoreply" checked>
+                                <span>Auto-Reply</span>
+                            </label>
+                            <button class="btn btn-secondary btn-sm" onclick="saveTargetProfile()">Save Target</button>
+                        </div>
+                    </div>
+
+                    <!-- Target Profiles Container Table -->
+                    <div id="target-profiles-list" style="font-size: 0.8rem;">
+                        <div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">Loading target profiles...</div>
+                    </div>
+                </div>
+            </section>
         </div>
 
         <!-- SCHEDULED TWEET QUEUE & WEEKLY CALENDAR CARD -->
@@ -170,20 +490,43 @@
                 </div>
             </div>
 
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                <input type="text" id="sched-content" placeholder="Enter tweet content to schedule..." style="flex: 2; min-width: 260px;" />
-                <input type="datetime-local" id="sched-time" style="flex: 1; min-width: 200px;" />
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; align-items: center;">
+                <input type="text" id="sched-content" placeholder="Enter tweet content to schedule..." style="flex: 2; min-width: 240px;" />
+                <input type="datetime-local" id="sched-time" style="flex: 1; min-width: 180px;" />
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <select id="sched-account" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
+                        <option value="@make_elon_laugh" selected>👤 @make_elon_laugh (Primary)</option>
+                        <option value="@space_astronomy">🔭 @space_astronomy (Secondary)</option>
+                    </select>
+                    <span class="tooltip-marker" data-tooltip="Selects the Twitter / X account identity that will broadcast this scheduled tweet.">?</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                    <select id="sched-media-theme" style="padding: 0.5rem 0.6rem; font-size: 0.85rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface); color: var(--text-main);">
+                        <option value="" selected>📄 No Card Attachment</option>
+                        <option value="dark">🖼️ Dark Theme Meme</option>
+                        <option value="cyberpunk">🎨 Cyberpunk Meme</option>
+                        <option value="solar">☀️ Solar Flare Meme</option>
+                        <option value="clean">✨ Clean Minimal Meme</option>
+                    </select>
+                    <span class="tooltip-marker" data-tooltip="Automatically generates and attaches a stylized Pillow infographic meme card image in the selected aesthetic upon dispatch.">?</span>
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="suggestOptimalSlot()" title="Suggest high-engagement peak audience window" style="white-space: nowrap; font-size: 0.85rem; padding: 0.6rem 0.9rem;">
+                    ⚡ Suggest Peak Slot <span class="tooltip-marker" data-tooltip="Calculates optimal UTC window (09:00, 13:00, 17:00, 21:00) based on global space and tech audience engagement patterns.">?</span>
+                </button>
                 <button type="button" class="btn btn-primary" onclick="scheduleTweet()" style="white-space: nowrap;">
                     ➕ Queue Tweet
                 </button>
             </div>
+            <div id="optimal-slot-banner" style="display: none; font-size: 0.8rem; color: var(--accent); margin-bottom: 1rem; background: rgba(56, 189, 248, 0.08); padding: 6px 12px; border-radius: 6px; border-left: 3px solid var(--accent);"></div>
 
             <div style="overflow-x: auto;">
                 <table id="sched-table">
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Account</th>
                             <th>Content</th>
+                            <th>Media Card</th>
                             <th>Scheduled Time (UTC)</th>
                             <th>Persona</th>
                             <th>Status</th>
@@ -191,7 +534,7 @@
                         </tr>
                     </thead>
                     <tbody id="sched-tbody">
-                        <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
+                        <tr><td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading queue...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -259,6 +602,7 @@
                     <div id="digest-queue-sent" style="font-size: 1.5rem; font-weight: 800; color: var(--accent-success);">0 Dispatched</div>
                     <div id="digest-queue-delta" style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.1rem;">+0 (0%) vs prior</div>
                     <div id="digest-queue-personas" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">Personas: -</div>
+                    <div id="digest-queue-accounts" style="font-size: 0.75rem; color: var(--primary); margin-top: 0.1rem;">Accounts: -</div>
                 </div>
                 <div style="background: var(--surface-accent); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Community Approval</div>
@@ -279,7 +623,13 @@
                     <span id="webhook-status-badge" class="status-badge warn" style="font-size: 0.75rem;">Not Configured</span>
                 </div>
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 1; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <input type="text" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://hooks.slack.com/..." style="flex: 2; min-width: 250px; font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                    <div style="flex: 1; min-width: 180px; position: relative; display: flex; align-items: center;">
+                        <input type="password" id="webhook-secret-input" placeholder="HMAC Secret Key (optional)" style="width: 100%; font-size: 0.85rem; padding: 0.4rem 0.6rem; padding-right: 1.8rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
+                        <div class="tooltip" style="position: absolute; right: 6px;"><span class="tooltip-icon" style="width: 14px; height: 14px; font-size: 10px; line-height: 14px;">?</span>
+                            <span class="tooltiptext">If provided, outgoing HTTP webhook payloads will include HMAC-SHA256 signature headers (X-Hub-Signature-256 and X-Signature-Timestamp) to verify payload authenticity.</span>
+                        </div>
+                    </div>
                     <select id="webhook-adapter-select" style="font-size: 0.85rem; padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-color);">
                         <option value="generic">Generic JSON</option>
                         <option value="discord">Discord Embed</option>
@@ -315,7 +665,10 @@
                           <span class="tooltiptext">Cross-post jokes and scheduled announcements to decentralized social networks including ActivityPub (Mastodon) and AT Protocol (Bluesky).</span>
                         </div>
                     </span>
-                    <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <span id="syndication-alert-badge" class="status-badge" style="display: none; font-size: 0.72rem; background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);">⚠️ Anomaly Detected</span>
+                        <span id="syndication-status-badge" class="status-badge" style="font-size: 0.75rem; background: var(--surface-badge); color: var(--text-muted);">Ready</span>
+                    </div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; font-size: 0.8rem;">
                     <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.6rem; background: var(--bg-card);">
@@ -354,7 +707,8 @@
                     <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.75rem; display: flex; align-items: center; justify-content: space-between;">
                         <div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">Federated Total</div>
-                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary-color);">0 Posts</div>
+                            <div id="syndication-total-display" style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">0 Posts</div>
+                            <div id="syndication-delta-display" style="font-size: 0.7rem; color: var(--accent); margin-top: 2px;"></div>
                         </div>
                         <button class="btn btn-outline btn-sm" onclick="triggerSyndicationPoll()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;" title="Poll engagement for all syndicated posts">
                             🔄 Poll Metrics
@@ -507,6 +861,60 @@
             }
         }
 
+        let currentRephrasedText = '';
+
+        async function rephraseCurrentContent() {
+            const previewEl = document.getElementById('gen-preview');
+            const sampleEl = document.getElementById('sample-tweet');
+            let text = '';
+            if (previewEl && previewEl.innerText && !previewEl.innerText.startsWith('Click a button')) {
+                text = previewEl.innerText.trim();
+            } else if (sampleEl && sampleEl.value) {
+                text = sampleEl.value.trim();
+            }
+
+            if (!text) {
+                alert('Please generate or enter content first to rephrase.');
+                return;
+            }
+            const tone = document.getElementById('rephrase-tone').value;
+            const personaSelect = document.getElementById('persona-select');
+            const persona = personaSelect ? personaSelect.value : 'tactful_engineer';
+
+            try {
+                const res = await fetch('/api/content/rephrase', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content: text, tone_style: tone, persona: persona})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentRephrasedText = data.rephrased;
+                    document.getElementById('rephrase-output-text').innerText = data.rephrased;
+                    document.getElementById('rephrase-tone-badge').innerText = `${tone.toUpperCase()} TONE`;
+                    document.getElementById('rephrase-char-count').innerText = `${data.character_count} / 280 chars`;
+                    document.getElementById('rephrase-result-container').style.display = 'block';
+                } else {
+                    alert(data.error || 'Failed to rephrase content.');
+                }
+            } catch (e) {
+                alert('Error rephrasing content: ' + e.message);
+            }
+        }
+
+        function copyRephraseToSchedule() {
+            const text = currentRephrasedText || document.getElementById('rephrase-output-text').innerText.trim();
+            if (!text) {
+                alert('No rephrased content to copy.');
+                return;
+            }
+            const schedInput = document.getElementById('sched-content');
+            if (schedInput) {
+                schedInput.value = text;
+                schedInput.scrollIntoView({behavior: 'smooth'});
+            }
+        }
+
         async function initPersona() {
             try {
                 const res = await fetch('/api/persona');
@@ -575,27 +983,241 @@
             }
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        let lastRenderedMemeText = "";
+
         async function testMemeCard() {
             const preview = document.getElementById('gen-preview');
+            const memeContainer = document.getElementById('meme-preview-container');
             const memeImg = document.getElementById('meme-preview-img');
-            preview.textContent = "Generating visual meme card...";
+            const theme = document.getElementById('meme-theme-select').value;
+            preview.textContent = `Generating ${theme} visual meme card...`;
             try {
                 const tweetText = document.getElementById('sample-tweet').value;
                 const res = await fetch('/api/test-generate-meme', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({text: tweetText})
+                    body: JSON.stringify({text: tweetText, theme: theme})
                 });
                 const data = await res.json();
                 if (data.success && data.image_b64) {
-                    preview.innerHTML = `<strong>${data.text}</strong><br><small style="color: var(--accent-retweet);">Visual card rendered successfully!</small>`;
+                    lastRenderedMemeText = data.text;
+                    preview.innerHTML = `<strong>${data.text}</strong><br><small style="color: var(--accent-retweet);">Visual card rendered successfully (${data.theme} palette)!</small>`;
                     memeImg.src = "data:image/png;base64," + data.image_b64;
-                    memeImg.style.display = 'block';
+                    memeContainer.style.display = 'block';
                 } else {
                     preview.textContent = data.error || "Failed to generate meme card.";
                 }
             } catch (err) {
                 preview.textContent = "Meme card generation error: " + err.message;
+            }
+        }
+
+        function downloadCurrentMeme() {
+            const theme = document.getElementById('meme-theme-select').value;
+            const text = lastRenderedMemeText || document.getElementById('sample-tweet').value;
+            const url = `/api/meme/download?theme=${encodeURIComponent(theme)}&text=${encodeURIComponent(text)}`;
+            window.location.href = url;
+        }
+
+        async function recommendLayout() {
+            const banner = document.getElementById('composite-layout-banner');
+            const sampleText = document.getElementById('sample-tweet').value.trim();
+            const layoutSelect = document.getElementById('composite-layout-select');
+
+            banner.style.display = 'block';
+            banner.textContent = "Analyzing content structure and character density...";
+
+            try {
+                const res = await fetch('/api/meme/composite/recommend-layout', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({content_text: sampleText})
+                });
+                const data = await res.json();
+                if (data.success && data.recommendation) {
+                    const rec = data.recommendation;
+                    banner.innerHTML = `<strong>💡 Layout Recommendation:</strong> ${escapeHtml(rec.rationale)}`;
+                    if (layoutSelect && rec.layout) {
+                        layoutSelect.value = rec.layout;
+                        testCompositeInfographic();
+                    }
+                } else {
+                    banner.textContent = data.error || "Failed to retrieve layout recommendation.";
+                }
+            } catch (err) {
+                banner.textContent = "Layout analysis error: " + err.message;
+            }
+        }
+
+        async function testCompositeInfographic() {
+            const preview = document.getElementById('gen-preview');
+            const compContainer = document.getElementById('composite-preview-container');
+            const compImg = document.getElementById('composite-preview-img');
+            const layoutSelect = document.getElementById('composite-layout-select');
+            const layout = layoutSelect ? layoutSelect.value : 'auto';
+            const theme = document.getElementById('meme-theme-select').value;
+            const banner = document.getElementById('composite-layout-banner');
+
+            preview.textContent = `Generating composite infographic (${layout} mode, ${theme} palette)...`;
+            try {
+                const res = await fetch('/api/meme/composite', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        theme: theme,
+                        layout: layout,
+                        title: "Autonomous Cosmic Multi-Panel Briefing"
+                    })
+                });
+                const data = await res.json();
+                if (data.success && data.image_b64) {
+                    const resolvedLayout = data.layout || layout;
+                    preview.textContent = `Generated ${resolvedLayout} composite infographic in ${theme} theme.`;
+                    compImg.src = "data:image/png;base64," + data.image_b64;
+                    compContainer.style.display = 'block';
+                    if (data.recommendation && data.recommendation.rationale) {
+                        banner.style.display = 'block';
+                        banner.innerHTML = `<strong>✨ Auto-Selected Layout (${resolvedLayout.toUpperCase()}):</strong> ${escapeHtml(data.recommendation.rationale)}`;
+                    }
+                } else {
+                    preview.textContent = data.error || "Failed to generate composite infographic.";
+                }
+            } catch (err) {
+                preview.textContent = "Composite generation error: " + err.message;
+            }
+        }
+
+        function downloadCompositeInfographic() {
+            const theme = document.getElementById('meme-theme-select').value;
+            const layoutSelect = document.getElementById('composite-layout-select');
+            const layout = layoutSelect ? layoutSelect.value : 'grid';
+            const url = `/api/meme/composite/download?theme=${encodeURIComponent(theme)}&layout=${encodeURIComponent(layout)}&title=${encodeURIComponent("Cosmic Infographic Dispatch")}`;
+            window.location.href = url;
+        }
+
+        async function testSplitPreview() {
+            const preview = document.getElementById('gen-preview');
+            const container = document.getElementById('thread-split-container');
+            const out = document.getElementById('thread-split-output');
+            let textToSplit = document.getElementById('sample-tweet').value.trim();
+            if (!textToSplit) {
+                textToSplit = preview.textContent.trim();
+            }
+            if (!textToSplit || textToSplit.startsWith("Click a button") || textToSplit.startsWith("Generating")) {
+                preview.textContent = "Please generate or type some text in the sample input to preview thread splitting.";
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/split-preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: textToSplit })
+                });
+                const data = await res.json();
+                container.style.display = "block";
+                out.innerHTML = `
+                    <div style="margin-bottom: 4px;"><strong>Twitter/X (${data.twitter.limit} chars limit):</strong> ${data.twitter.chunks.length} post(s)</div>
+                    <div style="margin-bottom: 4px;"><strong>Bluesky (${data.bluesky.limit} chars limit):</strong> ${data.bluesky.chunks.length} post(s)</div>
+                    <div><strong>Mastodon (${data.mastodon.limit} chars limit):</strong> ${data.mastodon.chunks.length} post(s)</div>
+                `;
+            } catch (err) {
+                container.style.display = "block";
+                out.innerHTML = `<span style="color:var(--danger)">Error splitting text: ${err.message}</span>`;
+            }
+        }
+
+        async function fetchTargetProfiles() {
+            try {
+                const res = await fetch('/api/targets');
+                const data = await res.json();
+                const container = document.getElementById('target-profiles-list');
+                const countBadge = document.getElementById('target-count-badge');
+                if (!data.success || !data.profiles || data.profiles.length === 0) {
+                    container.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 0.5rem;">No targeted persona routes configured. Monitored accounts inherit global default persona.</div>';
+                    countBadge.textContent = "0 Profiles";
+                    return;
+                }
+                countBadge.textContent = `${data.profiles.length} Profile${data.profiles.length > 1 ? 's' : ''}`;
+                container.innerHTML = data.profiles.map(p => {
+                    const personaLabel = p.persona_override ? p.persona_override.replace('_', ' ') : 'Default (Global)';
+                    const autoStatus = p.auto_reply_enabled
+                        ? '<span class="status-badge ok" style="font-size:0.7rem;">Active</span>'
+                        : '<span class="status-badge warn" style="font-size:0.7rem;">Muted</span>';
+                    const handleDisplay = p.username ? `@${p.username}` : `ID: ${p.target_id}`;
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; margin-bottom: 0.3rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                                <strong>${handleDisplay}</strong>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">(${p.target_id})</span>
+                                <span class="status-badge" style="font-size: 0.7rem; background: var(--surface-badge); text-transform: capitalize;">🎭 ${personaLabel}</span>
+                                ${autoStatus}
+                            </div>
+                            <button class="btn btn-danger btn-sm" style="padding: 0.15rem 0.4rem; font-size: 0.72rem;" onclick="deleteTargetProfile('${p.target_id}')">Remove</button>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error("Error loading target profiles:", err);
+            }
+        }
+
+        async function saveTargetProfile() {
+            const targetId = document.getElementById('target-profile-id').value.trim();
+            const username = document.getElementById('target-profile-username').value.trim();
+            const persona = document.getElementById('target-profile-persona').value;
+            const autoReply = document.getElementById('target-profile-autoreply').checked;
+
+            if (!targetId) {
+                alert("Target User ID is required.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/targets', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        target_id: targetId,
+                        username: username,
+                        persona_override: persona,
+                        auto_reply_enabled: autoReply
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('target-profile-id').value = '';
+                    document.getElementById('target-profile-username').value = '';
+                    fetchTargetProfiles();
+                } else {
+                    alert("Error: " + (data.error || "Could not save target profile"));
+                }
+            } catch (err) {
+                alert("Failed to save target profile: " + err.message);
+            }
+        }
+
+        async function deleteTargetProfile(targetId) {
+            if (!confirm(`Remove targeted persona routing for User ID ${targetId}?`)) return;
+            try {
+                const res = await fetch('/api/targets', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({target_id: targetId})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    fetchTargetProfiles();
+                } else {
+                    alert("Error deleting target: " + (data.error || "Unknown"));
+                }
+            } catch (err) {
+                alert("Failed to delete target: " + err.message);
             }
         }
 
@@ -670,7 +1292,7 @@
                 }
 
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">No scheduled tweets in queue.</td></tr>';
                     return;
                 }
                 function escapeHtml(str) {
@@ -680,8 +1302,12 @@
                 tbody.innerHTML = list.map(t => `
                     <tr>
                         <td style="font-family: monospace;">#${escapeHtml(String(t.id))}</td>
-                        <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
-                        <td>${escapeHtml(t.scheduled_time)}</td>
+                        <td><span class="status-badge ${t.account_handle === '@make_elon_laugh' ? 'ok' : 'info'}" style="font-size: 0.75rem;">${escapeHtml(t.account_handle || '@make_elon_laugh')}</span></td>
+                        <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.content)}">${escapeHtml(t.content)}</td>
+                        <td>
+                            ${t.media_theme ? `<span class="status-badge info" style="font-size: 0.75rem;" title="Visual meme card attached">🖼️ ${escapeHtml(t.media_theme)}</span>` : '<span style="color: var(--text-muted); font-size: 0.75rem;">None</span>'}
+                        </td>
+                        <td>${escapeHtml(String(t.scheduled_time))}</td>
                         <td><span class="status-badge ok" style="font-size: 0.75rem;">${escapeHtml(t.persona)}</span></td>
                         <td>
                             <span class="status-badge ${t.status === 'sent' ? 'ok' : (t.status === 'pending' ? 'warn' : 'alert')}">
@@ -695,6 +1321,21 @@
                 `).join('');
             } catch (err) {
                 console.error("Error fetching scheduled tweets:", err);
+            }
+        }
+
+        async function suggestOptimalSlot() {
+            try {
+                const res = await fetch('/api/schedule/optimal-slot');
+                const data = await res.json();
+                if (data.success && data.slot) {
+                    document.getElementById('sched-time').value = data.slot.slot_iso;
+                    const banner = document.getElementById('optimal-slot-banner');
+                    banner.innerHTML = `<strong>Recommended Window:</strong> ${data.slot.slot_formatted} &mdash; <em>${data.slot.reasoning}</em>`;
+                    banner.style.display = 'block';
+                }
+            } catch (e) {
+                console.error("Failed to fetch optimal slot", e);
             }
         }
 
@@ -715,12 +1356,21 @@
 
             const formattedTime = timeVal.replace("T", " ") + ":00";
             const persona = document.getElementById('persona-select').value;
+            const accountHandle = (document.getElementById('sched-account') ? document.getElementById('sched-account').value : '@make_elon_laugh');
+            const mediaThemeEl = document.getElementById('sched-media-theme');
+            const mediaTheme = (mediaThemeEl && mediaThemeEl.value) ? mediaThemeEl.value : null;
 
             try {
                 const res = await fetch('/api/schedule', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({content: content, scheduled_time: formattedTime, persona: persona})
+                    body: JSON.stringify({
+                        content: content,
+                        scheduled_time: formattedTime,
+                        persona: persona,
+                        account_handle: accountHandle,
+                        media_theme: mediaTheme
+                    })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -778,6 +1428,15 @@
                         const qDiff = d.deltas.queue_sent.diff;
                         const qSign = qDiff > 0 ? "+" : "";
                         document.getElementById('digest-queue-delta').textContent = `${qSign}${qDiff} (${qSign}${d.deltas.queue_sent.pct}%) vs prior`;
+
+                        if (d.deltas.syndication_posts) {
+                            const synDiff = d.deltas.syndication_posts.diff;
+                            const synSign = synDiff > 0 ? "+" : "";
+                            const synDeltaEl = document.getElementById('syndication-delta-display');
+                            if (synDeltaEl) {
+                                synDeltaEl.textContent = `${synSign}${synDiff} (${synSign}${d.deltas.syndication_posts.pct}%) vs prior`;
+                            }
+                        }
                     }
 
                     // Update health scorecard & threshold alerts
@@ -809,6 +1468,13 @@
                         ? personaKeys.map(k => `${k}: ${d.queue.persona_distribution[k]}`).join(', ')
                         : 'None';
                     document.getElementById('digest-queue-personas').textContent = `Personas: ${personaStr}`;
+
+                    const accountKeys = Object.keys(d.queue.account_distribution || {});
+                    const accountStr = accountKeys.length > 0
+                        ? accountKeys.map(k => `${k}: ${d.queue.account_distribution[k]}`).join(', ')
+                        : 'None';
+                    const accEl = document.getElementById('digest-queue-accounts');
+                    if (accEl) accEl.textContent = `Accounts: ${accountStr}`;
 
                     const topRep = d.replies.top_reply;
                     const topBox = document.getElementById('digest-top-reply-box');
@@ -854,6 +1520,7 @@
                 const data = await res.json();
                 const badge = document.getElementById('webhook-status-badge');
                 const urlInput = document.getElementById('webhook-url-input');
+                const secretInput = document.getElementById('webhook-secret-input');
                 const adapterSelect = document.getElementById('webhook-adapter-select');
                 const autoToggle = document.getElementById('webhook-autodispatch-toggle');
                 const intervalSelect = document.getElementById('webhook-interval-select');
@@ -863,6 +1530,12 @@
                 if (data.auto_dispatch !== undefined) autoToggle.checked = Boolean(data.auto_dispatch);
                 if (data.interval_hours !== undefined) intervalSelect.value = String(data.interval_hours);
 
+                if (data.has_secret) {
+                    secretInput.placeholder = `Secret Active (${data.masked_secret})`;
+                } else {
+                    secretInput.placeholder = "HMAC Secret Key (optional)";
+                }
+
                 if (data.last_dispatch && data.last_dispatch > 0) {
                     const dt = new Date(data.last_dispatch * 1000);
                     lastDispatch.textContent = `Last Broadcast: ${dt.toLocaleTimeString()} (${dt.toLocaleDateString()})`;
@@ -871,7 +1544,8 @@
                 }
 
                 if (data.configured) {
-                    badge.textContent = `Configured (${data.masked_url})`;
+                    const signedNotice = data.has_secret ? ' 🔒 Signed' : '';
+                    badge.textContent = `Configured (${data.masked_url})${signedNotice}`;
                     badge.className = 'status-badge ok';
                 } else {
                     badge.textContent = 'Not Configured';
@@ -884,6 +1558,7 @@
 
         async function saveWebhookSettings() {
             const url = document.getElementById('webhook-url-input').value.trim();
+            const secret = document.getElementById('webhook-secret-input').value.trim();
             const adapter = document.getElementById('webhook-adapter-select').value;
             const autoDispatch = document.getElementById('webhook-autodispatch-toggle').checked;
             const intervalHours = parseInt(document.getElementById('webhook-interval-select').value, 10);
@@ -897,6 +1572,9 @@
                 };
                 if (url) {
                     payload.webhook_url = url;
+                }
+                if (secret) {
+                    payload.webhook_secret = secret;
                 }
 
                 const res = await fetch('/api/webhook', {
@@ -1068,6 +1746,16 @@
                     if (totEl) {
                         totEl.textContent = `${sm.total_posts || 0} Posts`;
                     }
+
+                    const alertBadge = document.getElementById('syndication-alert-badge');
+                    if (alertBadge) {
+                        if (data.federation_alerts && data.federation_alerts.length > 0) {
+                            alertBadge.style.display = 'inline-block';
+                            alertBadge.title = data.federation_alerts.map(a => a.message).join(' | ');
+                        } else {
+                            alertBadge.style.display = 'none';
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Error fetching syndication metrics:", err);
@@ -1115,6 +1803,7 @@
             fetchScheduledTweets();
             fetchPerformanceDigest();
             fetchSyndicationMetrics();
+            fetchTargetProfiles();
         }
 
         // Initialize on load
@@ -1126,6 +1815,7 @@
         fetchWebhookConfig();
         fetchSyndicationSettings();
         fetchSyndicationMetrics();
+        fetchTargetProfiles();
         setInterval(fetchLogs, 10000);
     </script>
 </body>

@@ -5,6 +5,189 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.38.0] - 2026-11-09
+
+### Changed
+- **Digest & Scheduled Tweet Queue Performance Optimization (`dashboard.py`)**:
+  - Refined `/api/schedule` endpoint logic to query full pending tweet collections directly when calculating the 7-day visual calendar breakdown, ensuring all upcoming scheduled tweets across all weeks and dates are accurately mapped into day distributions without getting truncated by historical non-pending rows.
+  - Increased query window from 100 to 500 rows to ensure full visibility into large multi-week queue queues.
+  - Verified 110 automated unit tests passing cleanly in `test_bot.py`.
+  - Visual verification confirmed via Playwright screenshot (`/home/jules/verification/v038_dashboard_view.png`).
+
+## [0.37.0] - 2026-11-08
+
+### Added
+- **AI-Driven Smart Layout Auto-Selection & Reasoning Engine (`meme_generator.py`)**:
+  - Implemented `recommend_infographic_layout(panels, content_text)` analyzing panel count and character density to automatically recommend either `grid` (for 3+ modular points or concise bullets) or `side-by-side` (for deep narrative comparisons or heavy prose).
+  - Enhanced `create_composite_infographic()` to accept `layout='auto'`, automatically resolving the ideal visual grid structure and attaching decision reasoning to the payload.
+- **REST API Endpoint for Layout Recommendation (`dashboard.py`)**:
+  - Added `POST /api/meme/composite/recommend-layout` returning recommended layout and heuristic rationale string.
+  - Integrated layout auto-selection into `POST /api/meme/composite` when `layout='auto'`.
+- **Command Center AI Layout Studio UI (`templates/index.html`)**:
+  - Added `Auto-Detect Layout` option in `#composite-layout-select`.
+  - Added `⚡ AI Layout Reasoner` button (`#btn-recommend-layout`) allowing operators to analyze tweet context or panel text on demand.
+  - Added layout recommendation explanation banner (`#composite-layout-banner`) detailing the AI's selection rationale.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_smart_layout_auto_selection_and_api` covering recommendation heuristics, auto-layout parameter resolution in generation endpoints, and recommendation REST API (110 tests passing).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_37_layout_reasoner.png`).
+
+## [0.36.0] - 2026-11-08
+
+### Added
+- **Multi-Image Composite Infographic Generator & Grid Layout Engine (`meme_generator.py`)**:
+  - Implemented `create_composite_infographic()` supporting horizontal `side-by-side` (2 panels, 800x420) and `grid` (4 quadrants, 800x620) composite layouts with theme-aware palettes (`dark`, `cyberpunk`, `solar`, `clean`).
+  - Added `generate_composite_infographic_b64()` helper for base64 web display and instant embedding.
+- **Composite Infographic REST APIs (`dashboard.py`)**:
+  - Added `/api/meme/composite` (POST) returning base64 rendered graphics with customizable panel dictionaries and themes.
+  - Added `/api/meme/composite/download` (GET & POST) streaming binary composite PNG graphics with attachment headers.
+- **Command Center Composite Infographic Studio (`templates/index.html`)**:
+  - Added `🌌 Composite Infographic` studio action button with explanatory tooltip marker.
+  - Added dynamic composite layout selector (`2x2 Grid Layout (4 Panels)` vs `Side-by-Side (2 Panels)`), live graphic preview display, and direct one-click `⬇️ Download Infographic PNG` button.
+- **Automated Unit Testing & Visual Verification**:
+  - Added unit test `test_composite_infographics_and_api` in `test_bot.py` testing side-by-side, grid layouts, base64 generation, and dashboard REST download endpoints (109 passing unit tests, 0 `flake8` warnings).
+  - Verified visual rendering via Playwright screenshot (`/home/jules/verification/v0_36_composite_scrolled.png`).
+
+## [0.35.0] - 2026-11-08
+
+### Added
+- **Dynamic Multi-Platform Syndication Metrics & Windowed Federation Engagement Deltas (`db.py`, `digest.py`)**:
+  - Enhanced `db.get_syndication_summary_metrics(days, start_days_ago, db_path)` to dynamically discover arbitrary federation platforms (Mastodon, Bluesky, Nostr, etc.) from `syndicated_posts` records rather than relying on hardcoded platform keys.
+  - Added optional window filtering with relative offset boundaries (`start_days_ago` and `days`) enabling rolling window comparisons.
+  - Updated `digest.generate_performance_digest()` to compute multi-window deltas for `syndication_posts` and `syndication_engagement` (total likes + shares across all federated platforms) comparing the current window against the preceding window of identical duration.
+  - Refactored `digest.export_digest_markdown()` and `digest.export_digest_html()` to dynamically iterate and render engagement summaries and average engagement rates for any discovered platform with zero-division protection.
+  - Enhanced Command Center UI in `templates/index.html` to display live federated post deltas (`#syndication-delta-display`).
+  - Added unit test `test_syndication_window_metrics_and_deltas` in `test_bot.py` validating dynamic platform discovery, window filtering, and delta computations (108 passing unit tests, 0 `flake8` warnings).
+
+## [0.34.0] - 2026-11-08
+
+### Added
+- **Visual Meme Card Attachments in Scheduled Tweet Queue**:
+  - Enhanced database schema in `db.py` with `media_theme` column on `scheduled_tweets` and automatic migration handling.
+  - Updated `schedule_tweet()` and `get_scheduled_tweets()` to persist and return media theme selections (`dark`, `cyberpunk`, `solar`, `clean`).
+  - Updated `scheduler.py` to validate `media_theme` against supported palettes and dynamically generate styled Pillow infographic cards via `meme_generator.create_meme_card()` upon dispatch.
+  - Updated `/api/schedule` in `dashboard.py` to accept and serialize `media_theme` metadata.
+  - Added `Media Card` selector dropdown and styled queue table badges in `templates/index.html`.
+  - Added comprehensive unit test `test_schedule_with_media_theme` in `test_bot.py`.
+
+## [0.33.0] - 2026-11-08
+
+### Added
+- **Automated Queue Rephrasing & Dynamic Tone Variation (`joke_generator.py`)**:
+  - Implemented `TONE_STYLES` dictionary (`witty`, `concise`, `enthusiastic`, `academic`) with prompt instructions and stylistic prefixes/suffixes.
+  - Implemented `rephrase_content(content, persona, tone_style)` with OpenAI prompt tuning and resilient offline heuristic fallbacks.
+- **Content Rephrasing REST API (`dashboard.py`)**:
+  - Added `/api/content/rephrase` POST endpoint returning rephrased content, character count, and tone metadata with input validation.
+- **Command Center Dynamic Tone Stylist & Rephraser (`templates/index.html`)**:
+  - Added Tone Stylist tool strip featuring style selector, rephrase trigger, and one-click copy to the Scheduled Tweet Queue.
+  - Added tooltip markers explaining tone effects and audience alignment.
+- **Automated Unit Tests & Visual Verification**:
+  - Added test suite in `test_bot.py` verifying rephrasing across all styles, boundaries, and `/api/content/rephrase` (106 tests passing, flake8 clean).
+  - Verified UI rendering via Playwright screenshot.
+
+## [0.32.0] - 2026-11-08
+
+### Added
+- **Performance Digest Multi-Account Queue Breakdown & Federation Health Details (`digest.py`, `generate_digest.py`)**:
+  - Enhanced performance digest engine (`digest.py`) with `account_distribution` aggregation within scheduled queue metrics.
+  - Updated Markdown and HTML digest report generators with visual badge styling and account attribution breakdown.
+  - Extended CLI tool (`generate_digest.py`) with `--account` argument for filtering queue attribution metrics by specific handle.
+  - Updated REST API endpoint `/api/digest` in `dashboard.py` to support optional `account` filtering.
+  - Added dedicated dynamic UI element (`#digest-queue-accounts`) in Command Center Weekly Performance Digest card to display live account attribution distributions.
+  - Verified with 105 automated unit tests, strict flake8 linting, and Playwright visual screenshot verification.
+
+## [0.31.0] - 2026-11-08
+
+### Added
+- **Multi-Account Scheduled Tweet Routing & Account Profiles (`db.py`, `scheduler.py`)**:
+  - Extended `scheduled_tweets` SQLite schema and automated migration logic with `account_handle` column (defaulting to primary `@make_elon_laugh`).
+  - Updated `db.schedule_tweet` and `db.get_scheduled_tweets` to persist and filter by `account_handle`.
+  - Enhanced `scheduler.enqueue_scheduled_tweet` with account normalization and `scheduler.process_due_tweets` with account attribution logging.
+- **Multi-Account Schedule REST APIs (`dashboard.py`)**:
+  - Enhanced `/api/schedule` (GET & POST) to handle optional `account_handle` queries and submissions.
+  - Returns `account_counts` distribution alongside existing calendar breakdown.
+- **Command Center Multi-Account Queue Controls (`templates/index.html`)**:
+  - Added Account Profile selector dropdown (`@make_elon_laugh [Primary]`, `@space_astronomy [Secondary]`) with tooltip guidance.
+  - Added dedicated Account column and visual badge indicator in the Scheduled Tweet Queue table.
+- **Comprehensive Unit Testing Suite**:
+  - Added tests in `test_bot.py` covering multi-account persistence, handle filtering, and `/api/schedule` REST endpoints (105 passing tests, 0 `flake8` warnings).
+
+## [0.30.0] - 2026-11-07
+
+### Added
+- **Multi-Theme Visual Meme Card Engine (`meme_generator.py`, `joke_generator.py`)**:
+  - Added `THEME_PALETTES` dictionary defining distinct visual palettes: Cosmic Slate (`dark`), Neon Cyberpunk (`cyberpunk`), Solar Flare (`solar`), and Minimalist Light (`clean`).
+  - Extended `create_meme_card(text, title, theme, subtitle)` to render theme-specific backgrounds, cards, primary/secondary borders, titles, text, and accent colors.
+  - Updated `joke_generator.py`'s `generate_meme_card_b64` to forward `theme` parameters cleanly.
+- **Meme Theme Generation & Binary Download REST Endpoints (`dashboard.py`)**:
+  - Enhanced `/api/test-generate-meme` to accept `theme` parameter and return theme-tailored base64 image cards.
+  - Implemented `/api/meme/download` streaming binary PNG files as downloadable attachments (`meme_card_<theme>_<timestamp>.png`).
+- **Command Center Visual Meme Card UI Controls (`templates/index.html`)**:
+  - Added theme selection dropdown (Cosmic Slate, Neon Cyberpunk, Solar Flare, Minimalist Light) directly next to the Meme Card button.
+  - Added a dedicated "Download PNG Card" action button beneath the rendered meme card preview.
+  - Added explanatory tooltips guiding theme choices and one-click graphic downloads.
+- **Comprehensive Unit Testing**:
+  - Added unit tests in `test_bot.py` covering theme palettes, invalid fallback handling, base64 generation across themes, and binary `/api/meme/download` responses (expanded to 105 passing tests with 0 `flake8` warnings).
+
+## [0.29.0] - 2026-11-07
+
+### Added
+- **Target Audience Segmentation & Persona Routing Engine (`db.py`, `bot.py`)**:
+  - Implemented `target_profiles` database table schema and CRUD helpers (`get_target_profiles`, `upsert_target_profile`, `delete_target_profile`, `get_target_persona_override`).
+  - Updated `bot.py` continuous polling loop to resolve target-specific persona overrides dynamically during tweet detection and respect per-target auto-reply switches.
+- **Target Profiles REST API (`dashboard.py`)**:
+  - Added `/api/targets` endpoint (GET, POST, DELETE) for retrieving, configuring, and removing target profiles and persona routes.
+- **Command Center Target Routing UI (`templates/index.html`)**:
+  - Integrated interactive Target Audience Segmentation & Persona Routing manager in the Command Center.
+  - Added target creation form with User ID, handle, persona selector, auto-reply toggle, status badges, and tooltip guides.
+- **Test Suite Expansion**:
+  - Added unit test suite in `test_bot.py` covering database operations, persona resolution, and API endpoints (expanded to 104 passing tests with 0 `flake8` warnings).
+
+## [0.28.0] - 2026-11-07
+
+### Added
+- **Cryptographic HMAC-SHA256 Webhook Payload Signing (`webhook.py`)**:
+  - Implemented `compute_webhook_signature(payload_bytes, secret)` computing standard HMAC-SHA256 digests (`sha256=<hex_digest>`).
+  - Updated `dispatch_webhook` and `check_and_dispatch_recurring_digest` to attach `X-Hub-Signature-256` and `X-Signature-Timestamp` headers when a secret is configured.
+- **Webhook Secret Key Configuration REST API (`dashboard.py`)**:
+  - Enhanced `/api/webhook` (GET & POST) to handle optional `webhook_secret` configuration.
+  - Symmetrically returns masked secret status (`abc...xyz` or `***`) to protect credentials from shoulder-surfing.
+- **Command Center Secret Key Controls & Visual Badges (`templates/index.html`)**:
+  - Added password-masked HMAC Secret input field with detailed tooltip explanation of signature verification headers.
+  - Added active signature status indicator (`🔒 Signed`) on the webhook configuration status badge.
+- **Comprehensive Unit Testing**:
+  - Added tests in `test_bot.py` covering signature computation, header attachment verification, secret masking, and API dispatch validation. Total test count expanded to 102 passing tests with 0 `flake8` warnings.
+
+## [0.27.0] - 2026-11-07
+
+### Added
+- **Peak Hour Auto-Scheduler (`scheduler.py`)**:
+  - Added `recommend_optimal_post_slot(now_dt, db_path)` calculating candidate peak engagement windows (09:00, 13:00, 17:00, 21:00 UTC) with audience rationale.
+  - Automatically targets high-traffic space and tech industry windows and handles next-day rollovers.
+- **Optimal Slot Recommendation REST API (`/api/schedule/optimal-slot`)**:
+  - Added REST endpoint in `dashboard.py` returning optimal slot ISO timestamp, formatted local string, UTC hour, and industry reasoning.
+- **Command Center Peak Slot Planner UI (`templates/index.html`)**:
+  - Added `⚡ Suggest Peak Slot` button with detailed tooltip explanation.
+  - Added dynamic `#optimal-slot-banner` alert banner populating the schedule datetime picker with the recommended timestamp and audience rationale.
+- **Automated Tests**: Added `test_recommend_optimal_post_slot` in `test_bot.py` validating UTC calculations, next-day boundary conditions, and API endpoint output. Total test count reached 100 passing tests with 0 flake8 errors.
+
+## [0.26.0] - 2026-11-07
+
+### Added
+- **Cross-Platform Thread Splitting & Chunking Engine (`splitter.py`)**:
+  - Word-boundary-aware chunking algorithm splitting long-form text according to platform character limits: Twitter/X (280 chars), Bluesky (300 chars), and Mastodon (500 chars).
+  - Automatically calculates and appends sequential thread indicators (`[1/N]`, `[2/N]`) preserving space within platform limits.
+  - Handles single long words and arbitrary formatting without truncation or crashing.
+- **Automated Long-Form Syndication Integration (`syndication.py`)**:
+  - Enhanced `dispatch_syndicated_post()` with `auto_split=True` support.
+  - Automatically splits oversized text into sequenced thread parts across Mastodon and Bluesky, publishing each part and persisting engagement records in SQLite (`syndicated_posts`).
+- **Thread Split Simulation & Preview REST API (`/api/split-preview`)**:
+  - Added REST endpoint in `dashboard.py` accepting arbitrary content and returning simulated thread chunk lists and character counts for Twitter, Bluesky, and Mastodon.
+- **Command Center Thread Split Interactive UI (`templates/index.html`)**:
+  - Added dedicated `🧵 Thread Split Preview` action button with tooltip marker in the Content Generation Sandbox.
+  - Interactive multi-column preview container rendering sequenced chunks and character count badges for all three supported platforms.
+- **Automated Testing Suite (`test_bot.py`)**:
+  - Added comprehensive unit test `test_content_splitter_and_syndication_chunking` verifying boundary preservation, sequential indexing, dry-run syndication auto-chunking, and `/api/split-preview` responses. Total test count reached 98 passing tests with 0 flake8 errors.
+
 ## [0.24.0] - 2026-11-07
 
 ### Added

@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 import unittest
 from unittest.mock import patch, MagicMock
 from auth import validate_api_keys, get_twitter_client
@@ -365,14 +366,28 @@ class TestDatabaseStorage(unittest.TestCase):
         self.assertEqual(ratings[1]["rating"], 1)
 
     def test_scheduled_tweets_storage(self):
-        # Schedule tweet
-        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer", self.test_db)
+        # Schedule tweet with default account
+        tid = db.schedule_tweet("Starship launch tomorrow!", "2026-12-01 10:00:00", "tactful_engineer",
+                                db_path=self.test_db)
         self.assertIsNotNone(tid)
 
+        # Schedule second tweet with secondary account
+        tid2 = db.schedule_tweet("Nebula survey observation", "2026-12-02 12:00:00", "deadpan_astronomer",
+                                 db_path=self.test_db, account_handle="@space_astronomy")
+        self.assertIsNotNone(tid2)
+
         pending = db.get_scheduled_tweets(status="pending", limit=5, db_path=self.test_db)
-        self.assertEqual(len(pending), 1)
+        self.assertEqual(len(pending), 2)
         self.assertEqual(pending[0]["content"], "Starship launch tomorrow!")
         self.assertEqual(pending[0]["status"], "pending")
+        self.assertEqual(pending[0]["account_handle"], "@make_elon_laugh")
+        self.assertEqual(pending[1]["account_handle"], "@space_astronomy")
+
+        # Filter by account_handle
+        sec_tweets = db.get_scheduled_tweets(status="pending", account_handle="@space_astronomy",
+                                             limit=5, db_path=self.test_db)
+        self.assertEqual(len(sec_tweets), 1)
+        self.assertEqual(sec_tweets[0]["content"], "Nebula survey observation")
 
         # Update status
         updated = db.update_scheduled_tweet_status(tid, "sent", self.test_db)
@@ -579,6 +594,7 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         self.assertTrue(data.get("skipped"))
 
     def test_api_test_generate_meme_endpoint(self):
+        # Default theme
         response = self.client.post(
             '/api/test-generate-meme',
             json={"text": "Custom test joke 🛸"}
@@ -587,8 +603,33 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         data = response.get_json()
         self.assertTrue(data["success"])
         self.assertEqual(data["text"], "Custom test joke 🛸")
+        self.assertEqual(data["theme"], "dark")
         self.assertIn("image_b64", data)
         self.assertTrue(len(data["image_b64"]) > 0)
+
+        # Themed generation (cyberpunk)
+        res_cyber = self.client.post(
+            '/api/test-generate-meme',
+            json={"text": "Cyberpunk meme test", "theme": "cyberpunk"}
+        )
+        self.assertEqual(res_cyber.status_code, 200)
+        data_cyber = res_cyber.get_json()
+        self.assertTrue(data_cyber["success"])
+        self.assertEqual(data_cyber["theme"], "cyberpunk")
+
+        # Test download endpoint
+        res_dl = self.client.get('/api/meme/download?text=Download%20Test&theme=solar')
+        self.assertEqual(res_dl.status_code, 200)
+        self.assertEqual(res_dl.mimetype, 'image/png')
+        self.assertGreater(len(res_dl.data), 1000)
+
+    def test_meme_generator_themes_and_palettes(self):
+        for theme_name in ['dark', 'cyberpunk', 'solar', 'clean', 'unknown_fallback']:
+            raw_png = meme_generator.create_meme_card("Card content", theme=theme_name)
+            self.assertIsInstance(raw_png, bytes)
+            self.assertGreater(len(raw_png), 1000)
+            # Check PNG magic bytes
+            self.assertEqual(raw_png[:8], b'\x89PNG\r\n\x1a\n')
 
     def test_api_config_get_and_post(self):
         get_res = self.client.get('/api/config')
@@ -708,10 +749,13 @@ class TestDashboardAndEndpoints(unittest.TestCase):
         post_res = self.client.post('/api/schedule', json={
             "content": "Scheduled falcon flight test",
             "scheduled_time": "2026-11-10 14:00:00",
-            "persona": "witty_ai"
+            "persona": "witty_ai",
+            "account_handle": "@space_astronomy"
         })
         self.assertEqual(post_res.status_code, 200)
-        tid = post_res.get_json()["id"]
+        post_data = post_res.get_json()
+        tid = post_data["id"]
+        self.assertEqual(post_data.get("account_handle"), "@space_astronomy")
 
         # Verify weekly_calendar reflects the newly scheduled pending tweet
         get_res_after = self.client.get('/api/schedule')
@@ -750,6 +794,32 @@ class TestSchedulerModule(unittest.TestCase):
     def tearDown(self):
         if os.path.exists(self.test_db):
             os.remove(self.test_db)
+
+    def test_recommend_optimal_post_slot(self):
+        """Test optimal post slot recommendation calculations."""
+        import json
+        from datetime import datetime, timezone
+        # Test at 08:00 UTC -> should recommend 09:00 UTC today
+        fixed_dt = datetime(2026, 11, 7, 8, 0, 0, tzinfo=timezone.utc)
+        slot = scheduler.recommend_optimal_post_slot(now_dt=fixed_dt)
+        self.assertEqual(slot["hour_utc"], 9)
+        self.assertIn("2026-11-07T09:00", slot["slot_iso"])
+        self.assertIn("Morning orbital telemetry", slot["reasoning"])
+
+        # Test at 22:00 UTC -> should recommend 09:00 UTC tomorrow
+        fixed_dt_late = datetime(2026, 11, 7, 22, 0, 0, tzinfo=timezone.utc)
+        slot_late = scheduler.recommend_optimal_post_slot(now_dt=fixed_dt_late)
+        self.assertEqual(slot_late["hour_utc"], 9)
+        self.assertIn("2026-11-08T09:00", slot_late["slot_iso"])
+
+        # Test dashboard endpoint via test client
+        with dashboard.app.test_client() as client:
+            res = client.get("/api/schedule/optimal-slot")
+            self.assertEqual(res.status_code, 200)
+            data = json.loads(res.data)
+            self.assertTrue(data["success"])
+            self.assertIn("slot_iso", data["slot"])
+            self.assertIn("reasoning", data["slot"])
 
     def test_enqueue_and_process_due_tweets(self):
         # Empty content should raise ValueError
@@ -836,7 +906,8 @@ class TestPerformanceDigest(unittest.TestCase):
         db.update_engagement("1001", likes=15, retweets=4, db_path=self.test_db)
 
         # Insert scheduled tweet
-        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db)
+        db.schedule_tweet("Test joke", "2026-11-15 12:00:00", persona="witty_ai", db_path=self.test_db,
+                          account_handle="@space_astronomy")
 
         # Insert ratings (+1 and -1)
         db.record_joke_rating("Hilarious space joke", 1, notes="Super funny", db_path=self.test_db)
@@ -851,6 +922,17 @@ class TestPerformanceDigest(unittest.TestCase):
         self.assertEqual(res["queue"]["total_scheduled"], 1)
         self.assertEqual(res["queue"]["pending"], 1)
         self.assertEqual(res["queue"]["persona_distribution"].get("witty_ai"), 1)
+        self.assertEqual(res["queue"]["account_distribution"].get("@space_astronomy"), 1)
+
+        # Verify export markdown includes Account Attribution
+        md = digest.export_digest_markdown(res)
+        self.assertIn("Account Attribution:", md)
+        self.assertIn("@space_astronomy: 1", md)
+
+        # Verify HTML export includes Account Attribution
+        html = digest.export_digest_html(res)
+        self.assertIn("Account Attribution:", html)
+        self.assertIn("@space_astronomy: 1", html)
 
         self.assertEqual(res["ratings"]["total_ratings"], 2)
         self.assertEqual(res["ratings"]["upvotes"], 1)
@@ -889,7 +971,43 @@ class TestPerformanceDigest(unittest.TestCase):
 class TestWebhookDispatcher(unittest.TestCase):
     def setUp(self):
         webhook.DEFAULT_WEBHOOK_URL = ""
+        webhook.DEFAULT_WEBHOOK_SECRET = ""
         webhook.DEFAULT_ADAPTER = "generic"
+
+    def test_compute_webhook_signature(self):
+        secret = "super_secure_key"
+        payload = b'{"status": "ok", "count": 42}'
+        sig = webhook.compute_webhook_signature(payload, secret)
+        self.assertTrue(sig.startswith("sha256="))
+        self.assertEqual(len(sig), 7 + 64)
+
+        # Empty secret returns empty string
+        self.assertEqual(webhook.compute_webhook_signature(payload, ""), "")
+
+        # Deterministic check
+        sig2 = webhook.compute_webhook_signature(payload, secret)
+        self.assertEqual(sig, sig2)
+
+    @patch('urllib.request.urlopen')
+    def test_webhook_dispatch_with_hmac_headers(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.getcode.return_value = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        # Dispatch with explicit secret
+        ok, status = webhook.dispatch_webhook(
+            "https://example.com/webhook",
+            {"digest": "test"},
+            secret="mysecret123"
+        )
+        self.assertTrue(ok)
+        self.assertEqual(status, 200)
+
+        # Inspect urllib Request
+        req_sent = mock_urlopen.call_args[0][0]
+        self.assertIn("X-hub-signature-256", req_sent.headers)
+        self.assertTrue(req_sent.headers["X-hub-signature-256"].startswith("sha256="))
+        self.assertIn("X-signature-timestamp", req_sent.headers)
 
     def test_webhook_payload_formatting_slack(self):
         sample = {
@@ -942,18 +1060,22 @@ class TestWebhookDispatcher(unittest.TestCase):
         data = res.get_json()
         self.assertFalse(data["configured"])
 
-        # POST update URL and adapter
+        # POST update URL and adapter and secret
         res_post = client.post('/api/webhook', json={
             "webhook_url": "https://hooks.slack.com/services/T00/B00/XXXX",
+            "webhook_secret": "my-ultra-secret",
             "adapter": "slack"
         })
         self.assertEqual(res_post.status_code, 200)
         self.assertTrue(res_post.get_json()["success"])
+        self.assertTrue(res_post.get_json()["has_secret"])
 
-        # GET should now report configured
+        # GET should now report configured with masked secret
         res_after = client.get('/api/webhook')
         data_after = res_after.get_json()
         self.assertTrue(data_after["configured"])
+        self.assertTrue(data_after["has_secret"])
+        self.assertIn("...", data_after["masked_secret"])
         self.assertEqual(data_after["adapter"], "slack")
 
         # POST test dispatch with mock urlopen
@@ -1528,6 +1650,49 @@ class TestSyndication(unittest.TestCase):
             if os.path.exists(test_db):
                 os.remove(test_db)
 
+    def test_syndication_window_metrics_and_deltas(self):
+        """Tests windowed syndication metrics aggregation, dynamic discovery, and digest deltas."""
+        test_db = f"test_syn_window_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Record posts across diverse platforms, including an unexpected custom one
+            db.record_syndicated_post("mastodon", "Mastodon test status", remote_id="m1",
+                                      likes=10, shares=5, db_path=test_db)
+            db.record_syndicated_post("bluesky", "Bluesky test status", remote_id="b1",
+                                      likes=20, shares=8, db_path=test_db)
+            db.record_syndicated_post("nostr", "Nostr event note", remote_id="n1",
+                                      likes=15, shares=2, db_path=test_db)
+
+            # 2. Test db.get_syndication_summary_metrics with dynamic discovery
+            summary = db.get_syndication_summary_metrics(days=7, db_path=test_db)
+            self.assertEqual(summary["total_posts"], 3)
+            self.assertIn("nostr", summary["platforms"])
+            self.assertEqual(summary["platforms"]["nostr"]["likes"], 15)
+            self.assertEqual(summary["platforms"]["nostr"]["shares"], 2)
+
+            # 3. Test generate_performance_digest delta calculation
+            d = digest.generate_performance_digest(db_path=test_db, days=7)
+            self.assertEqual(d["syndication"]["total_posts"], 3)
+            self.assertIn("syndication_posts", d["deltas"])
+            self.assertIn("syndication_engagement", d["deltas"])
+            self.assertEqual(d["deltas"]["syndication_posts"]["current"], 3)
+            self.assertEqual(d["deltas"]["syndication_posts"]["diff"], 3)
+            self.assertEqual(d["deltas"]["syndication_posts"]["pct"], 100.0)
+
+            # 4. Test markdown & HTML exports render the custom platform dynamically
+            md = digest.export_digest_markdown(d)
+            self.assertIn("Nostr:", md)
+            self.assertIn("15 likes/favs", md)
+
+            html = digest.export_digest_html(d)
+            self.assertIn("Nostr:", html)
+            self.assertIn("Total Posts:", html)
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
     def test_cli_digest_generator_and_custom_options(self):
         """Tests generate_digest CLI utility with prefix, quiet mode, and formats."""
         import generate_digest
@@ -1587,6 +1752,434 @@ class TestSyndication(unittest.TestCase):
 
         finally:
             shutil.rmtree(test_dir, ignore_errors=True)
+
+    def test_content_splitter_and_syndication_chunking(self):
+        """Tests text splitting into threads for Twitter, Bluesky, Mastodon, and /api/split-preview."""
+        import splitter
+        import syndication
+
+        # 1. Short text (no splitting needed)
+        short_text = "Standard short humor tweet."
+        chunks_tw = splitter.split_for_platform(short_text, "twitter")
+        self.assertEqual(len(chunks_tw), 1)
+        self.assertEqual(chunks_tw[0], short_text)
+
+        # 2. Long text exceeding Twitter (280) and Bluesky (300) limits
+        long_text = "Falcon Heavy launch test: " + ("orbital telemetry data validation check " * 12)
+        self.assertGreater(len(long_text), 300)
+
+        chunks_tw = splitter.split_for_platform(long_text, "twitter")
+        self.assertGreaterEqual(len(chunks_tw), 2)
+        for chunk in chunks_tw:
+            self.assertLessEqual(len(chunk), 280)
+            self.assertTrue("[" in chunk and "]" in chunk)
+
+        chunks_bsky = splitter.split_for_platform(long_text, "bluesky")
+        for chunk in chunks_bsky:
+            self.assertLessEqual(len(chunk), 300)
+
+        # 3. Test syndication dispatch with auto_split enabled
+        res = syndication.dispatch_syndicated_post(
+            long_text,
+            platforms=["mastodon", "bluesky"],
+            dry_run=True,
+            auto_split=True
+        )
+        self.assertIn("mastodon", res)
+        self.assertIn("bluesky", res)
+        self.assertTrue(res["mastodon"]["success"])
+        self.assertTrue(res["bluesky"]["success"])
+        self.assertGreaterEqual(res["bluesky"]["parts"], 2)
+
+        # 4. Test /api/split-preview endpoint
+        client = dashboard.app.test_client()
+        res_prev = client.post('/api/split-preview', json={"text": long_text})
+        self.assertEqual(res_prev.status_code, 200)
+        pdata = res_prev.get_json()
+        self.assertIn("twitter", pdata)
+        self.assertIn("bluesky", pdata)
+        self.assertIn("mastodon", pdata)
+        self.assertEqual(pdata["twitter"]["limit"], 280)
+        self.assertEqual(pdata["bluesky"]["limit"], 300)
+        self.assertEqual(pdata["mastodon"]["limit"], 500)
+        self.assertGreaterEqual(len(pdata["twitter"]["chunks"]), 2)
+
+        # Error handling on invalid payload
+        res_bad = client.post('/api/split-preview', json={"text": 12345})
+        self.assertEqual(res_bad.status_code, 400)
+
+    def test_federation_anomaly_alerts_and_health_scorecard(self):
+        """
+        Tests federation engagement stall detection, health scorecard status,
+        and /api/syndication/metrics response payloads.
+        """
+        # 1. Alert trigger evaluation: simulated stall
+        stalled_digest = {
+            "health_scorecard": {"db_connected": True, "queue_backlog": 0},
+            "ratings": {"total_ratings": 0, "approval_rate": 0.0},
+            "queue": {"pending": 0},
+            "syndication": {
+                "total_posts": 6,
+                "platforms": {
+                    "mastodon": {"posts": 3, "likes": 0, "shares": 0},
+                    "bluesky": {"posts": 3, "likes": 0, "shares": 0}
+                }
+            }
+        }
+        alerts = digest.evaluate_performance_alerts(stalled_digest)
+        stall_alerts = [a for a in alerts if a["type"] == "federation_engagement_stall"]
+        self.assertEqual(len(stall_alerts), 1)
+        self.assertIn("stall detected", stall_alerts[0]["message"])
+
+        # 2. Markdown and HTML export inclusion of active federation alerts
+        stalled_digest["alerts"] = alerts
+        md_report = digest.export_digest_markdown(stalled_digest)
+        self.assertIn("Active System Anomaly Alerts", md_report)
+        self.assertIn("Social federation engagement stall detected", md_report)
+
+        html_report = digest.export_digest_html(stalled_digest)
+        self.assertIn("Active System Anomaly Alerts", html_report)
+        self.assertIn("Social federation engagement stall detected", html_report)
+
+        # 3. Test /api/syndication/metrics response payload structure
+        client = dashboard.app.test_client()
+        res = client.get('/api/syndication/metrics')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("federation_alerts", data)
+        self.assertIn("federation_health", data)
+        self.assertIsInstance(data["federation_alerts"], list)
+
+    def test_target_profiles_crud_and_routing(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
+            test_db = tmp.name
+
+        try:
+            db.init_db(test_db)
+
+            # 1. Initially empty
+            profiles = db.get_target_profiles(test_db)
+            self.assertEqual(len(profiles), 0)
+
+            # 2. Upsert profile with specific persona override
+            ok = db.upsert_target_profile(
+                target_id="44196397",
+                username="elonmusk",
+                persona_override="deadpan_astronomer",
+                auto_reply_enabled=1,
+                tags="space, tech",
+                db_path=test_db
+            )
+            self.assertTrue(ok)
+
+            profiles = db.get_target_profiles(test_db)
+            self.assertEqual(len(profiles), 1)
+            self.assertEqual(profiles[0]["username"], "elonmusk")
+            self.assertEqual(profiles[0]["persona_override"], "deadpan_astronomer")
+            self.assertTrue(profiles[0]["auto_reply_enabled"])
+
+            # 3. Test get_target_persona_override
+            persona, auto_reply = db.get_target_persona_override("44196397", test_db)
+            self.assertEqual(persona, "deadpan_astronomer")
+            self.assertTrue(auto_reply)
+
+            # 4. Upsert with muted auto-reply
+            db.upsert_target_profile(
+                target_id="44196397",
+                username="elonmusk",
+                persona_override="witty_ai",
+                auto_reply_enabled=0,
+                tags="space",
+                db_path=test_db
+            )
+            persona_muted, auto_muted = db.get_target_persona_override("44196397", test_db)
+            self.assertEqual(persona_muted, "witty_ai")
+            self.assertFalse(auto_muted)
+
+            # 5. Delete profile
+            deleted = db.delete_target_profile("44196397", test_db)
+            self.assertTrue(deleted)
+            self.assertEqual(len(db.get_target_profiles(test_db)), 0)
+
+            # 6. Fallback for non-existent target
+            none_p, default_reply = db.get_target_persona_override("999999", test_db)
+            self.assertIsNone(none_p)
+            self.assertTrue(default_reply)
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
+    def test_api_targets_endpoints(self):
+        client = dashboard.app.test_client()
+
+        # GET initially
+        res = client.get('/api/targets')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data["success"])
+        self.assertIn("profiles", data)
+        self.assertIn("allowed_personas", data)
+
+        # POST invalid persona
+        res_bad = client.post('/api/targets', json={
+            "target_id": "11111",
+            "persona_override": "non_existent_persona"
+        })
+        self.assertEqual(res_bad.status_code, 400)
+
+        # POST valid target profile
+        res_create = client.post('/api/targets', json={
+            "target_id": "7777777",
+            "username": "astronomy_hub",
+            "persona_override": "witty_ai",
+            "auto_reply_enabled": True,
+            "tags": "astrophysics"
+        })
+        self.assertEqual(res_create.status_code, 200)
+        self.assertTrue(res_create.get_json()["success"])
+
+        # Verify in GET
+        res_check = client.get('/api/targets')
+        found = [p for p in res_check.get_json()["profiles"] if p["target_id"] == "7777777"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["persona_override"], "witty_ai")
+
+        # DELETE target profile
+        res_del_err = client.post('/api/targets', json={})  # Test missing ID error
+        self.assertEqual(res_del_err.status_code, 400)
+        res_del_action = client.delete('/api/targets', json={"target_id": "7777777"})
+        self.assertEqual(res_del_action.status_code, 200)
+        self.assertTrue(res_del_action.get_json()["success"])
+
+    def test_rephrase_content_and_api(self):
+        """Validates joke_generator.rephrase_content and /api/content/rephrase."""
+        sample_text = "The Falcon Heavy rocket completed its orbital staging."
+        # Test offline heuristic fallbacks across each tone
+        for tone in joke_generator.TONE_STYLES:
+            rephrased = joke_generator.rephrase_content(sample_text, tone_style=tone)
+            self.assertTrue(len(rephrased) > 0)
+            self.assertLessEqual(len(rephrased), 280)
+
+        # Empty content should return empty
+        self.assertEqual(joke_generator.rephrase_content(""), "")
+
+        # Test REST API endpoint
+        with dashboard.app.test_client() as client:
+            # Missing content
+            res_bad = client.post("/api/content/rephrase", json={})
+            self.assertEqual(res_bad.status_code, 400)
+
+            # Invalid tone
+            res_inv = client.post("/api/content/rephrase", json={
+                "content": sample_text,
+                "tone_style": "nonexistent"
+            })
+            self.assertEqual(res_inv.status_code, 400)
+
+            # Valid rephrase
+            res_ok = client.post("/api/content/rephrase", json={
+                "content": sample_text,
+                "persona": "tactful_engineer",
+                "tone_style": "enthusiastic"
+            })
+            self.assertEqual(res_ok.status_code, 200)
+            data = res_ok.get_json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["tone_style"], "enthusiastic")
+            self.assertIn("rephrased", data)
+            self.assertIn("tones", data)
+
+    def test_schedule_with_media_theme(self):
+        """Tests scheduling tweets with visual meme card media attachments."""
+        test_db = f"test_sched_media_{int(time.time() * 1000)}.db"
+        try:
+            db.init_db(test_db)
+
+            # 1. Test database enqueuing and retrieval with media_theme
+            tid = db.schedule_tweet(
+                "Starship landing test verified 🚀",
+                "2026-12-01 12:00:00",
+                persona="tactful_engineer",
+                account_handle="@make_elon_laugh",
+                media_theme="cyberpunk",
+                db_path=test_db
+            )
+            self.assertIsNotNone(tid)
+
+            tweets = db.get_scheduled_tweets(limit=10, db_path=test_db)
+            saved = next(t for t in tweets if t["id"] == tid)
+            self.assertEqual(saved["media_theme"], "cyberpunk")
+            self.assertEqual(saved["account_handle"], "@make_elon_laugh")
+
+            # 2. Test scheduler helper enqueue validation
+            # Invalid theme should raise ValueError
+            with self.assertRaises(ValueError):
+                scheduler.enqueue_scheduled_tweet(
+                    "Invalid theme tweet",
+                    "2026-12-01 12:00:00",
+                    media_theme="unsupported_palette",
+                    db_path=test_db
+                )
+
+            # Valid enqueue via scheduler
+            tid2 = scheduler.enqueue_scheduled_tweet(
+                "Due solar tweet ☀️",
+                "2020-01-01 00:00:00",
+                persona="witty_ai",
+                account_handle="@space_astronomy",
+                media_theme="solar",
+                db_path=test_db
+            )
+            self.assertIsNotNone(tid2)
+
+            # 3. Test due processing triggers meme card generation
+            processed = scheduler.process_due_tweets(dry_run=True, db_path=test_db)
+            self.assertEqual(processed, 1)
+
+            # Check status updated to sent
+            sent_tweets = db.get_scheduled_tweets(status="sent", db_path=test_db)
+            self.assertEqual(len(sent_tweets), 1)
+            self.assertEqual(sent_tweets[0]["id"], tid2)
+            self.assertEqual(sent_tweets[0]["media_theme"], "solar")
+
+            # 4. Test Dashboard REST API with media_theme
+            with dashboard.app.test_client() as client:
+                res = client.post("/api/schedule", json={
+                    "content": "API queued tweet with dark meme card",
+                    "scheduled_time": "2026-12-05 18:00:00",
+                    "persona": "deadpan_astronomer",
+                    "account_handle": "@make_elon_laugh",
+                    "media_theme": "dark"
+                })
+                self.assertEqual(res.status_code, 200)
+                data = res.get_json()
+                self.assertTrue(data["success"])
+                self.assertEqual(data.get("media_theme"), "dark")
+
+        finally:
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
+    def test_composite_infographics_and_api(self):
+        """Tests multi-image composite infographic generator and dashboard API endpoints."""
+        # 1. Test side-by-side rendering
+        side_bytes = meme_generator.create_composite_infographic(
+            panels=[
+                {"title": "Custom A", "text": "Details for custom panel A in space telemetry."},
+                {"title": "Custom B", "text": "Details for custom panel B regarding orbital speed."}
+            ],
+            layout="side-by-side",
+            theme="cyberpunk"
+        )
+        self.assertIsInstance(side_bytes, bytes)
+        self.assertTrue(len(side_bytes) > 1000)
+        self.assertEqual(side_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        # 2. Test 4-panel grid rendering and base64 export
+        grid_bytes = meme_generator.create_composite_infographic(
+            layout="grid",
+            theme="clean"
+        )
+        self.assertIsInstance(grid_bytes, bytes)
+        self.assertEqual(grid_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        b64_str = meme_generator.generate_composite_infographic_b64(layout="grid", theme="solar")
+        self.assertIsInstance(b64_str, str)
+        self.assertTrue(len(b64_str) > 1000)
+
+        # 3. Test Dashboard REST API /api/meme/composite (POST)
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/meme/composite", json={
+                "title": "Test Briefing",
+                "theme": "solar",
+                "layout": "side-by-side",
+                "panels": [
+                    {"title": "P1", "text": "First panel test text."},
+                    {"title": "P2", "text": "Second panel test text."}
+                ]
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertEqual(data["layout"], "side-by-side")
+            self.assertEqual(data["theme"], "solar")
+            self.assertIn("image_b64", data)
+
+            # 4. Test Dashboard REST API /api/meme/composite/download (GET and POST)
+            dl_res = client.get("/api/meme/composite/download?theme=dark&layout=grid")
+            self.assertEqual(dl_res.status_code, 200)
+            self.assertEqual(dl_res.mimetype, "image/png")
+            self.assertIn("attachment;", dl_res.headers.get("Content-Disposition", ""))
+
+            dl_post = client.post("/api/meme/composite/download", json={
+                "theme": "cyberpunk",
+                "layout": "side-by-side"
+            })
+            self.assertEqual(dl_post.status_code, 200)
+            self.assertEqual(dl_post.mimetype, "image/png")
+
+    def test_smart_layout_auto_selection_and_api(self):
+        """Tests recommend_infographic_layout logic, layout='auto' in composite generation, and REST endpoint."""
+        # 1. Test concise 4 panels yields grid
+        rec_grid = meme_generator.recommend_infographic_layout(panels=[
+            {"title": "P1", "text": "Short 1"},
+            {"title": "P2", "text": "Short 2"},
+            {"title": "P3", "text": "Short 3"},
+            {"title": "P4", "text": "Short 4"}
+        ])
+        self.assertEqual(rec_grid["layout"], "grid")
+        self.assertEqual(rec_grid["panel_count"], 4)
+        self.assertIn("2x2 quadrant grid", rec_grid["rationale"])
+
+        # 2. Test 2 panels with dense text yields side-by-side
+        rec_side = meme_generator.recommend_infographic_layout(panels=[
+            {"title": "P1", "text": "A" * 150},
+            {"title": "P2", "text": "B" * 150}
+        ])
+        self.assertEqual(rec_side["layout"], "side-by-side")
+        self.assertEqual(rec_side["panel_count"], 2)
+        self.assertIn("Side-by-side", rec_side["rationale"])
+
+        # 3. Test layout='auto' in composite infographic generator
+        auto_bytes = meme_generator.create_composite_infographic(
+            panels=[{"title": "P1", "text": "Text 1"}, {"title": "P2", "text": "Text 2"}],
+            layout="auto"
+        )
+        self.assertIsInstance(auto_bytes, bytes)
+        self.assertEqual(auto_bytes[:8], b'\x89PNG\r\n\x1a\n')
+
+        # 4. Test REST API /api/meme/composite/recommend-layout
+        with dashboard.app.test_client() as client:
+            res = client.post("/api/meme/composite/recommend-layout", json={
+                "panels": [
+                    {"title": "Alpha", "text": "Brief one."},
+                    {"title": "Beta", "text": "Brief two."}
+                ]
+            })
+            self.assertEqual(res.status_code, 200)
+            data = res.get_json()
+            self.assertTrue(data["success"])
+            self.assertIn("recommendation", data)
+            self.assertEqual(data["recommendation"]["layout"], "side-by-side")
+
+            # 5. Test REST API /api/meme/composite with layout='auto'
+            res_auto = client.post("/api/meme/composite", json={
+                "layout": "auto",
+                "theme": "dark",
+                "panels": [
+                    {"title": "1", "text": "A"},
+                    {"title": "2", "text": "B"},
+                    {"title": "3", "text": "C"},
+                    {"title": "4", "text": "D"}
+                ]
+            })
+            self.assertEqual(res_auto.status_code, 200)
+            data_auto = res_auto.get_json()
+            self.assertTrue(data_auto["success"])
+            self.assertEqual(data_auto["layout"], "grid")
+            self.assertIn("recommendation", data_auto)
 
 
 if __name__ == "__main__":

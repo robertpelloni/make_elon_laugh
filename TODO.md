@@ -33,7 +33,36 @@
 - [x] Bound and sanitize `days` parameter (1-365) and filename prefixes in `/api/digest/download` (`dashboard.py`).
 - [x] Add unit test coverage for CLI pipeline flags, formats, and bounded downloads (`test_bot.py`).
 
+- [x] Implement automated thread splitting and chunking for long-form cross-platform posts (`splitter.py`, `syndication.py`, `/api/split-preview`, Command Center Thread Preview UI).
+- [x] Implement Peak Hour Auto-Scheduler recommendation engine targeting high-engagement industry windows (`scheduler.py`).
+- [x] Expose `/api/schedule/optimal-slot` REST API with audience reasoning.
+- [x] Wire "Suggest Peak Slot" button and dynamic suggestion banner into Command Center UI (`templates/index.html`).
+- [x] Add automated unit tests for peak hour scheduling and API integration (`test_bot.py`).
+- [x] Implement HMAC-SHA256 signature generation (`compute_webhook_signature`) attaching `X-Hub-Signature-256` and `X-Signature-Timestamp` headers (`webhook.py`).
+- [x] Expose webhook secret configuration with secure masking in `/api/webhook` (`dashboard.py`).
+- [x] Add HMAC secret key input and signature status badge in Command Center UI (`templates/index.html`).
+- [x] Add unit test suite for webhook signature computation and secret masking in `test_bot.py`.
+- [x] Implement target audience profiles schema and persona overrides (`db.py`).
+- [x] Wire persona override resolution into Twitter bot polling cycle (`bot.py`).
+- [x] Implement `/api/targets` REST endpoint with CRUD capabilities (`dashboard.py`).
+- [x] Wire Target Routing table and profile manager into Command Center (`templates/index.html`).
+- [x] Expand unit test suite with target profile CRUD and routing tests (`test_bot.py`).
+- [x] Implement multi-theme visual meme card styles (`dark`, `cyberpunk`, `solar`, `clean`) in `meme_generator.py`.
+- [x] Expose theme selection and binary file streaming download in `/api/meme/download` (`dashboard.py`).
+- [x] Add theme selector dropdown and Download PNG Card button in Command Center UI (`templates/index.html`).
+- [x] Add automated unit tests for meme card themes and binary download attachments (`test_bot.py`).
+- [x] Implement multi-account scheduling queue schema and attribution (`db.py`, `scheduler.py`).
+- [x] Expose account handle filtering and breakdown in `/api/schedule` (`dashboard.py`).
+- [x] Wire account profile selector and badge indicators in Scheduled Tweet Queue table (`templates/index.html`).
+- [x] Add automated tests for multi-account scheduling persistence and APIs (`test_bot.py`).
+- [x] Implement multi-account queue breakdown and federation health details in performance digests (`digest.py`, `generate_digest.py`, Command Center UI).
+- [x] Implement dynamic tone variation and content rephrasing engine (`joke_generator.py`, `/api/content/rephrase`, Command Center UI).
+- [x] Implement visual meme card media theme attachments in scheduled tweets (`db.py`, `scheduler.py`, `dashboard.py`, Command Center UI).
+- [x] Implement dynamic multi-platform syndication metrics discovery and windowed federation engagement deltas (`db.py`, `digest.py`, `templates/index.html`).
+- [x] Implement multi-image composite infographic generator and grid layouts (`meme_generator.py`, `dashboard.py`, Command Center UI).
+- [x] Implement AI-driven smart layout auto-selection and heuristic reasoning engine (`meme_generator.py`, `dashboard.py`, Command Center UI).
+- [x] Refine scheduled queue and digest pipeline visibility scaling for multi-week queues (`dashboard.py`, Command Center UI).
+
 # Future Explorations
 - [ ] Explore Enterprise X webhook endpoints for event-driven tweet triggers.
-- [ ] Multi-image meme card attachments support in scheduled tweets.
-- [ ] Automated thread splitting for long-form cross-platform posts exceeding 280/300 characters.
+- [ ] Autonomous multi-panel infographic scheduling with auto-selected visual layouts.

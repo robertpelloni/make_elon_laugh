@@ -115,6 +115,12 @@ def main(cli_args=None):
         default=2,
         help="Number of spaces for JSON output indentation (default: 2)"
     )
+    parser.add_argument(
+        "--account",
+        type=str,
+        default=None,
+        help="Optional target account handle to filter scheduled queue reports (e.g. @make_elon_laugh)"
+    )
 
     args = parser.parse_args(cli_args)
 

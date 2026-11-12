@@ -6,6 +6,8 @@ or generic HTTP webhook endpoints using standard library urllib.
 Includes exponential backoff retries for transient HTTP errors.
 """
 
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -18,10 +20,27 @@ logger = logging.getLogger(__name__)
 
 # Global runtime configuration with fallback to environment
 DEFAULT_WEBHOOK_URL = os.environ.get("DIGEST_WEBHOOK_URL", "")
+DEFAULT_WEBHOOK_SECRET = os.environ.get("DIGEST_WEBHOOK_SECRET", "")
 DEFAULT_ADAPTER = os.environ.get("DIGEST_WEBHOOK_ADAPTER", "generic").lower()
 AUTO_DISPATCH_ENABLED = os.environ.get("DIGEST_AUTO_DISPATCH", "false").lower() in ["true", "1", "yes"]
 DISPATCH_INTERVAL_HOURS = int(os.environ.get("DIGEST_INTERVAL_HOURS", "168"))  # default 7 days (168 hours)
 LAST_DISPATCH_TIMESTAMP = 0.0
+
+
+def compute_webhook_signature(payload_bytes, secret):
+    """
+    Computes an HMAC-SHA256 signature for outgoing webhook payload verification.
+    Returns sha256=<hex_digest> format conforming to industry webhook standards (e.g., GitHub/Shopify).
+    """
+    if not secret:
+        return ""
+    if isinstance(secret, str):
+        secret_bytes = secret.encode("utf-8")
+    else:
+        secret_bytes = bytes(secret)
+
+    mac = hmac.new(secret_bytes, payload_bytes, hashlib.sha256)
+    return f"sha256={mac.hexdigest()}"
 
 
 def check_and_dispatch_recurring_digest(dry_run=False, current_time=None):
@@ -53,7 +72,11 @@ def check_and_dispatch_recurring_digest(dry_run=False, current_time=None):
         logger.info(f"[DRY-RUN] Recurring digest simulated dispatch to {DEFAULT_ADAPTER}.")
         return True, "Simulated recurring dispatch (dry-run)."
 
-    success, status_or_err = dispatch_webhook(DEFAULT_WEBHOOK_URL, payload)
+    success, status_or_err = dispatch_webhook(
+        DEFAULT_WEBHOOK_URL,
+        payload,
+        secret=DEFAULT_WEBHOOK_SECRET
+    )
     if success:
         LAST_DISPATCH_TIMESTAMP = now
         logger.info(f"Recurring digest successfully broadcast (HTTP {status_or_err}).")
@@ -192,22 +215,34 @@ def format_webhook_payload(digest_data, adapter="generic"):
     return {"digest": digest_data, "markdown": digest.export_digest_markdown(digest_data)}
 
 
-def dispatch_webhook(webhook_url, payload, max_retries=2, timeout=5):
+def dispatch_webhook(webhook_url, payload, max_retries=2, timeout=5, secret=None):
     """
     Sends JSON payload to the webhook endpoint using standard library urllib.
     Includes exponential backoff retry for network or 5xx server issues.
+    Optionally computes and attaches cryptographic HMAC-SHA256 signature headers:
+      - X-Hub-Signature-256: sha256=<hex_digest>
+      - X-Signature-Timestamp: <unix_epoch_seconds>
     """
     if not webhook_url:
         raise ValueError("Webhook URL cannot be empty.")
 
     data_bytes = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "TactfulHumorBot-Digest/1.0"
+    }
+
+    signing_secret = secret if secret is not None else DEFAULT_WEBHOOK_SECRET
+    if signing_secret:
+        timestamp_str = str(int(time.time()))
+        signature = compute_webhook_signature(data_bytes, signing_secret)
+        headers["X-Hub-Signature-256"] = signature
+        headers["X-Signature-Timestamp"] = timestamp_str
+
     req = urllib.request.Request(
         webhook_url,
         data=data_bytes,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "TactfulHumorBot-Digest/1.0"
-        },
+        headers=headers,
         method="POST"
     )
 

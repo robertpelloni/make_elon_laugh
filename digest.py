@@ -9,6 +9,7 @@ and exportable markdown and structured summaries for bot operators.
 
 import logging
 from datetime import datetime, timezone
+import sqlite3
 import db
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,23 @@ def evaluate_performance_alerts(digest_data, approval_threshold=40.0, backlog_th
             "message": (
                 f"Humor approval rating has dropped to {approval_rate}% "
                 f"(threshold: <{approval_threshold}% across {tot_ratings} reviews)."
+            )
+        })
+
+    syn = digest_data.get("syndication", {})
+    tot_posts = syn.get("total_posts", 0)
+    syn_plats = syn.get("platforms", {})
+    tot_syn_engagement = sum(
+        p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values()
+    )
+
+    if tot_posts >= 5 and tot_syn_engagement == 0:
+        alerts.append({
+            "level": "warning",
+            "type": "federation_engagement_stall",
+            "message": (
+                f"Social federation engagement stall detected: {tot_posts} posts "
+                "syndicated with 0 total likes or shares."
             )
         })
 
@@ -95,6 +113,7 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "sent": 0,
             "cancelled": 0,
             "persona_distribution": {},
+            "account_distribution": {},
         },
         "ratings": {
             "total_ratings": 0,
@@ -115,11 +134,14 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             "likes": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "retweets": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
             "queue_sent": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
+            "syndication_posts": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
+            "syndication_engagement": {"current": 0, "previous": 0, "diff": 0, "pct": 0.0},
         },
         "health_scorecard": {
             "db_connected": False,
             "queue_backlog": 0,
             "sentiment_status": "Neutral (No Data)",
+            "federation_health": "Idle",
             "overall_health": "Healthy",
         },
         "alerts": [],
@@ -235,6 +257,22 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             for persona, count in cursor.fetchall():
                 digest["queue"]["persona_distribution"][persona] = count
 
+            # Multi-account distribution in queue
+            try:
+                cursor.execute(
+                    """
+                    SELECT COALESCE(account_handle, '@make_elon_laugh'), COUNT(*)
+                    FROM scheduled_tweets
+                    WHERE created_at >= datetime('now', '-' || ? || ' days')
+                    GROUP BY account_handle
+                    """,
+                    (str(days),),
+                )
+                for acc, count in cursor.fetchall():
+                    digest["queue"]["account_distribution"][acc or "@make_elon_laugh"] = count
+            except sqlite3.OperationalError:
+                pass
+
             # 3. Community Ratings & Approval
             cursor.execute(
                 """
@@ -271,7 +309,25 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
                 for r in cursor.fetchall()
             ]
 
-            # 4. Operational Health Scorecard Metrics
+            # 4. Syndication Multi-Platform Metrics (Windowed & Delta Trends)
+            digest["syndication"] = db.get_syndication_summary_metrics(days=days, db_path=db_path)
+            prev_syndication = db.get_syndication_summary_metrics(days=days * 2, start_days_ago=days, db_path=db_path)
+
+            cur_syn_posts = digest["syndication"].get("total_posts", 0)
+            prev_syn_posts = prev_syndication.get("total_posts", 0)
+            digest["deltas"]["syndication_posts"] = _compute_delta(cur_syn_posts, prev_syn_posts)
+
+            cur_syn_eng = sum(
+                p.get("likes", 0) + p.get("shares", 0)
+                for p in digest["syndication"].get("platforms", {}).values()
+            )
+            prev_syn_eng = sum(
+                p.get("likes", 0) + p.get("shares", 0)
+                for p in prev_syndication.get("platforms", {}).values()
+            )
+            digest["deltas"]["syndication_engagement"] = _compute_delta(cur_syn_eng, prev_syn_eng)
+
+            # 5. Operational Health Scorecard Metrics
             backlog = digest["queue"].get("pending", 0)
             digest["health_scorecard"]["queue_backlog"] = backlog
 
@@ -285,16 +341,26 @@ def generate_performance_digest(db_path=db.DB_PATH, days=7):
             else:
                 digest["health_scorecard"]["sentiment_status"] = "Needs Review"
 
+            syn_posts = digest["syndication"].get("total_posts", 0)
+            syn_plats = digest["syndication"].get("platforms", {})
+            syn_eng = sum(p.get("likes", 0) + p.get("shares", 0) for p in syn_plats.values())
+
+            if syn_posts >= 5 and syn_eng == 0:
+                digest["health_scorecard"]["federation_health"] = "Stalled (No Engagement)"
+            elif syn_posts > 0:
+                digest["health_scorecard"]["federation_health"] = "Active"
+            else:
+                digest["health_scorecard"]["federation_health"] = "Idle"
+
             if backlog > 50:
                 digest["health_scorecard"]["overall_health"] = "Degraded (High Queue Backlog)"
+            elif digest["health_scorecard"]["federation_health"] == "Stalled (No Engagement)":
+                digest["health_scorecard"]["overall_health"] = "Attention (Federation Stalled)"
             else:
                 digest["health_scorecard"]["overall_health"] = "Healthy"
 
             # Evaluate performance threshold alerts
             digest["alerts"] = evaluate_performance_alerts(digest)
-
-            # 5. Syndication Multi-Platform Metrics
-            digest["syndication"] = db.get_syndication_summary_metrics(db_path=db_path)
 
     except Exception as e:
         logger.error(f"Error compiling performance digest: {e}")
@@ -319,6 +385,7 @@ def export_digest_markdown(digest):
         top_humor_md = "- *None recorded yet.*"
 
     personas_md = ", ".join([f"{k}: {v}" for k, v in queue.get("persona_distribution", {}).items()]) or "None"
+    accounts_md = ", ".join([f"{k}: {v}" for k, v in queue.get("account_distribution", {}).items()]) or "None"
 
     def fmt_delta(key):
         d = deltas.get(key, {})
@@ -329,8 +396,6 @@ def export_digest_markdown(digest):
 
     syn = digest.get('syndication', {})
     syn_plats = syn.get('platforms', {})
-    mast_stats = syn_plats.get('mastodon', {})
-    bsky_stats = syn_plats.get('bluesky', {})
 
     top_rep = rep.get("top_reply")
     if top_rep:
@@ -346,15 +411,22 @@ def export_digest_markdown(digest):
     else:
         alerts_md = "## ✅ System Alerts\n- *All system parameters within nominal thresholds. No active anomalies.*\n\n"
 
-    mast_posts = mast_stats.get('posts', 0)
-    mast_likes = mast_stats.get('likes', 0)
-    mast_shares = mast_stats.get('shares', 0)
-    mast_avg = round((mast_likes + mast_shares) / mast_posts, 1) if mast_posts > 0 else 0.0
+    # Dynamically generate platform reach lines for any discovered platform
+    platform_reach_lines = []
+    for plat_name, pstats in sorted(syn_plats.items()):
+        p_posts = pstats.get('posts', 0)
+        p_likes = pstats.get('likes', 0)
+        p_shares = pstats.get('shares', 0)
+        p_avg = round((p_likes + p_shares) / p_posts, 1) if p_posts > 0 else 0.0
+        display_name = plat_name.capitalize()
+        platform_reach_lines.append(
+            f"- **{display_name}:** {p_posts} posts ({p_likes} likes/favs, {p_shares} shares, avg {p_avg}/post)"
+        )
 
-    bsky_posts = bsky_stats.get('posts', 0)
-    bsky_likes = bsky_stats.get('likes', 0)
-    bsky_shares = bsky_stats.get('shares', 0)
-    bsky_avg = round((bsky_likes + bsky_shares) / bsky_posts, 1) if bsky_posts > 0 else 0.0
+    if not platform_reach_lines:
+        platform_reach_lines.append("- *No federated syndication activity recorded.*")
+
+    federation_reach_md = "\n".join(platform_reach_lines)
 
     md = f"""# 🚀 Tactful Humor Bot — Weekly Performance Digest
 *Generated at: {digest.get('generated_at', 'N/A')} (Window: past {digest.get('window_days', 7)} days)*
@@ -379,6 +451,7 @@ def export_digest_markdown(digest):
   - Dispatched (Sent): {queue.get('sent', 0)} [{fmt_delta('queue_sent')}]
   - Cancelled: {queue.get('cancelled', 0)}
 - **Persona Distribution:** {personas_md}
+- **Account Attribution:** {accounts_md}
 
 ## 🌟 Humor Approval & Ratings
 - **Total Community Ratings:** {rat.get('total_ratings', 0)}
@@ -388,9 +461,9 @@ def export_digest_markdown(digest):
 {top_humor_md}
 
 ## 🌐 Social Federation Multi-Platform Reach
-- **Total Syndicated Posts:** {syn.get('total_posts', 0)}
-- **Mastodon ActivityPub:** {mast_posts} posts ({mast_likes} favs, {mast_shares} shares, avg {mast_avg}/post)
-- **Bluesky ATProto:** {bsky_posts} posts ({bsky_likes} likes, {bsky_shares} reposts, avg {bsky_avg}/post)
+- **Total Syndicated Posts:** {syn.get('total_posts', 0)} [{fmt_delta('syndication_posts')}]
+- **Federated Engagement Delta:** [{fmt_delta('syndication_engagement')}]
+{federation_reach_md}
 
 ---
 *Autonomous Tactful Humor Operations Console*
@@ -411,8 +484,6 @@ def export_digest_html(digest):
     top_items = rat.get("top_humor", [])
     syn = digest.get("syndication", {})
     syn_plats = syn.get("platforms", {})
-    mast_stats = syn_plats.get("mastodon", {})
-    bsky_stats = syn_plats.get("bluesky", {})
     alerts = digest.get("alerts", [])
 
     top_humor_html = "".join([f"<li><em>&ldquo;{item.get('content', '')}&rdquo;</em></li>" for item in top_items])
@@ -440,6 +511,16 @@ def export_digest_html(digest):
         ])
     else:
         persona_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
+
+    accounts_dict = queue.get("account_distribution", {})
+    if accounts_dict:
+        account_badges = "".join([
+            f'<span class="badge" style="margin-right: 6px; margin-bottom: 4px; '
+            f'background: #e0e7ff; color: #3730a3;">{a}: {cnt}</span>'
+            for a, cnt in accounts_dict.items()
+        ])
+    else:
+        account_badges = '<span style="color: #94a3b8; font-size: 0.85rem;">None</span>'
 
     if alerts:
         alert_items = "".join([
@@ -475,15 +556,17 @@ def export_digest_html(digest):
         color = "#10b981" if diff >= 0 else "#ef4444"
         return f'<span style="color: {color}; font-weight: bold;">{sign}{diff} ({sign}{pct}%)</span>'
 
-    mast_posts = mast_stats.get('posts', 0)
-    mast_likes = mast_stats.get('likes', 0)
-    mast_shares = mast_stats.get('shares', 0)
-    mast_avg = round((mast_likes + mast_shares) / mast_posts, 1) if mast_posts > 0 else 0.0
-
-    bsky_posts = bsky_stats.get('posts', 0)
-    bsky_likes = bsky_stats.get('likes', 0)
-    bsky_shares = bsky_stats.get('shares', 0)
-    bsky_avg = round((bsky_likes + bsky_shares) / bsky_posts, 1) if bsky_posts > 0 else 0.0
+    html_platform_list = []
+    for p, s in sorted(syn_plats.items()):
+        p_posts = s.get('posts', 0)
+        p_likes = s.get('likes', 0)
+        p_shares = s.get('shares', 0)
+        p_avg = round((p_likes + p_shares) / p_posts, 1) if p_posts > 0 else 0.0
+        html_platform_list.append(
+            f"<li><strong>{p.capitalize()}:</strong> {p_posts} posts &bull; "
+            f"{p_likes} likes/favs &bull; {p_shares} shares &bull; avg {p_avg}/post</li>"
+        )
+    federation_html_items = "".join(html_platform_list) or "<li><em>No federated activity recorded.</em></li>"
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -597,6 +680,7 @@ def export_digest_html(digest):
       <li><strong>Pending Backlog:</strong> {queue.get('pending', 0)}</li>
       <li><strong>Cancelled:</strong> {queue.get('cancelled', 0)}</li>
       <li><strong>Persona Distribution:</strong> {persona_badges}</li>
+      <li><strong>Account Attribution:</strong> {account_badges}</li>
     </ul>
 
     <h2>🌟 Community Humor Approval</h2>
@@ -607,12 +691,12 @@ def export_digest_html(digest):
     </ul>
 
     <h2>🌐 Social Federation Reach</h2>
+    <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 8px;">
+      Total Posts: <strong>{syn.get('total_posts', 0)}</strong> ({fmt_delta('syndication_posts')}) &bull;
+      Engagement Delta: <strong>{fmt_delta('syndication_engagement')}</strong>
+    </div>
     <ul>
-      <li><strong>Total Syndicated Posts:</strong> {syn.get('total_posts', 0)}</li>
-      <li><strong>Mastodon:</strong> {mast_posts} posts &bull;
-          {mast_likes} favs &bull; {mast_shares} reblogs &bull; avg {mast_avg}/post</li>
-      <li><strong>Bluesky:</strong> {bsky_posts} posts &bull;
-          {bsky_likes} likes &bull; {bsky_shares} reposts &bull; avg {bsky_avg}/post</li>
+      {federation_html_items}
     </ul>
 
     <footer>
